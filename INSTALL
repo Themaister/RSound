@@ -1,0 +1,33 @@
+To compile (Unix-like):
+
+The configure script is a very simple ad hoc script.
+To install, choose which backend(s) you want to add support for.
+You will need to supply at least one of these to ./configure.
+
+--enable-alsa: Needs libasound headers and library
+--enable-oss: Only needs OSS.
+--enable-libao: Needs libao headers and library
+--enable-portaudio: Needs portaudio headers and library
+
+$ ./configure --enable-things-here
+$ make
+# make PREFIX=$WHERE_YOU_WANT_TO_INSTALL install
+
+
+
+To compile (Cygwin):
+
+The build process in cygwin is very similar. You will however need
+to download, compile and install the portaudio library in the cygwin
+environment. http://www.portaudio.com/trac/wiki/TutorialDir/Compile/WindowsMinGW
+Then you could build with
+
+$ ./configure --enable-portaudio
+$ make
+
+and copy over rsound.exe and rsoundserv.exe to where it might fit. To distribute
+the applications you will need to include:
+
+cyggcc_s-1.dll
+cygportaudio-2.dll
+cygwin1.dll
