@@ -1,0 +1,91 @@
+#!/bin/sh
+
+printhelp()
+{
+	echo "usage: [ --enable-alsa | --enable-oss | --enable-libao | --enable-portaudio ]"
+	echo "To use custom C compiler or CFLAGS set CC and CFLAGS variables"
+}
+
+ALSA=0
+AO=0
+PORTA=0
+OSS=0
+
+COMP=cc
+FLAGS=$CFLAGS
+EXTRAFLAGS=""
+LIBS="-lpthread"
+OBJECTS="rsound-common.o daemon.o endian.o"
+
+while [ ! -z "$1" ]; do
+	case "$1" in
+		--enable-alsa )
+			ALSA=1
+			shift
+			;;
+		--enable-oss )
+			OSS=1
+			shift
+			;;
+		--enable-libao )
+			AO=1
+			shift
+			;;
+		--enable-portaudio )
+			PORTA=1
+			shift
+			;;
+		-h | --help )
+			printhelp
+			exit 0
+			;;
+		*)
+			echo "Wrong option"
+			printhelp
+			exit 1
+			;;
+		
+	esac
+done
+
+if [ ! -z "$CC" ]; then
+	COMP=$CC
+fi
+
+if [ $ALSA -gt 0 ]; then
+	EXTRAFLAGS="$EXTRAFLAGS -D_ALSA"
+	LIBS="$LIBS -lasound"
+	OBJECTS="$OBJECTS alsa.o"
+fi
+
+if [ $OSS -gt 0 ]; then
+	EXTRAFLAGS="$EXTRAFLAGS -D_OSS"
+	OBJECTS="$OBJECTS oss.o"
+fi
+
+if [ $AO -gt 0 ]; then
+	EXTRAFLAGS="$EXTRAFLAGS -D_AO"
+	LIBS="$LIBS -lao -ldl"
+	OBJECTS="$OBJECTS ao.o"
+fi
+
+if [ $PORTA -gt 0 ]; then
+	EXTRAFLAGS="$EXTRAFLAGS -D_PORTA"
+	LIBS="$LIBS -lportaudio"
+	OBJECTS="$OBJECTS porta.o"
+fi
+
+if [ -z "$EXTRAFLAGS" ]; then
+	echo "Error: Must --enable at least one supported backend"
+	printhelp
+	exit 1
+fi
+
+echo CC = $COMP > config.mk
+echo EXTRAFLAGS = $EXTRAFLAGS >> config.mk
+echo CFLAGS = $CFLAGS >> config.mk
+echo LIBS = $LIBS >> config.mk
+echo SERVOBJECTS = $OBJECTS >> config.mk
+
+
+
