@@ -1,0 +1,21 @@
+This package provides two programs.
+
+rsoundserv - 	The server which PCM data is streamed to over TCP/IP, 
+					sound is played back with a low latency depending on what backend is used.
+					It supports several connections to be played back at the same time.
+
+rsound - 		The client which streams PCM data recieved from stdin to a rsoundserv.
+					The code in rsound is mostly for reference as the code can be implemented
+					in many different applications.
+
+It is currently CLI based only, and because of its simple design,
+it is mostly up to the user to find solutions on how to send audio
+to an rsound client if used on the command line as is.
+
+
+The package compiles and runs on the following platforms:
+
+Unix-like - ALSA (Linux), OSS, libao, PortAudio (not recommended)
+Microsoft Windows (Cygwin) - PortAudio only
+
+On how to use these programs, refer to the --help in the respective programs.
