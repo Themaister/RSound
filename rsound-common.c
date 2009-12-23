@@ -282,7 +282,12 @@ int set_up_socket()
 	struct addrinfo hints, *servinfo;
 
 	memset(&hints, 0, sizeof (struct addrinfo));
+#ifdef __CYGWIN__
+	// Because Windows fails.
+	hints.ai_family = AF_INET;
+#else
 	hints.ai_family = AF_UNSPEC;
+#endif
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
