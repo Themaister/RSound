@@ -18,11 +18,19 @@
 // Opens and sets params
 int init_oss(oss_t* sound, wav_header* w)
 {
-	sound->audio_fd = open(OSS_DEVICE, O_WRONLY, 0);
+	char oss_device[64] = {0};
+
+	if ( strcmp(device, "default") != 0 )
+		strcpy(oss_device, device);
+	else
+		strcpy(oss_device, OSS_DEVICE);
+
+
+	sound->audio_fd = open(oss_device, O_WRONLY, 0);
 
 	if ( sound->audio_fd == -1 )
 	{
-		perror(OSS_DEVICE);
+		fprintf(stderr, "Could not open device %s.\n", oss_device);
 		return 0;
 	}
 	

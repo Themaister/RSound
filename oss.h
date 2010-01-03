@@ -28,11 +28,12 @@ typedef struct
 	int audio_fd;
 } oss_t;
 
-#define OSS_DEVICE "/dev/audio"
+#define OSS_DEVICE "/dev/dsp"
 
 int init_oss(oss_t*, wav_header*);
 void clean_oss_interface(oss_t*);
 void* oss_thread( void* socket );
 extern int verbose;
+extern char device[];
 #endif
 

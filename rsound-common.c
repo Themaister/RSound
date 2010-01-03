@@ -161,8 +161,8 @@ void print_help(char *appname)
 {
 	putchar('\n');
 	printf("Usage: %s [ -d/--device | -b/--backend | -p/--port | -n/--no-daemon | -v/--verbose | -h/--help ]\n", appname);
-	printf("\n-d/--device: Specifies an ALSA device to use.\n");
-	printf("\tExample: -d hw:1,0. Defaults to \"default\"\n");
+	printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
+	printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
 	
 	printf("\n-b/--backend: Specifies which audio backend to use.\n");
 	printf("Supported backends: ");
