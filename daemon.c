@@ -28,6 +28,7 @@ int main(int argc, char ** argv)
 	
 	if ( daemonize )
 	{
+		fprintf(stderr, "Forking into background ...\n");
 		int i = fork();
 		if ( i < 0 ) exit(1);
 		if ( i > 0 ) exit(0);
