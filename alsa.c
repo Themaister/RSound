@@ -50,6 +50,7 @@ int init_alsa(alsa_t* interface, wav_header* w)
 	snd_pcm_hw_params_get_period_size(interface->params, &interface->frames,
 			&dir);
 	
+	snd_pcm_hw_params_free(interface->params);
 	if ((rc = snd_pcm_prepare (interface->handle)) < 0) 
 	{
 		fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
@@ -75,7 +76,6 @@ int init_alsa(alsa_t* interface, wav_header* w)
 void clean_alsa_interface(alsa_t* sound)
 {
 	snd_pcm_drop(sound->handle);
-	snd_pcm_hw_params_free(sound->params);
 	snd_pcm_close(sound->handle);
 	free(sound->buffer);
 }
