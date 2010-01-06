@@ -28,19 +28,14 @@ int init_alsa(alsa_t* interface, wav_header* w)
 		return 0;
 	}
 
-	snd_pcm_hw_params_alloca(&interface->params);
-	snd_pcm_hw_params_any(interface->handle, interface->params);
-	snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_MMAP_INTERLEAVED);
-
-	snd_pcm_hw_params_set_format(interface->handle, interface->params, SND_PCM_FORMAT_S16_LE);
-
-	snd_pcm_hw_params_set_channels(interface->handle, interface->params, w->numChannels);
+	snd_pcm_hw_params_malloc(&interface->params);
+	if ( snd_pcm_hw_params_any(interface->handle, interface->params) < 0 ) return 0;
+	if	( snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ) return 0;
+	if ( snd_pcm_hw_params_set_format(interface->handle, interface->params, SND_PCM_FORMAT_S16_LE) < 0) return 0;
+	if ( snd_pcm_hw_params_set_channels(interface->handle, interface->params, w->numChannels) < 0 ) return 0;
 
 	int dir;
-	snd_pcm_hw_params_set_rate_near(interface->handle, interface->params, &w->sampleRate, &dir);
-	interface->frames = 1024;
-	snd_pcm_hw_params_set_period_size_near(interface->handle,
-			interface->params, &interface->frames, &dir);
+	if ( snd_pcm_hw_params_set_rate_near(interface->handle, interface->params, &w->sampleRate, &dir) < 0 ) return 0;
 
 	rc = snd_pcm_hw_params(interface->handle, interface->params);
 	if (rc < 0) 
@@ -52,9 +47,16 @@ int init_alsa(alsa_t* interface, wav_header* w)
 		return 0;
 	}
 
-
 	snd_pcm_hw_params_get_period_size(interface->params, &interface->frames,
 			&dir);
+	
+	if ((rc = snd_pcm_prepare (interface->handle)) < 0) 
+	{
+		fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
+				snd_strerror (rc));
+		exit (1);
+	}
+	
 	interface->size = (int)interface->frames * w->numChannels * 2;
 
 	if ( verbose )
@@ -73,6 +75,7 @@ int init_alsa(alsa_t* interface, wav_header* w)
 void clean_alsa_interface(alsa_t* sound)
 {
 	snd_pcm_drop(sound->handle);
+	snd_pcm_hw_params_free(sound->params);
 	snd_pcm_close(sound->handle);
 	free(sound->buffer);
 }
@@ -139,7 +142,7 @@ void* alsa_thread ( void* data )
 		}
 
 		// Plays it back :D
-		rc = snd_pcm_mmap_writei(sound.handle, sound.buffer, sound.frames);
+		rc = snd_pcm_writei(sound.handle, sound.buffer, sound.frames);
 		if (rc == -EPIPE) 
 		{
 			fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
