@@ -17,98 +17,98 @@
 
 int init_ao(ao_t* interface, wav_header* w)
 {
-	
-	int rc;
-	int default_driver;
+   
+   int rc;
+   int default_driver;
 
-	ao_initialize();
+   ao_initialize();
 
-	default_driver = ao_default_driver_id();
+   default_driver = ao_default_driver_id();
 
-	interface->format.bits = 16;
-	interface->format.channels = w->numChannels;
-	interface->format.rate = w->sampleRate;
-	interface->format.byte_format = AO_FMT_LITTLE;
+   interface->format.bits = 16;
+   interface->format.channels = w->numChannels;
+   interface->format.rate = w->sampleRate;
+   interface->format.byte_format = AO_FMT_LITTLE;
 
-	interface->device = ao_open_live(default_driver, &interface->format, NULL);
-	if ( interface->device == NULL )
-	{
-		fprintf(stderr, "Error opening device.\n");
-		return 0;
-	}
+   interface->device = ao_open_live(default_driver, &interface->format, NULL);
+   if ( interface->device == NULL )
+   {
+      fprintf(stderr, "Error opening device.\n");
+      return 0;
+   }
 
-	return 1;
+   return 1;
 }
 
 void clean_ao_interface(ao_t* sound)
 {
-	ao_close(sound->device);
+   ao_close(sound->device);
 }
 
 void* ao_thread ( void* data )
 {
-	ao_t sound;
-	wav_header w;
-	int rc;
-	int read_counter;
-	int active_connection;
-	int underrun_count = 0;
+   ao_t sound;
+   wav_header w;
+   int rc;
+   int read_counter;
+   int active_connection;
+   int underrun_count = 0;
 
-	int s_new = *((int*)data);
-	free(data);
+   int s_new = *((int*)data);
+   free(data);
 
-	if ( verbose )
-		fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
+   if ( verbose )
+      fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
-	rc = get_wav_header(s_new, &w);
+   rc = get_wav_header(s_new, &w);
 
-	if ( rc != 1 )
-	{
-		close(s_new);
-		fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-		pthread_exit(NULL);
-	}
+   if ( rc != 1 )
+   {
+      close(s_new);
+      fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
+      pthread_exit(NULL);
+   }
 
-	if ( verbose )
-	{
-		fprintf(stderr, "Successfully got WAV header ...\n");
-		pheader(&w);
-	}	
+   if ( verbose )
+   {
+      fprintf(stderr, "Successfully got WAV header ...\n");
+      pheader(&w);
+   }  
 
-	if ( verbose )
-		fprintf(stderr, "Initializing AO ...\n");
+   if ( verbose )
+      fprintf(stderr, "Initializing AO ...\n");
 
-	if ( !init_ao(&sound, &w) )
-	{
-		fprintf(stderr, "Failed to initialize AO\n");
-		close(s_new);
-		pthread_exit(NULL);
-	}
+   if ( !init_ao(&sound, &w) )
+   {
+      fprintf(stderr, "Failed to initialize AO\n");
+      close(s_new);
+      pthread_exit(NULL);
+   }
 
-	if ( verbose )
-		fprintf(stderr, "Initializing of AO successful... Party time!\n");
-
-
-	active_connection = 1;
-	while(active_connection)
-	{
-		rc = recv(s_new, sound.buffer, CHUNK_SIZE, 0);
-		if ( rc == 0 )
-		{
-			active_connection = 0;
-			break;
-		}
+   if ( verbose )
+      fprintf(stderr, "Initializing of AO successful... Party time!\n");
 
 
-		ao_play(sound.device, sound.buffer, CHUNK_SIZE);
+   active_connection = 1;
+   while(active_connection)
+   {
+      rc = recv(s_new, sound.buffer, CHUNK_SIZE, 0);
+      if ( rc == 0 )
+      {
+         active_connection = 0;
+         break;
+      }
 
-	}
 
-	close(s_new);
-	clean_ao_interface(&sound);
-	if ( verbose )
-		fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+      ao_play(sound.device, sound.buffer, CHUNK_SIZE);
 
-	pthread_exit(NULL);
+   }
+
+   close(s_new);
+   clean_ao_interface(&sound);
+   if ( verbose )
+      fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+
+   pthread_exit(NULL);
 
 }

@@ -24,56 +24,56 @@ int daemonize = 1;
 
 int main(int argc, char ** argv)
 {
-	parse_input(argc, argv);
-	
-	if ( daemonize )
-	{
-		fprintf(stderr, "Forking into background ...\n");
-		int i = fork();
-		if ( i < 0 ) exit(1);
-		if ( i > 0 ) exit(0);
-		/* Forking into background */
-	}
+   parse_input(argc, argv);
+   
+   if ( daemonize )
+   {
+      fprintf(stderr, "Forking into background ...\n");
+      int i = fork();
+      if ( i < 0 ) exit(1);
+      if ( i > 0 ) exit(0);
+      /* Forking into background */
+   }
 
-	// Sets up listening socket
-	int s, s_new;
-	s = set_up_socket();
+   // Sets up listening socket
+   int s, s_new;
+   s = set_up_socket();
 
-	if ( s < 0 )
-	{
-		fprintf(stderr, "Couldn't set up listening socket. Exiting ...\n");
-		exit(1);
-	}
+   if ( s < 0 )
+   {
+      fprintf(stderr, "Couldn't set up listening socket. Exiting ...\n");
+      exit(1);
+   }
 
-	if ( verbose )
-		fprintf(stderr, "Listening for connection ...\n");
+   if ( verbose )
+      fprintf(stderr, "Listening for connection ...\n");
 
-	while(1)
-	{
-		// Listens, accepts, and creates new sound thread
-		if ( listen(s, 1) == -1 )
-		{
-			fprintf(stderr, "Couldn't listen for connection ...\n");
-			exit(10);
-		}
+   while(1)
+   {
+      // Listens, accepts, and creates new sound thread
+      if ( listen(s, 1) == -1 )
+      {
+         fprintf(stderr, "Couldn't listen for connection ...\n");
+         exit(10);
+      }
 
-		s_new = accept(s, NULL, NULL);
+      s_new = accept(s, NULL, NULL);
 
-		if ( s_new == -1 )
-		{
-			fprintf(stderr, "Accepting failed... Errno: %d\n", errno);
-			fprintf(stderr, "%s\n", strerror( errno ) ); 
-			continue;
-		}
+      if ( s_new == -1 )
+      {
+         fprintf(stderr, "Accepting failed... Errno: %d\n", errno);
+         fprintf(stderr, "%s\n", strerror( errno ) ); 
+         continue;
+      }
 
-		new_sound_thread(s_new);
-	}	  
-	
-	return 0;
+      new_sound_thread(s_new);
+   }    
+   
+   return 0;
 }
-	
-	
-	
+   
+   
+   
 
 
 

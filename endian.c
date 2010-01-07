@@ -17,18 +17,18 @@
 
 inline int is_little_endian()
 {
-	uint16_t i = 1;
-	return *((uint8_t*)&i);
+   uint16_t i = 1;
+   return *((uint8_t*)&i);
 }
 
 inline void swap_endian_16 ( uint16_t* x )
 {
-	*x = (*x>>8) | (*x<<8);
+   *x = (*x>>8) | (*x<<8);
 }
 
 inline void swap_endian_32 ( uint32_t* x )
 {
-	*x = (*x>>24) | 
+   *x = (*x>>24) | 
         ((*x<<8) & 0x00FF0000) |
         ((*x>>8) & 0x0000FF00) |
         (*x<<24);

@@ -18,166 +18,166 @@
 // Opens and sets params
 int init_oss(oss_t* sound, wav_header* w)
 {
-	char oss_device[64] = {0};
+   char oss_device[64] = {0};
 
-	if ( strcmp(device, "default") != 0 )
-		strcpy(oss_device, device);
-	else
-		strcpy(oss_device, OSS_DEVICE);
+   if ( strcmp(device, "default") != 0 )
+      strcpy(oss_device, device);
+   else
+      strcpy(oss_device, OSS_DEVICE);
 
 
-	sound->audio_fd = open(oss_device, O_WRONLY, 0);
+   sound->audio_fd = open(oss_device, O_WRONLY, 0);
 
-	if ( sound->audio_fd == -1 )
-	{
-		fprintf(stderr, "Could not open device %s.\n", oss_device);
-		return 0;
-	}
-	
-	int format = AFMT_S16_LE;
-	if ( ioctl( sound->audio_fd, SNDCTL_DSP_SETFMT, &format) == -1 )
-	{
-		perror("SNDCTL_DSP_SETFMT");
-		close(sound->audio_fd);
-		return 0;
-	}
-	
-	if ( format != AFMT_S16_LE )
-	{
-		fprintf(stderr, "Sound card doesn't support S16LE sampling format.\n");
-		close(sound->audio_fd);
-		return 0;
-	}
-	
-	int stereo; 
-	if ( w->numChannels == 2 )
-		stereo = 1;
-	else if ( w->numChannels == 1 )
-		stereo = 0;
-	else
-	{
-		fprintf(stderr, "Multichannel audio not supported.\n");
-		close(sound->audio_fd);
-		return 0;
-	}
-		
-	if ( ioctl( sound->audio_fd, SNDCTL_DSP_STEREO, &stereo) == -1 )
-	{
-		perror("SNDCTL_DSP_STEREO");
-		close(sound->audio_fd);
-		return 0;
-	}
-	
-	if ( stereo != 1 && w->numChannels != 1 )
-	{
-		fprintf(stderr, "Sound card doesn't support stereo mode.\n");
-		close(sound->audio_fd);
-		return 0;
-	}
-	
-	int sampleRate = w->sampleRate;
-	if ( ioctl ( sound->audio_fd, SNDCTL_DSP_SPEED, &sampleRate ) == -1 )
-	{
-		perror("SNDCTL_DSP_SPEED");
-		close(sound->audio_fd);
-		return 0;
-	}
-	
-	if ( sampleRate != w->sampleRate )
-	{
-		fprintf(stderr, "Sample rate couldn't be set correctly.\n");
-		close(sound->audio_fd);
-		return 0;
-	}
-	
-	
+   if ( sound->audio_fd == -1 )
+   {
+      fprintf(stderr, "Could not open device %s.\n", oss_device);
+      return 0;
+   }
+   
+   int format = AFMT_S16_LE;
+   if ( ioctl( sound->audio_fd, SNDCTL_DSP_SETFMT, &format) == -1 )
+   {
+      perror("SNDCTL_DSP_SETFMT");
+      close(sound->audio_fd);
+      return 0;
+   }
+   
+   if ( format != AFMT_S16_LE )
+   {
+      fprintf(stderr, "Sound card doesn't support S16LE sampling format.\n");
+      close(sound->audio_fd);
+      return 0;
+   }
+   
+   int stereo; 
+   if ( w->numChannels == 2 )
+      stereo = 1;
+   else if ( w->numChannels == 1 )
+      stereo = 0;
+   else
+   {
+      fprintf(stderr, "Multichannel audio not supported.\n");
+      close(sound->audio_fd);
+      return 0;
+   }
+      
+   if ( ioctl( sound->audio_fd, SNDCTL_DSP_STEREO, &stereo) == -1 )
+   {
+      perror("SNDCTL_DSP_STEREO");
+      close(sound->audio_fd);
+      return 0;
+   }
+   
+   if ( stereo != 1 && w->numChannels != 1 )
+   {
+      fprintf(stderr, "Sound card doesn't support stereo mode.\n");
+      close(sound->audio_fd);
+      return 0;
+   }
+   
+   int sampleRate = w->sampleRate;
+   if ( ioctl ( sound->audio_fd, SNDCTL_DSP_SPEED, &sampleRate ) == -1 )
+   {
+      perror("SNDCTL_DSP_SPEED");
+      close(sound->audio_fd);
+      return 0;
+   }
+   
+   if ( sampleRate != w->sampleRate )
+   {
+      fprintf(stderr, "Sample rate couldn't be set correctly.\n");
+      close(sound->audio_fd);
+      return 0;
+   }
+   
+   
     return 1;
 }
 
 void clean_oss_interface(oss_t* sound)
 {
-	close(sound->audio_fd);
+   close(sound->audio_fd);
 }
 
 
 void* oss_thread( void* socket )
 {
-	oss_t sound;
-	wav_header w;
-	int rc;
-	int read_counter;
-	int active_connection;
-	int underrun_count = 0;
+   oss_t sound;
+   wav_header w;
+   int rc;
+   int read_counter;
+   int active_connection;
+   int underrun_count = 0;
 
-	int s_new = *((int*)socket);
-	free(socket);
+   int s_new = *((int*)socket);
+   free(socket);
 
-	if ( verbose )
-		fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
+   if ( verbose )
+      fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
-	rc = get_wav_header(s_new, &w);
+   rc = get_wav_header(s_new, &w);
 
-	if ( rc != 1 )
-	{
-		close(s_new);
-		fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-		pthread_exit(NULL);
-	}
+   if ( rc != 1 )
+   {
+      close(s_new);
+      fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
+      pthread_exit(NULL);
+   }
 
-	if ( verbose )
-	{
-		fprintf(stderr, "Successfully got WAV header ...\n");
-		pheader(&w);
-	}	
+   if ( verbose )
+   {
+      fprintf(stderr, "Successfully got WAV header ...\n");
+      pheader(&w);
+   }  
 
-	if ( verbose )
-		printf("Initializing OSS ...\n");
-	if ( !init_oss(&sound, &w) )
-	{
-		fprintf(stderr, "Initializing of OSS failed ...\n");
-		close(s_new);
-		pthread_exit(NULL);
-	}
-	
+   if ( verbose )
+      printf("Initializing OSS ...\n");
+   if ( !init_oss(&sound, &w) )
+   {
+      fprintf(stderr, "Initializing of OSS failed ...\n");
+      close(s_new);
+      pthread_exit(NULL);
+   }
+   
 
-	if ( verbose )
-		printf("Initializing of OSS successful... Party time!\n");
+   if ( verbose )
+      printf("Initializing of OSS successful... Party time!\n");
 
 
-	active_connection = 1;
-	// While connection is active, read CHUNK_SIZE bytes and reroutes it to OSS_DEVICE
-	while(active_connection)
-	{
-		rc = recv(s_new, sound.buffer, CHUNK_SIZE, 0);
-		if ( rc == 0 )
-		{
-			active_connection = 0;
-			break;
-		}
+   active_connection = 1;
+   // While connection is active, read CHUNK_SIZE bytes and reroutes it to OSS_DEVICE
+   while(active_connection)
+   {
+      rc = recv(s_new, sound.buffer, CHUNK_SIZE, 0);
+      if ( rc == 0 )
+      {
+         active_connection = 0;
+         break;
+      }
 
-		rc = write(sound.audio_fd, sound.buffer, CHUNK_SIZE);
-		if (rc < CHUNK_SIZE) 
-		{
-			fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
-		} 
-		else if (rc < 0) 
-		{
-			fprintf(stderr,
-					"Error from write\n");
-		}  
-		else if (rc != CHUNK_SIZE) 
-		{
-			fprintf(stderr,
-					"Short write, write %d frames\n", rc);
-		}
+      rc = write(sound.audio_fd, sound.buffer, CHUNK_SIZE);
+      if (rc < CHUNK_SIZE) 
+      {
+         fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
+      } 
+      else if (rc < 0) 
+      {
+         fprintf(stderr,
+               "Error from write\n");
+      }  
+      else if (rc != CHUNK_SIZE) 
+      {
+         fprintf(stderr,
+               "Short write, write %d frames\n", rc);
+      }
 
-	}
+   }
 
-	close(s_new);
-	clean_oss_interface(&sound);
-	if ( verbose )
-		fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+   close(s_new);
+   clean_oss_interface(&sound);
+   if ( verbose )
+      fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
-	pthread_exit(NULL);
+   pthread_exit(NULL);
 }
 

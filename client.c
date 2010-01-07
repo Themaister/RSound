@@ -41,204 +41,204 @@ void parse_input(int, char**);
 
 int main(int argc, char **argv)
 {
-	parse_input(argc, argv);
-	
-	int s, rc;
-	struct addrinfo hints, *res;
-	memset(&hints, 0, sizeof( struct addrinfo ));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	
-	getaddrinfo(host, port, &hints, &res);
-	
-	s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-	
-	if ( connect(s, res->ai_addr, res->ai_addrlen) != 0 )
-	{
-		fprintf(stderr, "Error connecting to %s\n", host);
-		exit(2);
-	}
-	
-	freeaddrinfo(res);
-	
-	char buffer[CHUNK_SIZE];
-	
-	if ( send_header_info(s) == -1 )
-	{
-		fprintf(stderr, "Couldn't send WAV-info\n");
-		exit(3);
-	}
+   parse_input(argc, argv);
+   
+   int s, rc;
+   struct addrinfo hints, *res;
+   memset(&hints, 0, sizeof( struct addrinfo ));
+   hints.ai_family = AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+   
+   getaddrinfo(host, port, &hints, &res);
+   
+   s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+   
+   if ( connect(s, res->ai_addr, res->ai_addrlen) != 0 )
+   {
+      fprintf(stderr, "Error connecting to %s\n", host);
+      exit(2);
+   }
+   
+   freeaddrinfo(res);
+   
+   char buffer[CHUNK_SIZE];
+   
+   if ( send_header_info(s) == -1 )
+   {
+      fprintf(stderr, "Couldn't send WAV-info\n");
+      exit(3);
+   }
 
-	
-	while(1)
-	{
-		rc = read(0, buffer, CHUNK_SIZE);
-		if ( rc == 0 )
-		{
-			close(s);
-			exit(0);
-		}
-		else
-		{
-			rc = send(s, buffer, CHUNK_SIZE, 0);
-			if ( rc != CHUNK_SIZE && rc > 0 )
-			{
-				fprintf(stderr, "Sent not enough data ... :p\n");
-			}
-			else if ( rc == 0 )
-			{
-				fprintf(stderr, "Connection error ...\n");
-				close(s);
-				exit(8);
-			}
-		
-		}
-	}
-	
-	return 0;
+   
+   while(1)
+   {
+      rc = read(0, buffer, CHUNK_SIZE);
+      if ( rc == 0 )
+      {
+         close(s);
+         exit(0);
+      }
+      else
+      {
+         rc = send(s, buffer, CHUNK_SIZE, 0);
+         if ( rc != CHUNK_SIZE && rc > 0 )
+         {
+            fprintf(stderr, "Sent not enough data ... :p\n");
+         }
+         else if ( rc == 0 )
+         {
+            fprintf(stderr, "Connection error ...\n");
+            close(s);
+            exit(8);
+         }
+      
+      }
+   }
+   
+   return 0;
 }
-		
+      
 int send_header_info(int s)
 {
-	/* If client is big endian, swaps over the data that the client sends if sending
-	 * premade WAV-header (--raw). 
-	 * Server expects little-endian */
+   /* If client is big endian, swaps over the data that the client sends if sending
+    * premade WAV-header (--raw). 
+    * Server expects little-endian */
 
-	if (!is_little_endian())
-	{
-		swap_endian_16 ( &channel );
-		swap_endian_32 ( &raw_rate );
-		swap_endian_16 ( &bitsPerSample );
-	}
+   if (!is_little_endian())
+   {
+      swap_endian_16 ( &channel );
+      swap_endian_32 ( &raw_rate );
+      swap_endian_16 ( &bitsPerSample );
+   }
 
 
-	if ( !raw_mode )
-	{
-		char buffer[HEADER_SIZE] = {0};
-		int rc = 0;
-		
-		read( 0, buffer, HEADER_SIZE );
-		rc = send ( s, buffer, HEADER_SIZE, 0 );
-		
-		if ( rc == HEADER_SIZE )
-		{
-			return 1;
-			
-		}
-		
-		else
-			return -1;
-	}
-	else
-	{
-		char buffer[HEADER_SIZE] = {0};
-		int rc = 0;
+   if ( !raw_mode )
+   {
+      char buffer[HEADER_SIZE] = {0};
+      int rc = 0;
+      
+      read( 0, buffer, HEADER_SIZE );
+      rc = send ( s, buffer, HEADER_SIZE, 0 );
+      
+      if ( rc == HEADER_SIZE )
+      {
+         return 1;
+         
+      }
+      
+      else
+         return -1;
+   }
+   else
+   {
+      char buffer[HEADER_SIZE] = {0};
+      int rc = 0;
 
-		*((uint32_t*)(buffer + 24)) = raw_rate;
-		*((uint16_t*)(buffer+22)) = channel;
-		*((uint16_t*)(buffer+34)) = 16;
-		rc = send ( s, buffer, HEADER_SIZE, 0 );
-		if ( rc == HEADER_SIZE )
-		{
-			return 1;
-		}
+      *((uint32_t*)(buffer + 24)) = raw_rate;
+      *((uint16_t*)(buffer+22)) = channel;
+      *((uint16_t*)(buffer+34)) = 16;
+      rc = send ( s, buffer, HEADER_SIZE, 0 );
+      if ( rc == HEADER_SIZE )
+      {
+         return 1;
+      }
 
-		else
-			return -1;
-	}
+      else
+         return -1;
+   }
 }
 
 void print_help(char *appname)
 {
-	printf("Usage: %s [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels ]\n", appname);
-	
-	printf("\n%s reads PCM data only via stdin and sends this data directly to a rsoundserv.\n", appname); 
-	printf("Unless specified with --raw, %s expects a valid WAV header to be present in the input stream.\n\n", appname);
-	printf(" Examples:\n"); 
-	printf("\t%s foo.net < bar.wav\n", appname);
-	printf("\tcat bar.wav | %s foo.net -p 4322 --raw -r 48000 -c 2\n\n", appname);
-	printf("With eg. -ao pcm:file, MPlayer or similar programs can stream audio to rsoundserv via FIFO pipes or stdout\n\n");
-	
-	printf("-p/--port: Defines which port to connect to.\n");
-	printf("\tExample: -p 18453. Defaults to port 12345.\n");
-	printf("--raw: Enables raw PCM input. When using --raw, %s will generate a fake WAV header\n", appname);
-	printf("-r/--rate: Defines input samplerate (raw PCM)\n");
-	printf("\tExample: -r 48000. Defaults to 44100\n");
-	printf("-c/--channel: Specifies number of sound channels (raw PCM)\n");
-	printf("\tExample: -c 1. Defaults to stereo (2)\n");
-	printf("-h/--help: Prints this help\n\n");
+   printf("Usage: %s [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels ]\n", appname);
+   
+   printf("\n%s reads PCM data only via stdin and sends this data directly to a rsoundserv.\n", appname); 
+   printf("Unless specified with --raw, %s expects a valid WAV header to be present in the input stream.\n\n", appname);
+   printf(" Examples:\n"); 
+   printf("\t%s foo.net < bar.wav\n", appname);
+   printf("\tcat bar.wav | %s foo.net -p 4322 --raw -r 48000 -c 2\n\n", appname);
+   printf("With eg. -ao pcm:file, MPlayer or similar programs can stream audio to rsoundserv via FIFO pipes or stdout\n\n");
+   
+   printf("-p/--port: Defines which port to connect to.\n");
+   printf("\tExample: -p 18453. Defaults to port 12345.\n");
+   printf("--raw: Enables raw PCM input. When using --raw, %s will generate a fake WAV header\n", appname);
+   printf("-r/--rate: Defines input samplerate (raw PCM)\n");
+   printf("\tExample: -r 48000. Defaults to 44100\n");
+   printf("-c/--channel: Specifies number of sound channels (raw PCM)\n");
+   printf("\tExample: -c 1. Defaults to stereo (2)\n");
+   printf("-h/--help: Prints this help\n\n");
 }
 
 void parse_input(int argc, char** argv)
 {
-	int i;
-	for ( i = 1; i < argc; i++ )
-	{
-		if ( !strcmp( "-r", argv[i] ) || !strcmp( "--rate", argv[i] ) )
-		{
-			if ( i < argc -1 )
-			{
-				raw_rate = atoi ( argv[++i] );
-				continue;
-			}
-			else
-			{
-				fprintf(stderr, "-r/--rate takes an argument.\n");
-				exit(1);
-			}
+   int i;
+   for ( i = 1; i < argc; i++ )
+   {
+      if ( !strcmp( "-r", argv[i] ) || !strcmp( "--rate", argv[i] ) )
+      {
+         if ( i < argc -1 )
+         {
+            raw_rate = atoi ( argv[++i] );
+            continue;
+         }
+         else
+         {
+            fprintf(stderr, "-r/--rate takes an argument.\n");
+            exit(1);
+         }
 
-		}
-		if ( !strcmp( "--raw", argv[i] ))
-		{
-			raw_mode = 1;
-			continue;
-		}
-		if ( !strcmp( "-p", argv[i] ) || !strcmp ( "--port", argv[i] ) )
-		{
-			if ( i < argc -1 )
-			{
-				if ( atoi ( argv[++i] ) < 1 || atoi ( argv[i] ) >= 0xFFFF )
-				{
-					fprintf(stderr, "Invalid port\n");
-					exit(1);
-				}
-				strncpy( port, argv[i], 6 );
-				continue;
-			}
-			else
-			{
-				fprintf(stderr, "-p/--port takes an argument.\n");
-				exit(1);
-			}
-			
-		}
-		if ( !strcmp( "-c", argv[i] ) || !strcmp ( "--channel", argv[i] ) )
-		{
-			if ( i < argc -1 )
-			{
-				if ( atoi ( argv[++i] ) < 1 )
-				{
-					fprintf(stderr, "Invalid num of channels\n");
-					exit(1);
-				}
-				channel = atoi ( argv[i] );
-				continue;
-			}
-			else
-			{
-				fprintf(stderr, "-c/--channel takes an argument.\n");
-				exit(1);
-			}
-			
-		}
-		if ( !strcmp ( "-h", argv[i] ) || !strcmp( "--help", argv[i] ) )
-		{
-			print_help(argv[0]);
-			exit(0);
-		}
-		strncpy(host, argv[i], 128);
-		
-	}
+      }
+      if ( !strcmp( "--raw", argv[i] ))
+      {
+         raw_mode = 1;
+         continue;
+      }
+      if ( !strcmp( "-p", argv[i] ) || !strcmp ( "--port", argv[i] ) )
+      {
+         if ( i < argc -1 )
+         {
+            if ( atoi ( argv[++i] ) < 1 || atoi ( argv[i] ) >= 0xFFFF )
+            {
+               fprintf(stderr, "Invalid port\n");
+               exit(1);
+            }
+            strncpy( port, argv[i], 6 );
+            continue;
+         }
+         else
+         {
+            fprintf(stderr, "-p/--port takes an argument.\n");
+            exit(1);
+         }
+         
+      }
+      if ( !strcmp( "-c", argv[i] ) || !strcmp ( "--channel", argv[i] ) )
+      {
+         if ( i < argc -1 )
+         {
+            if ( atoi ( argv[++i] ) < 1 )
+            {
+               fprintf(stderr, "Invalid num of channels\n");
+               exit(1);
+            }
+            channel = atoi ( argv[i] );
+            continue;
+         }
+         else
+         {
+            fprintf(stderr, "-c/--channel takes an argument.\n");
+            exit(1);
+         }
+         
+      }
+      if ( !strcmp ( "-h", argv[i] ) || !strcmp( "--help", argv[i] ) )
+      {
+         print_help(argv[0]);
+         exit(0);
+      }
+      strncpy(host, argv[i], 128);
+      
+   }
 }
-	
-	
+   
+   

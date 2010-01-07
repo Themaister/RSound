@@ -20,140 +20,140 @@
 // Designed to use the blocking I/O API. It's just a more simple design.
 int init_porta(porta_t* sound, wav_header* w)
 {
-	PaError err;
-	
-	err = Pa_Initialize();
-	if ( err != paNoError )
-	{
-		fprintf(stderr, "Error initalizing.\n");
-		fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
-		return 0;
-	}
-	
-	PaStreamParameters params;
-	params.device = Pa_GetDefaultOutputDevice();
-	params.channelCount = w->numChannels;
-	params.sampleFormat = paInt16;
-	params.suggestedLatency = Pa_GetDeviceInfo( params.device )->defaultHighOutputLatency;
-	params.hostApiSpecificStreamInfo = NULL;
-	
-	sound->size = FRAMES_PER_BUFFER * 2 * w->numChannels;
-	sound->buffer = malloc ( sound->size );
-	
-	err = Pa_OpenStream (
-			&sound->stream,
-			NULL,
-			&params,
-			w->sampleRate,
-			FRAMES_PER_BUFFER,
-			paClipOff,
-			NULL,
-			NULL );	
+   PaError err;
+   
+   err = Pa_Initialize();
+   if ( err != paNoError )
+   {
+      fprintf(stderr, "Error initalizing.\n");
+      fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+      return 0;
+   }
+   
+   PaStreamParameters params;
+   params.device = Pa_GetDefaultOutputDevice();
+   params.channelCount = w->numChannels;
+   params.sampleFormat = paInt16;
+   params.suggestedLatency = Pa_GetDeviceInfo( params.device )->defaultHighOutputLatency;
+   params.hostApiSpecificStreamInfo = NULL;
+   
+   sound->size = FRAMES_PER_BUFFER * 2 * w->numChannels;
+   sound->buffer = malloc ( sound->size );
+   
+   err = Pa_OpenStream (
+         &sound->stream,
+         NULL,
+         &params,
+         w->sampleRate,
+         FRAMES_PER_BUFFER,
+         paClipOff,
+         NULL,
+         NULL );  
 
-	if ( err != paNoError )
-	{
-		fprintf(stderr, "Couldn't open stream.\n");
-		fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
-		return 0;
-	}
+   if ( err != paNoError )
+   {
+      fprintf(stderr, "Couldn't open stream.\n");
+      fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+      return 0;
+   }
 
-	err = Pa_StartStream ( sound->stream );
-	if ( err != paNoError )
-	{
-		fprintf(stderr, "Couldn't start stream.\n");
-		fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
-		return 0;
-	}
+   err = Pa_StartStream ( sound->stream );
+   if ( err != paNoError )
+   {
+      fprintf(stderr, "Couldn't start stream.\n");
+      fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+      return 0;
+   }
 
-	return 1;
+   return 1;
 }
 
 void clean_porta_interface(porta_t* sound)
 {
-	Pa_StopStream ( sound->stream );
-	Pa_CloseStream ( sound->stream );
-	free(sound->buffer);
+   Pa_StopStream ( sound->stream );
+   Pa_CloseStream ( sound->stream );
+   free(sound->buffer);
 }
 
 
 void* porta_thread( void* socket )
 {
-	porta_t sound;
-	wav_header w;
-	int rc;
-	int read_counter;
-	int active_connection;
-	int underrun_count = 0;
-	PaError err;
-	
-	int s_new = *((int*)socket);
-	free(socket);
+   porta_t sound;
+   wav_header w;
+   int rc;
+   int read_counter;
+   int active_connection;
+   int underrun_count = 0;
+   PaError err;
+   
+   int s_new = *((int*)socket);
+   free(socket);
 
-	if ( verbose )
-		fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
+   if ( verbose )
+      fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
-	rc = get_wav_header(s_new, &w);
+   rc = get_wav_header(s_new, &w);
 
-	if ( rc != 1 )
-	{
-		close(s_new);
-		fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-		pthread_exit(NULL);
-	}
+   if ( rc != 1 )
+   {
+      close(s_new);
+      fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
+      pthread_exit(NULL);
+   }
 
-	if ( verbose )
-	{
-		fprintf(stderr, "Successfully got WAV header ...\n");
-		pheader(&w);
-	}	
+   if ( verbose )
+   {
+      fprintf(stderr, "Successfully got WAV header ...\n");
+      pheader(&w);
+   }  
 
-	if ( verbose )
-		printf("Initializing PortAudio ...\n");
-	if ( !init_porta(&sound, &w) )
-	{
-		fprintf(stderr, "Initializing of PortAudio failed ...\n");
-		close(s_new);
-		pthread_exit(NULL);
-	}
-	
+   if ( verbose )
+      printf("Initializing PortAudio ...\n");
+   if ( !init_porta(&sound, &w) )
+   {
+      fprintf(stderr, "Initializing of PortAudio failed ...\n");
+      close(s_new);
+      pthread_exit(NULL);
+   }
+   
 
-	if ( verbose )
-		printf("Initializing of PortAudio successful... Party time!\n");
+   if ( verbose )
+      printf("Initializing of PortAudio successful... Party time!\n");
 
 
-	active_connection = 1;
-	
-	while(active_connection)
-	{
-		
-		memset(sound.buffer, 0, sound.size);
+   active_connection = 1;
+   
+   while(active_connection)
+   {
+      
+      memset(sound.buffer, 0, sound.size);
 
-		// Reads complete buffer
-		for ( read_counter = 0; read_counter < sound.size; read_counter += CHUNK_SIZE )
-		{
-			rc = recv(s_new, sound.buffer + read_counter, CHUNK_SIZE, 0);
-			if ( rc == 0 )
-			{
-				active_connection = 0;
-				break;
-			}
-		}
-	
-		err = Pa_WriteStream( sound.stream, sound.buffer, FRAMES_PER_BUFFER );
-		if ( err )
-		{
-			fprintf(stderr, "Error occured while writing stream.\n");
-			active_connection = 0;
-		}
-		
-	}
-	
-	close(s_new);
-	clean_porta_interface(&sound);
-	if ( verbose )
-		fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+      // Reads complete buffer
+      for ( read_counter = 0; read_counter < sound.size; read_counter += CHUNK_SIZE )
+      {
+         rc = recv(s_new, sound.buffer + read_counter, CHUNK_SIZE, 0);
+         if ( rc == 0 )
+         {
+            active_connection = 0;
+            break;
+         }
+      }
+   
+      err = Pa_WriteStream( sound.stream, sound.buffer, FRAMES_PER_BUFFER );
+      if ( err )
+      {
+         fprintf(stderr, "Error occured while writing stream.\n");
+         active_connection = 0;
+      }
+      
+   }
+   
+   close(s_new);
+   clean_porta_interface(&sound);
+   if ( verbose )
+      fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
-	pthread_exit(NULL);
+   pthread_exit(NULL);
 
 }
 

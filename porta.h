@@ -22,9 +22,9 @@
 
 typedef struct
 {
-	PaStream *stream;
-	char *buffer;
-	size_t size;
+   PaStream *stream;
+   char *buffer;
+   size_t size;
 } porta_t;
 
 

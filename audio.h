@@ -33,19 +33,19 @@
 
 typedef struct 
 {
-	uint8_t chunkId[4];
-	uint32_t chunkSize;
-	uint8_t format[4];
-	uint8_t subChunkId[4];
-	uint32_t subChunkSize;
-	uint32_t audioFormat;
-	uint16_t numChannels;
-	uint32_t sampleRate;
-	uint32_t byteRate;
-	uint16_t blockAlign;
-	uint16_t bitsPerSample;
-	uint8_t subChunkId2[4];
-	uint32_t subChunkSize2;
+   uint8_t chunkId[4];
+   uint32_t chunkSize;
+   uint8_t format[4];
+   uint8_t subChunkId[4];
+   uint32_t subChunkSize;
+   uint32_t audioFormat;
+   uint16_t numChannels;
+   uint32_t sampleRate;
+   uint32_t byteRate;
+   uint16_t blockAlign;
+   uint16_t bitsPerSample;
+   uint8_t subChunkId2[4];
+   uint32_t subChunkSize2;
 } wav_header;
 
 #endif
