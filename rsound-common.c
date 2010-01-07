@@ -305,7 +305,7 @@ int set_up_socket()
 	if ( s == -1 )
 	{
 		fprintf(stderr, "Error getting socket\n");
-		return -1;
+		goto error;
 	}
 
 
@@ -313,16 +313,21 @@ int set_up_socket()
 	if (setsockopt(s,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) 
 	{
 		perror("setsockopt");
-		return -1;
+		goto error;
 	} 
 	rc = bind(s, servinfo->ai_addr, servinfo->ai_addrlen);
 	if ( rc == -1 )
 	{
 		fprintf(stderr, "Error binding on port %s.\n", port);
-		return -1;
+		goto error;
 	}
 
 	freeaddrinfo(servinfo);
 	return s;
+
+	error:
+		freeaddrinfo(servinfo);
+		return -1;
+
 }
 
