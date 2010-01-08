@@ -43,6 +43,7 @@ int init_ao(ao_t* interface, wav_header* w)
 void clean_ao_interface(ao_t* sound)
 {
    ao_close(sound->device);
+   free(sound->buffer);
 }
 
 void* ao_thread ( void* data )
@@ -85,14 +86,29 @@ void* ao_thread ( void* data )
       pthread_exit(NULL);
    }
 
+// Dirty, and should be avoided, but I need to study the API better.
+   if ( !send_backend_info(s_new, DEFAULT_CHUNK_SIZE, 16*DEFAULT_CHUNK_SIZE) )
+   {
+      fprintf(stderr, "Couldn't send backend info.\n");
+      close(s_new);
+      pthread_exit(NULL);
+   }
+
    if ( verbose )
       fprintf(stderr, "Initializing of AO successful... Party time!\n");
 
+   sound.buffer = malloc ( DEFAULT_CHUNK_SIZE );
+   if ( !sound.buffer )
+   {
+      fprintf(stderr, "Couldn't allocate memory for buffer.");
+      close(s_new);
+      pthread_exit(NULL);
+   }
 
    active_connection = 1;
    while(active_connection)
    {
-      rc = recv(s_new, sound.buffer, CHUNK_SIZE, 0);
+      rc = recv(s_new, sound.buffer, DEFAULT_CHUNK_SIZE, 0);
       if ( rc == 0 )
       {
          active_connection = 0;
@@ -100,7 +116,7 @@ void* ao_thread ( void* data )
       }
 
 
-      ao_play(sound.device, sound.buffer, CHUNK_SIZE);
+      ao_play(sound.device, sound.buffer, DEFAULT_CHUNK_SIZE);
 
    }
 

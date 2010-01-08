@@ -15,7 +15,7 @@
 
 #include "porta.h"
 
-#define FRAMES_PER_BUFFER 256
+#define FRAMES_PER_BUFFER DEFAULT_CHUNK_SIZE
 
 // Designed to use the blocking I/O API. It's just a more simple design.
 int init_porta(porta_t* sound, wav_header* w)
@@ -34,7 +34,7 @@ int init_porta(porta_t* sound, wav_header* w)
    params.device = Pa_GetDefaultOutputDevice();
    params.channelCount = w->numChannels;
    params.sampleFormat = paInt16;
-   params.suggestedLatency = Pa_GetDeviceInfo( params.device )->defaultHighOutputLatency;
+   params.suggestedLatency = Pa_GetDeviceInfo( params.device )->defaultLowOutputLatency;
    params.hostApiSpecificStreamInfo = NULL;
    
    sound->size = FRAMES_PER_BUFFER * 2 * w->numChannels;
@@ -115,7 +115,13 @@ void* porta_thread( void* socket )
       close(s_new);
       pthread_exit(NULL);
    }
-   
+  
+   if ( !send_backend_info(s_new, DEFAULT_CHUNK_SIZE, 16*DEFAULT_CHUNK_SIZE ) )
+   {
+      fprintf(stderr, "Couldn't send backend info.\n");
+      close(s_new);
+      pthread_exit(NULL);
+   }
 
    if ( verbose )
       printf("Initializing of PortAudio successful... Party time!\n");
@@ -129,9 +135,9 @@ void* porta_thread( void* socket )
       memset(sound.buffer, 0, sound.size);
 
       // Reads complete buffer
-      for ( read_counter = 0; read_counter < sound.size; read_counter += CHUNK_SIZE )
+      for ( read_counter = 0; read_counter < sound.size; read_counter += DEFAULT_CHUNK_SIZE )
       {
-         rc = recv(s_new, sound.buffer + read_counter, CHUNK_SIZE, 0);
+         rc = recv(s_new, sound.buffer + read_counter, DEFAULT_CHUNK_SIZE, 0);
          if ( rc == 0 )
          {
             active_connection = 0;

@@ -23,7 +23,7 @@ typedef struct
 {
    ao_device *device;
    ao_sample_format format;
-   char buffer[CHUNK_SIZE];
+   char *buffer;
 } ao_t;
 
 int init_ao(ao_t*, wav_header*);

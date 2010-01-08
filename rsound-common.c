@@ -268,6 +268,8 @@ int get_wav_header(int socket, wav_header* head)
    if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 )
    {
       fprintf(stderr, "Got garbage header data ...\n");
+      fprintf(stderr, "Channels: %d, Samplerate: %d, Bits/sample: %d\n",
+            (int)head->numChannels, (int)head->sampleRate, (int)head->bitsPerSample );
       return -1;
    }
 

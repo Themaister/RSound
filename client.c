@@ -79,7 +79,7 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   fprintf(stderr, "Fragsize: %d, Buffersize: %d.\n", (int)chunk_size, (int)buffer_size);
+   //fprintf(stderr, "Fragsize: %d, Buffersize: %d.\n", (int)chunk_size, (int)buffer_size);
 
    char *buffer = malloc ( chunk_size );
    if ( !buffer )
@@ -89,30 +89,31 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   
+   int count; 
    while(1)
    {
-      rc = read(0, buffer, chunk_size);
-      if ( rc == 0 )
+      // Somewhat dirty. Some CLI programs that output to stdout seem to prefer this approach. (E.g. flac)
+      for ( count = 0; count < chunk_size; count++ )
       {
-         close(s);
-         exit(0);
-      }
-      else
-      {
-         rc = send(s, buffer, chunk_size, 0);
-         if ( rc != chunk_size && rc > 0 )
+         rc = read(0, buffer + count, 1);
+         if ( rc == 0 )
          {
-            fprintf(stderr, "Sent not enough data ... :p\n");
-         }
-         else if ( rc == 0 )
-         {
-            fprintf(stderr, "Connection error ...\n");
             close(s);
-            exit(8);
+            exit(0);
          }
-      
       }
+      rc = send(s, buffer, chunk_size, 0);
+      if ( rc != chunk_size && rc > 0 )
+      {
+         fprintf(stderr, "Sent not enough data ... :p\n");
+      }
+      else if ( rc == 0 )
+      {
+         fprintf(stderr, "Connection error ...\n");
+         close(s);
+         exit(8);
+      }
+      
    }
    
    return 0;
@@ -122,7 +123,7 @@ int send_header_info(int s)
 {
    /* If client is big endian, swaps over the data that the client sends if sending
     * premade WAV-header (--raw). 
-    * Server expects little-endian */
+    * Server expects little-endian, since WAV headers are of this format. */
 
    if (!is_little_endian())
    {
@@ -154,9 +155,13 @@ int send_header_info(int s)
       char buffer[HEADER_SIZE] = {0};
       int rc = 0;
 
-      *((uint32_t*)(buffer + 24)) = raw_rate;
-      *((uint16_t*)(buffer+22)) = channel;
-      *((uint16_t*)(buffer+34)) = 16;
+#define RATE 24
+#define CHANNEL 22
+#define BITRATE 16
+
+      *((uint32_t*)(buffer+RATE)) = raw_rate;
+      *((uint16_t*)(buffer+CHANNEL)) = channel;
+      *((uint16_t*)(buffer+BITRATE)) = 16;
       rc = send ( s, buffer, HEADER_SIZE, 0 );
       if ( rc == HEADER_SIZE )
       {
