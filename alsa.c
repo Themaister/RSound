@@ -22,8 +22,7 @@ uint32_t buffer_size = 0;
 int init_alsa(alsa_t* interface, wav_header* w)
 {
    int rc;
-   //unsigned int buffer_time_min = BUFFER_TIME_MIN;
-   //unsigned int buffer_time_max = BUFFER_TIME_MAX;
+   unsigned int buffer_time = BUFFER_TIME;
    snd_pcm_uframes_t frames = 256;
 
    rc = snd_pcm_open(&interface->handle, device, SND_PCM_STREAM_PLAYBACK, 0);
@@ -41,8 +40,8 @@ int init_alsa(alsa_t* interface, wav_header* w)
    if ( snd_pcm_hw_params_set_channels(interface->handle, interface->params, w->numChannels) < 0 ) return 0;
    if ( snd_pcm_hw_params_set_rate_near(interface->handle, interface->params, &w->sampleRate, NULL) < 0 ) return 0;
    
-   //if ( snd_pcm_hw_params_set_buffer_time_min(interface->handle, interface->params, &buffer_time_min, NULL) < 0 ) return 0; 
-   //if ( snd_pcm_hw_params_set_period_size_min(interface->handle, interface->params, &frames, NULL) < 0 ) return 0;
+   if ( snd_pcm_hw_params_set_buffer_time_near(interface->handle, interface->params, &buffer_time, NULL) < 0 ) return 0; 
+   if ( snd_pcm_hw_params_set_period_size_near(interface->handle, interface->params, &frames, NULL) < 0 ) return 0;
 
 
 

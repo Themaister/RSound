@@ -20,8 +20,7 @@
 #include <alsa/asoundlib.h>
 #define ALSA_PCM_NEW_HW_PARAMS_API
 
-//#define BUFFER_TIME_MIN 200000
-//#define BUFFER_TIME_MAX 500000
+#define BUFFER_TIME 200000
 
 typedef struct
 {

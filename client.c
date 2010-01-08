@@ -79,7 +79,9 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   uint8_t *buffer = malloc ( chunk_size );
+   fprintf(stderr, "Fragsize: %d, Buffersize: %d.\n", (int)chunk_size, (int)buffer_size);
+
+   char *buffer = malloc ( chunk_size );
    if ( !buffer )
    {
       fprintf(stderr, "Couldn't allocate memory for buffer.\n");
