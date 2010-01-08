@@ -138,8 +138,39 @@ void* oss_thread( void* socket )
       close(s_new);
       pthread_exit(NULL);
    }
-   
 
+   uint32_t chunk_size, buffer_size;
+   audio_buf_info zz;
+
+   if ( ioctl( sound.audio_fd, SNDCTL_DSP_GETOSPACE, &zz ) != 0 )
+   {
+      fprintf(stderr, "Getting data from ioctl failed SNDCTL_DSP_GETOSPACE.\n");
+      close(s_new);
+      pthread_exit(NULL);
+   }
+
+   buffer_size = (uint32_t)zz.bytes;
+   chunk_size = (uint32_t)zz.fragsize;
+   sound.fragsize = chunk_size;
+   sound.buffer = malloc ( sound.fragsize );
+   
+   if ( verbose )
+      fprintf(stderr, "Fragsize %d, Buffer size %d\n", (int)chunk_size, (int)buffer_size);
+
+   if ( !sound.buffer )
+   {
+      fprintf(stderr, "Error allocating memory for buffer.\n");
+      close(s_new);
+      pthread_exit(NULL);
+   }
+   
+   if ( !send_backend_info(s_new, chunk_size, buffer_size ))
+   {
+      fprintf(stderr, "Error sending backend info.\n");
+      close(s_new);
+      pthread_exit(NULL);
+   }
+  
    if ( verbose )
       printf("Initializing of OSS successful... Party time!\n");
 
@@ -148,15 +179,15 @@ void* oss_thread( void* socket )
    // While connection is active, read CHUNK_SIZE bytes and reroutes it to OSS_DEVICE
    while(active_connection)
    {
-      rc = recv(s_new, sound.buffer, CHUNK_SIZE, 0);
+      rc = recv(s_new, sound.buffer, sound.fragsize, 0);
       if ( rc == 0 )
       {
          active_connection = 0;
          break;
       }
 
-      rc = write(sound.audio_fd, sound.buffer, CHUNK_SIZE);
-      if (rc < CHUNK_SIZE) 
+      rc = write(sound.audio_fd, sound.buffer, sound.fragsize);
+      if (rc < sound.fragsize) 
       {
          fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
       } 
@@ -165,7 +196,7 @@ void* oss_thread( void* socket )
          fprintf(stderr,
                "Error from write\n");
       }  
-      else if (rc != CHUNK_SIZE) 
+      else if (rc != sound.fragsize) 
       {
          fprintf(stderr,
                "Short write, write %d frames\n", rc);

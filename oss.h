@@ -24,8 +24,9 @@
 
 typedef struct
 {
-   char buffer[CHUNK_SIZE];
+   char *buffer;
    int audio_fd;
+   uint32_t fragsize;
 } oss_t;
 
 #define OSS_DEVICE "/dev/dsp"
