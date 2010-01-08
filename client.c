@@ -78,7 +78,7 @@ int main(int argc, char **argv)
       close(s);
       exit(1);
    }
-   
+
    uint8_t *buffer = malloc ( chunk_size );
    if ( !buffer )
    {
@@ -186,7 +186,7 @@ int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
    buffer_size_temp = ntohl(buffer_size_temp);
 
    *chunk_size = chunk_size_temp;
-   *buffer_size = chunk_size_temp;
+   *buffer_size = buffer_size_temp;
 
    return 1;
 

@@ -22,6 +22,9 @@ uint32_t buffer_size = 0;
 int init_alsa(alsa_t* interface, wav_header* w)
 {
    int rc;
+   //unsigned int buffer_time_min = BUFFER_TIME_MIN;
+   //unsigned int buffer_time_max = BUFFER_TIME_MAX;
+   snd_pcm_uframes_t frames = 256;
 
    rc = snd_pcm_open(&interface->handle, device, SND_PCM_STREAM_PLAYBACK, 0);
 
@@ -36,9 +39,12 @@ int init_alsa(alsa_t* interface, wav_header* w)
    if ( snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ) return 0;
    if ( snd_pcm_hw_params_set_format(interface->handle, interface->params, SND_PCM_FORMAT_S16_LE) < 0) return 0;
    if ( snd_pcm_hw_params_set_channels(interface->handle, interface->params, w->numChannels) < 0 ) return 0;
+   if ( snd_pcm_hw_params_set_rate_near(interface->handle, interface->params, &w->sampleRate, NULL) < 0 ) return 0;
+   
+   //if ( snd_pcm_hw_params_set_buffer_time_min(interface->handle, interface->params, &buffer_time_min, NULL) < 0 ) return 0; 
+   //if ( snd_pcm_hw_params_set_period_size_min(interface->handle, interface->params, &frames, NULL) < 0 ) return 0;
 
-   int dir;
-   if ( snd_pcm_hw_params_set_rate_near(interface->handle, interface->params, &w->sampleRate, &dir) < 0 ) return 0;
+
 
    rc = snd_pcm_hw_params(interface->handle, interface->params);
    if (rc < 0) 
@@ -51,12 +57,12 @@ int init_alsa(alsa_t* interface, wav_header* w)
    }
 
    snd_pcm_hw_params_get_period_size(interface->params, &interface->frames,
-         &dir);
+         NULL);
    interface->size = (int)interface->frames * w->numChannels * 2;
-   chunk_size = interface->size;
+   chunk_size = (uint32_t)interface->size;
    snd_pcm_uframes_t bufferSize;
    snd_pcm_hw_params_get_buffer_size(interface->params, &bufferSize);
-   buffer_size = (uint32_t)bufferSize;
+   buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
    
    snd_pcm_hw_params_free(interface->params);
    
@@ -69,7 +75,7 @@ int init_alsa(alsa_t* interface, wav_header* w)
    
 
    if ( verbose )
-      fprintf(stderr, "Buffer size: %u Fragment size: %u.\n", buffer_size, interface->size);
+      fprintf(stderr, "Buffer size: %u Fragment size: %u.\n", buffer_size, chunk_size);
 
    interface->buffer = (char *) malloc(interface->size);
    if ( interface->buffer == NULL )
