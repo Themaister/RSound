@@ -19,7 +19,7 @@
 #define MONO 1
 #define STEREO 2
 #define HEADER_SIZE 44 
-#define CHUNK_SIZE 4
+#define DEFAULT_CHUNK_SIZE 1024
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,10 +33,10 @@
 
 typedef struct 
 {
-   uint8_t chunkId[4];
+   uint32_t chunkId;
    uint32_t chunkSize;
-   uint8_t format[4];
-   uint8_t subChunkId[4];
+   uint32_t format;
+   uint32_t subChunkId;
    uint32_t subChunkSize;
    uint32_t audioFormat;
    uint16_t numChannels;
@@ -44,7 +44,7 @@ typedef struct
    uint32_t byteRate;
    uint16_t blockAlign;
    uint16_t bitsPerSample;
-   uint8_t subChunkId2[4];
+   uint32_t subChunkId2;
    uint32_t subChunkSize2;
 } wav_header;
 

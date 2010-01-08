@@ -25,7 +25,7 @@
 
 #define HEADER_SIZE 44
 
-#define CHUNK_SIZE 4
+#define DEFAULT_CHUNK_SIZE 1024
 
 int raw_mode = 0;
 uint32_t raw_rate = 44100;
@@ -36,8 +36,10 @@ char port[6] = "12345";
 char host[128] = "localhost";
 
 int send_header_info(int);
+int get_backend_info(int, uint32_t*, uint32_t*);
 void print_help(char*);
 void parse_input(int, char**);
+
 
 int main(int argc, char **argv)
 {
@@ -61,7 +63,6 @@ int main(int argc, char **argv)
    
    freeaddrinfo(res);
    
-   char buffer[CHUNK_SIZE];
    
    if ( send_header_info(s) == -1 )
    {
@@ -69,10 +70,27 @@ int main(int argc, char **argv)
       exit(3);
    }
 
+   uint32_t chunk_size, buffer_size;
+   // buffer_size isn't in this program, since we don't care about blocking.
+   if ( !get_backend_info(s, &chunk_size, &buffer_size))
+   {
+      fprintf(stderr, "Couldn't recieve backend info\n");
+      close(s);
+      exit(1);
+   }
+   
+   uint8_t *buffer = malloc ( chunk_size );
+   if ( !buffer )
+   {
+      fprintf(stderr, "Couldn't allocate memory for buffer.\n");
+      close(s);
+      exit(1);
+   }
+
    
    while(1)
    {
-      rc = read(0, buffer, CHUNK_SIZE);
+      rc = read(0, buffer, chunk_size);
       if ( rc == 0 )
       {
          close(s);
@@ -80,8 +98,8 @@ int main(int argc, char **argv)
       }
       else
       {
-         rc = send(s, buffer, CHUNK_SIZE, 0);
-         if ( rc != CHUNK_SIZE && rc > 0 )
+         rc = send(s, buffer, chunk_size, 0);
+         if ( rc != chunk_size && rc > 0 )
          {
             fprintf(stderr, "Sent not enough data ... :p\n");
          }
@@ -146,6 +164,32 @@ int send_header_info(int s)
       else
          return -1;
    }
+}
+
+int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
+{
+   uint32_t chunk_size_temp, buffer_size_temp;
+   int rc;
+
+   rc = recv(socket, &chunk_size_temp, sizeof(uint32_t), 0);
+   if ( rc != sizeof(uint32_t))
+   {
+      return 0;
+   }
+   rc = recv(socket, &buffer_size_temp, sizeof(uint32_t), 0);
+   if ( rc != sizeof(uint32_t))
+   {
+      return 0;
+   }
+
+   chunk_size_temp = ntohl(chunk_size_temp);
+   buffer_size_temp = ntohl(buffer_size_temp);
+
+   *chunk_size = chunk_size_temp;
+   *buffer_size = chunk_size_temp;
+
+   return 1;
+
 }
 
 void print_help(char *appname)

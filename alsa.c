@@ -15,6 +15,9 @@
 
 #include "alsa.h"
 
+uint32_t chunk_size = 0;
+uint32_t buffer_size = 0;
+
 // ALSA is just wonderful, isn't it? ...
 int init_alsa(alsa_t* interface, wav_header* w)
 {
@@ -49,8 +52,14 @@ int init_alsa(alsa_t* interface, wav_header* w)
 
    snd_pcm_hw_params_get_period_size(interface->params, &interface->frames,
          &dir);
+   interface->size = (int)interface->frames * w->numChannels * 2;
+   chunk_size = interface->size;
+   snd_pcm_uframes_t bufferSize;
+   snd_pcm_hw_params_get_buffer_size(interface->params, &bufferSize);
+   buffer_size = (uint32_t)bufferSize;
    
    snd_pcm_hw_params_free(interface->params);
+   
    if ((rc = snd_pcm_prepare (interface->handle)) < 0) 
    {
       fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
@@ -58,10 +67,9 @@ int init_alsa(alsa_t* interface, wav_header* w)
       exit (1);
    }
    
-   interface->size = (int)interface->frames * w->numChannels * 2;
 
    if ( verbose )
-      fprintf(stderr, "Buffer size: %d, Reads per size (should never be decimal!): %.2f\n", interface->size, (float)interface->size/CHUNK_SIZE);
+      fprintf(stderr, "Buffer size: %u Fragment size: %u.\n", buffer_size, interface->size);
 
    interface->buffer = (char *) malloc(interface->size);
    if ( interface->buffer == NULL )
@@ -116,7 +124,14 @@ void* alsa_thread ( void* data )
 
    if ( !init_alsa(&sound, &w) )
    {
-      fprintf(stderr, "Failed to initialize ALSA\n");
+      fprintf(stderr, "Failed to initialize ALSA ...\n");
+      close(s_new);
+      pthread_exit(NULL);
+   }
+
+   if ( !send_backend_info(s_new, chunk_size, buffer_size) )
+   {
+      fprintf(stderr, "Failed to send buffer info ...\n");
       close(s_new);
       pthread_exit(NULL);
    }
@@ -131,14 +146,11 @@ void* alsa_thread ( void* data )
       memset(sound.buffer, 0, sound.size);
 
       // Reads complete buffer
-      for ( read_counter = 0; read_counter < sound.size; read_counter += CHUNK_SIZE )
+      rc = recv(s_new, sound.buffer, sound.size, 0);
+      if ( rc == 0 )
       {
-         rc = recv(s_new, sound.buffer + read_counter, CHUNK_SIZE, 0);
-         if ( rc == 0 )
-         {
-            active_connection = 0;
-            break;
-         }
+         active_connection = 0;
+         break;
       }
 
       // Plays it back :D

@@ -38,6 +38,7 @@ void new_sound_thread(int);
 void pheader(wav_header*);
 void print_help(char*);
 int get_wav_header(int, wav_header*);
+int send_backend_info(int, uint32_t, uint32_t);
 int set_up_socket();
 
 extern char device[];

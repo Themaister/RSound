@@ -274,6 +274,24 @@ int get_wav_header(int socket, wav_header* head)
    return 1;
 }
 
+int send_backend_info(int socket, uint32_t chunk_size, uint32_t buffer_size)
+{
+   int rc;
+
+   chunk_size = htonl(chunk_size);
+   buffer_size = htonl(buffer_size);
+
+   rc = send(socket, &chunk_size, sizeof(uint32_t), 0);
+   if ( rc != sizeof(uint32_t))
+      return 0;
+   rc = send(socket, &buffer_size, sizeof(uint32_t), 0);
+   if ( rc != sizeof(uint32_t))
+      return 0;
+
+   return 1;
+}
+
+
 // Sets up listening socket for further use
 int set_up_socket()
 {
