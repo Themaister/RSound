@@ -26,6 +26,7 @@
 #define HEADER_SIZE 44
 
 #define DEFAULT_CHUNK_SIZE 1024
+#define INPUT_CHUNK 256
 
 int raw_mode = 0;
 uint32_t raw_rate = 44100;
@@ -89,19 +90,32 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   int count; 
+   int count, read_count; 
    while(1)
    {
       // Somewhat dirty. Some CLI programs that output to stdout seem to prefer this approach. (E.g. flac)
-      for ( count = 0; count < chunk_size; count++ )
+      read_count = 0;
+      for ( count = 0; count < (chunk_size/INPUT_CHUNK)*INPUT_CHUNK; count+=INPUT_CHUNK )
       {
-         rc = read(0, buffer + count, 1);
+         rc = read(0, buffer + count, INPUT_CHUNK);
+         read_count += rc;
          if ( rc == 0 )
          {
             close(s);
             exit(0);
          }
       }
+
+      if ( read_count < chunk_size )
+      {
+         rc = read(0, buffer + read_count, chunk_size - read_count);
+         if ( rc == 0 )
+         {
+            close(s);
+            exit(0);
+         }
+      }
+
       rc = send(s, buffer, chunk_size, 0);
       if ( rc != chunk_size && rc > 0 )
       {
