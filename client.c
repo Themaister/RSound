@@ -176,7 +176,7 @@ int send_header_info(int s)
 
 #define RATE 24
 #define CHANNEL 22
-#define BITRATE 16
+#define BITRATE 34
 
       *((uint32_t*)(buffer+RATE)) = raw_rate;
       *((uint16_t*)(buffer+CHANNEL)) = channel;
