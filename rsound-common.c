@@ -25,10 +25,14 @@ void new_sound_thread ( int socket )
    *s = socket;
 
    extern void* (*backend) (void *);
+   extern int no_threading;
 
    pthread_t thread;
 
    pthread_create(&thread, NULL, backend, (void*)s);     
+
+   if ( no_threading )
+      pthread_join(thread, NULL);
 }
 
 // Parses input (TODO: Make this more elegant?)
@@ -75,6 +79,13 @@ void parse_input(int argc, char ** argv)
       if ( !strcmp( "-v", argv[i] ) || !strcmp( "--verbose", argv[i] ) )
       {
          verbose = 1;
+         continue;
+      }
+
+      if ( !strcmp( "--no-threading", argv[i] ))
+      {
+         extern int no_threading;
+         no_threading = 1;
          continue;
       }
 
@@ -160,7 +171,7 @@ void parse_input(int argc, char ** argv)
 void print_help(char *appname)
 {
    putchar('\n');
-   printf("Usage: %s [ -d/--device | -b/--backend | -p/--port | -n/--no-daemon | -v/--verbose | -h/--help ]\n", appname);
+   printf("Usage: %s [ -d/--device | -b/--backend | -p/--port | -n/--no-daemon | -v/--verbose | -h/--help | --no-threading ]\n", appname);
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
    printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
 
@@ -185,6 +196,7 @@ void print_help(char *appname)
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
    printf("-v/--verbose: Enables verbosity\n");
    printf("-n/--no-daemon: Do not run as daemon.\n");
+   printf("--no-threading: Only allows one connection at a time.\n");
    printf("-h/--help: Prints this help\n\n");
 }
 

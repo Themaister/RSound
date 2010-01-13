@@ -21,6 +21,7 @@ char port[6] = "12345";
 int verbose = 0;
 void* (*backend) ( void * ) = NULL;
 int daemonize = 1;
+int no_threading = 0;
 
 int main(int argc, char ** argv)
 {
