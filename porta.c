@@ -18,7 +18,7 @@
 #define FRAMES_PER_BUFFER DEFAULT_CHUNK_SIZE
 
 // Designed to use the blocking I/O API. It's just a more simple design.
-int init_porta(porta_t* sound, wav_header* w)
+static int init_porta(porta_t* sound, wav_header* w)
 {
    PaError err;
    
@@ -68,7 +68,7 @@ int init_porta(porta_t* sound, wav_header* w)
    return 1;
 }
 
-void clean_porta_interface(porta_t* sound)
+static void clean_porta_interface(porta_t* sound)
 {
    Pa_StopStream ( sound->stream );
    Pa_CloseStream ( sound->stream );

@@ -31,8 +31,8 @@ typedef struct
    size_t size;
 } alsa_t;
 
-int init_alsa(alsa_t*, wav_header*);
-void clean_alsa_interface(alsa_t*);
+static int init_alsa(alsa_t*, wav_header*);
+static void clean_alsa_interface(alsa_t*);
 void* alsa_thread( void* socket );
 extern int verbose;
 extern char device[];

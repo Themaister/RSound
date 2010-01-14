@@ -15,11 +15,11 @@
 
 #include "alsa.h"
 
-uint32_t chunk_size = 0;
-uint32_t buffer_size = 0;
+static uint32_t chunk_size = 0;
+static uint32_t buffer_size = 0;
 
 // ALSA is just wonderful, isn't it? ...
-int init_alsa(alsa_t* interface, wav_header* w)
+static int init_alsa(alsa_t* interface, wav_header* w)
 {
    int rc;
    unsigned int buffer_time = BUFFER_TIME;
@@ -85,7 +85,7 @@ int init_alsa(alsa_t* interface, wav_header* w)
    return 1;
 }
 
-void clean_alsa_interface(alsa_t* sound)
+static void clean_alsa_interface(alsa_t* sound)
 {
    snd_pcm_drop(sound->handle);
    snd_pcm_close(sound->handle);

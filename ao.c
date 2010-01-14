@@ -15,7 +15,7 @@
 
 #include "ao.h"
 
-int init_ao(ao_t* interface, wav_header* w)
+static int init_ao(ao_t* interface, wav_header* w)
 {
    
    int rc;
@@ -40,7 +40,7 @@ int init_ao(ao_t* interface, wav_header* w)
    return 1;
 }
 
-void clean_ao_interface(ao_t* sound)
+static void clean_ao_interface(ao_t* sound)
 {
    ao_close(sound->device);
    free(sound->buffer);

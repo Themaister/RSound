@@ -16,7 +16,7 @@
 #include "oss.h"
 
 // Opens and sets params
-int init_oss(oss_t* sound, wav_header* w)
+static int init_oss(oss_t* sound, wav_header* w)
 {
    char oss_device[64] = {0};
 
@@ -94,7 +94,7 @@ int init_oss(oss_t* sound, wav_header* w)
     return 1;
 }
 
-void clean_oss_interface(oss_t* sound)
+static void clean_oss_interface(oss_t* sound)
 {
    close(sound->audio_fd);
 }
