@@ -407,7 +407,7 @@ int recieve_data(int socket, char* buffer, size_t size)
    FD_SET(socket, &readfds);
    int n = socket + 1;
 
-   tv.tv_sec = 5;
+   tv.tv_sec = 20;
    tv.tv_usec = 0;
 
    rc = select(n, &readfds, NULL, NULL, &tv);
