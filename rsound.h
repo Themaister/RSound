@@ -13,25 +13,11 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 #ifndef RSOUND_H
 #define RSOUND_H
 
-#ifdef _ALSA
-#include "alsa.h"
-#endif
-
-#ifdef _OSS
-#include "oss.h"
-#endif
-
-#ifdef _AO
-#include "ao.h"
-#endif
-
-#ifdef _PORTA
-#include "porta.h"
-#endif
-
+#include "audio.h"
 
 void parse_input(int, char**);
 void new_sound_thread(int);

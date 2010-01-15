@@ -16,6 +16,23 @@
 #include "endian.h"
 #include "rsound.h"
 
+#ifdef _ALSA
+#include "alsa.h"
+#endif
+
+#ifdef _OSS
+#include "oss.h"
+#endif
+
+#ifdef _AO
+#include "ao.h"
+#endif
+
+#ifdef _PORTA
+#include "porta.h"
+#endif
+
+
 // This file defines some backend independed operations
 
 
