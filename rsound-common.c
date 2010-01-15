@@ -292,9 +292,15 @@ int send_backend_info(int socket, uint32_t chunk_size, uint32_t buffer_size)
 {
    int rc;
    
+   int socket_buffer_size = (int)buffer_size;
+   if ( setsockopt(socket, SOL_SOCKET, SO_RCVBUF, &socket_buffer_size, sizeof(int)) == -1 )
+   {
+         fprintf(stderr, "Couldn't set socket buffer size.\n");
+         return 0;
+   }
+
    chunk_size = htonl(chunk_size);
    buffer_size = htonl(buffer_size);
-
 
    rc = send(socket, &chunk_size, sizeof(uint32_t), 0);
    if ( rc != sizeof(uint32_t))
@@ -302,8 +308,6 @@ int send_backend_info(int socket, uint32_t chunk_size, uint32_t buffer_size)
    rc = send(socket, &buffer_size, sizeof(uint32_t), 0);
    if ( rc != sizeof(uint32_t))
       return 0;
-   /*if ( !set_socket_buffer_size(socket, (int)chunk_size))
-      return 0;*/
 
    return 1;
 }
@@ -354,11 +358,11 @@ int set_up_socket()
    // Makes sure that we do not get huge delays between eventual close() and recv() == 0. Sets the rcvbuf to be
    // approx 0.4 secs of audio data.
    int size = 0xFFFF;
-   if ( setsockopt(s, SOL_SOCKET, SO_RCVBUF, &size, sizeof(int)) == -1 )
+  /* if ( setsockopt(s, SOL_SOCKET, SO_RCVBUF, &size, sizeof(int)) == -1 )
    {
          fprintf(stderr, "Couldn't set socket buffer size.\n");
          goto error;
-   }
+   }*/
 
    rc = bind(s, servinfo->ai_addr, servinfo->ai_addrlen);
    if ( rc == -1 )
