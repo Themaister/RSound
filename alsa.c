@@ -150,7 +150,7 @@ void* alsa_thread ( void* data )
       memset(sound.buffer, 0, sound.size);
 
       // Reads complete buffer
-      rc = recv(s_new, sound.buffer, sound.size, 0);
+      rc = recieve_data(s_new, sound.buffer, sound.size);
       if ( rc == 0 )
       {
          active_connection = 0;

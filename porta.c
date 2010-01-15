@@ -137,7 +137,7 @@ void* porta_thread( void* socket )
       // Reads complete buffer
       for ( read_counter = 0; read_counter < sound.size; read_counter += DEFAULT_CHUNK_SIZE )
       {
-         rc = recv(s_new, sound.buffer + read_counter, DEFAULT_CHUNK_SIZE, 0);
+         rc = recieve_data(s_new, sound.buffer + read_counter, DEFAULT_CHUNK_SIZE);
          if ( rc == 0 )
          {
             active_connection = 0;

@@ -40,6 +40,7 @@ void print_help(char*);
 int get_wav_header(int, wav_header*);
 int send_backend_info(int, uint32_t, uint32_t);
 int set_up_socket();
+int recieve_data(int, char*, size_t);
 
 extern char device[];
 extern char port[];

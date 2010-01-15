@@ -108,7 +108,7 @@ void* ao_thread ( void* data )
    active_connection = 1;
    while(active_connection)
    {
-      rc = recv(s_new, sound.buffer, DEFAULT_CHUNK_SIZE, 0);
+      rc = recieve_data(s_new, sound.buffer, DEFAULT_CHUNK_SIZE);
       if ( rc == 0 )
       {
          active_connection = 0;

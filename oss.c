@@ -179,7 +179,7 @@ void* oss_thread( void* socket )
    // While connection is active, read CHUNK_SIZE bytes and reroutes it to OSS_DEVICE
    while(active_connection)
    {
-      rc = recv(s_new, sound.buffer, sound.fragsize, 0);
+      rc = recieve_data(s_new, sound.buffer, sound.fragsize);
       if ( rc == 0 )
       {
          active_connection = 0;

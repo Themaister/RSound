@@ -30,6 +30,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <netdb.h>
+#include <time.h>
 
 typedef struct 
 {

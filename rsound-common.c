@@ -302,6 +302,8 @@ int send_backend_info(int socket, uint32_t chunk_size, uint32_t buffer_size)
    rc = send(socket, &buffer_size, sizeof(uint32_t), 0);
    if ( rc != sizeof(uint32_t))
       return 0;
+   /*if ( !set_socket_buffer_size(socket, (int)chunk_size))
+      return 0;*/
 
    return 1;
 }
@@ -343,11 +345,21 @@ int set_up_socket()
 
 
    int yes = 1;
-   if (setsockopt(s,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) 
+   if ( setsockopt(s,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) 
    {
       perror("setsockopt");
       goto error;
-   } 
+   }
+
+   // Makes sure that we do not get huge delays between eventual close() and recv() == 0. Sets the rcvbuf to be
+   // approx 0.4 secs of audio data.
+   int size = 0xFFFF;
+   if ( setsockopt(s, SOL_SOCKET, SO_RCVBUF, &size, sizeof(int)) == -1 )
+   {
+         fprintf(stderr, "Couldn't set socket buffer size.\n");
+         goto error;
+   }
+
    rc = bind(s, servinfo->ai_addr, servinfo->ai_addrlen);
    if ( rc == -1 )
    {
@@ -363,4 +375,28 @@ error:
    return -1;
 
 }
+
+int recieve_data(int socket, char* buffer, size_t size)
+{
+   int rc;
+   fd_set readfds;
+   struct timeval tv;
+
+   FD_ZERO(&readfds);
+   FD_SET(socket, &readfds);
+   int n = socket + 1;
+
+   tv.tv_sec = 5;
+   tv.tv_usec = 0;
+
+   rc = select(n, &readfds, NULL, NULL, &tv);
+   if ( rc == -1 )
+      return 0;
+   else if ( rc == 0 )
+      return 0;
+
+   rc = recv(socket, buffer, size, 0);
+   return rc;
+}
+
 
