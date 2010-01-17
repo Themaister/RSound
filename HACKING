@@ -8,13 +8,23 @@ A client will do these things:
 
 1. Connect to server
 
-2. Send a 44 byte little-endian WAVE-header to the server. The server only needs information about sample rate, channels, and bits per sample.
+2. Send a 44 byte little-endian WAVE-header to the server. 
+The server only needs information about sample rate, channels, and bits per sample.
 
-3. Recieve chunk_size and buffer_size from the server. chunk_size and buffer_size will be recieved in two separate recv calls, in the respective order. The values are in network byte order, and uint32_t. buffer_size corresponds to the maximum buffer size that the sound card can hold before blocking occurs.
+3. Recieve chunk_size and buffer_size from the server. 
+chunk_size and buffer_size will be recieved in two separate recv calls, in the respective order. 
+The values are in network byte order, and uint32_t. 
+buffer_size corresponds to the maximum buffer size that the sound card can hold before blocking occurs.
 
-(4). For the sake of having the server respond quickly to common tasks such as pausing and stopping the stream, you'd might want to limit the output network buffer to the size of chunk_size. This is especially true when the application in mind tries to send as much audio data as possible all the time, and is limited by blocking.
+(4.) For the sake of having the server respond quickly to common tasks such as pausing and stopping the stream, 
+you'd might want to limit the output network buffer to the size of chunk_size. 
+This is especially true when the application in mind tries to send as much audio data as possible all the time, 
+and is limited by blocking.
 
-5. For as long as desired, send chunks of audio to the server, with the size chunk_size. If rsound plugin is implemented in a callback design (e.g. MPD) where the plugin is expected to output a certain number of bytes to the sound card, you will probably need to implement a small buffer in the plugin design.
+5. For as long as desired, send chunks of audio to the server, with the size chunk_size. 
+If rsound plugin is implemented in a callback design (e.g. MPD) 
+where the plugin is expected to output a certain number of bytes to the sound card, 
+you will probably need to implement a small buffer in the plugin design.
    e.g:
       send(socket, buffer, chunk_size, 0);
 
