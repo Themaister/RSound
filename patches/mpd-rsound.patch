@@ -15,15 +15,15 @@ index c84362c..5df866e 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -627,7 +627,8 @@ OUTPUT_API_SRC = \
- 	src/output_init.c
+   src/output_init.c
  
  OUTPUT_SRC = \
--	src/output/null_plugin.c
-+	src/output/null_plugin.c \
+-  src/output/null_plugin.c
++  src/output/null_plugin.c \
 +   src/output/rsound_plugin.c
  
  MIXER_API_SRC = \
- 	src/mixer_control.c \
+   src/mixer_control.c \
 diff --git a/src/output/rsound_plugin.c b/src/output/rsound_plugin.c
 new file mode 100644
 index 0000000..4b72744
@@ -81,11 +81,11 @@ index 0000000..4b72744
 +
 +struct rsound_data {
 +
-+	char *host;
++   char *host;
 +   char *port; 
 +
-+	uint32_t buffer_size;
-+	uint32_t chunk_size;
++   uint32_t buffer_size;
++   uint32_t chunk_size;
 +
 +   char* buffer;
 +   int buffer_pointer;
@@ -103,28 +103,28 @@ index 0000000..4b72744
 +
 +static void *
 +rsound_init(G_GNUC_UNUSED const struct audio_format *audio_format,
-+	  const struct config_param *param,
-+	  G_GNUC_UNUSED GError **error)
++    const struct config_param *param,
++    G_GNUC_UNUSED GError **error)
 +{
-+	struct rsound_data *rd = g_new ( struct rsound_data, 1 );
-+   rd->chunk_size = 0;
-+   rd->buffer_size = 0;
++  struct rsound_data *rd = g_new ( struct rsound_data, 1 );
++  rd->chunk_size = 0;
++  rd->buffer_size = 0;
 +
-+	rsound_configure(rd, param);
++  rsound_configure(rd, param);
 +
-+	return rd;
++  return rd;
 +}
 +
 +static void
 +rsound_finish(void *data)
 +{
-+	struct rsound_data *rd = data;
-+	
++  struct rsound_data *rd = data;
++  
 +   close(rd->socket);
 +
 +   g_free(rd->host);
 +   g_free(rd->port);
-+   free(rd->buffer);
++   g_free(rd->buffer);
 +   g_free(rd);
 +}
 +
@@ -205,7 +205,7 @@ index 0000000..4b72744
 +   rd->chunk_size = chunk_size_temp;
 +   rd->buffer_size = buffer_size_temp;
 +
-+   rd->buffer = malloc ( rd->buffer_size );
++   rd->buffer = g_new (char, rd->buffer_size);
 +   rd->buffer_pointer = 0;
 +
 +   return true;
@@ -235,8 +235,8 @@ index 0000000..4b72744
 +static bool
 +rsound_open(void *data, struct audio_format *audio_format, GError **error)
 +{
-+	struct rsound_data *rd = data;
-+	bool rc;
++  struct rsound_data *rd = data;
++  bool rc;
 +
 +   rc = rsound_setup(rd, audio_format, error);
 +   if ( !rc )
@@ -253,7 +253,7 @@ index 0000000..4b72744
 +static void
 +rsound_close(void *data)
 +{
-+	struct rsound_data *rd = data;
++  struct rsound_data *rd = data;
 +
 +   close(rd->socket);
 +   rd->socket = -1;
@@ -263,7 +263,7 @@ index 0000000..4b72744
 +rsound_play(void *data, const void *chunk, size_t size, GError **error)
 +{
 +   int rc;
-+	struct rsound_data *rd = data;
++  struct rsound_data *rd = data;
 +   while ( rd->buffer_pointer + size < rd->buffer_size && rd->buffer_pointer > rd->chunk_size )
 +   {
 +      rc = send(rd->socket, rd->buffer, rd->chunk_size, 0);
@@ -287,13 +287,13 @@ index 0000000..4b72744
 +}
 +
 +const struct audio_output_plugin rsound_output_plugin = {
-+	.name = "rsound",
-+	.init = rsound_init,
-+	.finish = rsound_finish,
-+	.open = rsound_open,
-+	.play = rsound_play,
-+	.cancel = rsound_cancel,
-+	.close = rsound_close,
++  .name = "rsound",
++  .init = rsound_init,
++  .finish = rsound_finish,
++  .open = rsound_open,
++  .play = rsound_play,
++  .cancel = rsound_cancel,
++  .close = rsound_close,
 +};
 diff --git a/src/output_list.c b/src/output_list.c
 index d94749e..b98ea6f 100644
@@ -309,10 +309,10 @@ index d94749e..b98ea6f 100644
  #ifdef HAVE_SHOUT
 @@ -81,6 +82,7 @@ const struct audio_output_plugin *audio_output_plugins[] = {
  #ifdef ENABLE_RECORDER_OUTPUT
- 	&recorder_output_plugin,
+   &recorder_output_plugin,
  #endif
 +   &rsound_output_plugin,
- 	NULL
+   NULL
  };
  
 -- 
@@ -351,18 +351,21 @@ index 4b72744..b9b9a3a 100644
 +static const char *default_port = "12345";
 +
 +
-+static inline int is_little_endian(void)
++static inline int 
++is_little_endian(void)
 +{
 +   uint16_t i = 1;
 +   return *((uint8_t*)&i);
 +}
 +
-+static inline void swap_endian_16 ( uint16_t* x )
++static inline void 
++swap_endian_16 ( uint16_t* x )
 +{
 +   *x = (*x>>8) | (*x<<8);
 +}
 +
-+static inline void swap_endian_32 ( uint32_t* x )
++static inline void 
++swap_endian_32 ( uint32_t* x )
 +{
 +   *x = (*x>>24) | 
 +        ((*x<<8) & 0x00FF0000) |
@@ -406,7 +409,7 @@ index 4b72744..b9b9a3a 100644
 @@ -232,7 +266,7 @@ rsound_play(void *data, const void *chunk, size_t size, GError **error)
  {
     int rc;
- 	struct rsound_data *rd = data;
+   struct rsound_data *rd = data;
 -   while ( rd->buffer_pointer + size < rd->buffer_size && rd->buffer_pointer > rd->chunk_size )
 +   while ( (int)rd->buffer_pointer + (int)size < (int)rd->buffer_size && (int)rd->buffer_pointer > (int)rd->chunk_size )
     {
@@ -471,7 +474,7 @@ index 112e0b1..b14926c 100644
  {
     int rc;
 +   
- 	struct rsound_data *rd = data;
+   struct rsound_data *rd = data;
 -   while ( (int)rd->buffer_pointer + (int)size < (int)rd->buffer_size && (int)rd->buffer_pointer > (int)rd->chunk_size )
 +   // Plays back data until there's room for size bytes in the buffer
 +   while ( (int)rd->buffer_pointer + (int)size > (int)rd->buffer_size && (int)rd->buffer_pointer > (int)rd->chunk_size )
