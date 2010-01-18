@@ -13,7 +13,7 @@ OSS=0
 
 COMP=cc
 FLAGS=$CFLAGS
-EXTRAFLAGS=""
+EXTRAFLAGS="-Wall"
 LIBS="-lpthread"
 OBJECTS="rsound-common.o daemon.o endian.o"
 

@@ -27,10 +27,6 @@ typedef struct
    size_t size;
 } porta_t;
 
-
-
-static int init_porta(porta_t*, wav_header*);
-static void clean_porta_interface(porta_t*);
 void* porta_thread( void* socket );
 extern int verbose;
 #endif

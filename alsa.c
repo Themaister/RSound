@@ -14,9 +14,17 @@
  */
 
 #include "alsa.h"
+#include "rsound.h"
 
 static uint32_t chunk_size = 0;
 static uint32_t buffer_size = 0;
+
+static void clean_alsa_interface(alsa_t* sound)
+{
+   snd_pcm_drop(sound->handle);
+   snd_pcm_close(sound->handle);
+   free(sound->buffer);
+}
 
 // ALSA is just wonderful, isn't it? ...
 static int init_alsa(alsa_t* interface, wav_header* w)
@@ -85,12 +93,6 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    return 1;
 }
 
-static void clean_alsa_interface(alsa_t* sound)
-{
-   snd_pcm_drop(sound->handle);
-   snd_pcm_close(sound->handle);
-   free(sound->buffer);
-}
 
 
 void* alsa_thread ( void* data )
@@ -98,7 +100,6 @@ void* alsa_thread ( void* data )
    alsa_t sound;
    wav_header w;
    int rc;
-   int read_counter;
    int active_connection;
    int underrun_count = 0;
 

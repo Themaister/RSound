@@ -26,8 +26,6 @@ typedef struct
    char *buffer;
 } ao_t;
 
-static int init_ao(ao_t*, wav_header*);
-static void clean_ao_interface(ao_t*);
 void* ao_thread( void* socket );
 extern int verbose;
 #endif

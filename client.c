@@ -22,6 +22,7 @@
 #include <netdb.h>
 #include "endian.h"
 #include <stdint.h>
+#include <unistd.h>
 
 #define HEADER_SIZE 44
 

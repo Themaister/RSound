@@ -372,15 +372,6 @@ int set_up_socket()
       goto error;
    }
 
-   // Makes sure that we do not get huge delays between eventual close() and recv() == 0. Sets the rcvbuf to be
-   // approx 0.4 secs of audio data.
-   int size = 0xFFFF;
-  /* if ( setsockopt(s, SOL_SOCKET, SO_RCVBUF, &size, sizeof(int)) == -1 )
-   {
-         fprintf(stderr, "Couldn't set socket buffer size.\n");
-         goto error;
-   }*/
-
    rc = bind(s, servinfo->ai_addr, servinfo->ai_addrlen);
    if ( rc == -1 )
    {

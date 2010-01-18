@@ -31,8 +31,6 @@ typedef struct
 
 #define OSS_DEVICE "/dev/dsp"
 
-static int init_oss(oss_t*, wav_header*);
-static void clean_oss_interface(oss_t*);
 void* oss_thread( void* socket );
 extern int verbose;
 extern char device[];

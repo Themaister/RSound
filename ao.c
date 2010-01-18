@@ -14,11 +14,17 @@
  */
 
 #include "ao.h"
+#include "rsound.h"
+
+static void clean_ao_interface(ao_t* sound)
+{
+   ao_close(sound->device);
+   free(sound->buffer);
+}
 
 static int init_ao(ao_t* interface, wav_header* w)
 {
    
-   int rc;
    int default_driver;
 
    ao_initialize();
@@ -40,20 +46,13 @@ static int init_ao(ao_t* interface, wav_header* w)
    return 1;
 }
 
-static void clean_ao_interface(ao_t* sound)
-{
-   ao_close(sound->device);
-   free(sound->buffer);
-}
 
 void* ao_thread ( void* data )
 {
    ao_t sound;
    wav_header w;
    int rc;
-   int read_counter;
    int active_connection;
-   int underrun_count = 0;
 
    int s_new = *((int*)data);
    free(data);

@@ -14,6 +14,12 @@
  */
 
 #include "oss.h"
+#include "rsound.h"
+
+static void clean_oss_interface(oss_t* sound)
+{
+   close(sound->audio_fd);
+}
 
 // Opens and sets params
 static int init_oss(oss_t* sound, wav_header* w)
@@ -94,10 +100,6 @@ static int init_oss(oss_t* sound, wav_header* w)
     return 1;
 }
 
-static void clean_oss_interface(oss_t* sound)
-{
-   close(sound->audio_fd);
-}
 
 
 void* oss_thread( void* socket )
@@ -105,7 +107,6 @@ void* oss_thread( void* socket )
    oss_t sound;
    wav_header w;
    int rc;
-   int read_counter;
    int active_connection;
    int underrun_count = 0;
 

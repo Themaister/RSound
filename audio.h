@@ -31,6 +31,7 @@
 #include <pthread.h>
 #include <netdb.h>
 #include <time.h>
+#include <unistd.h>
 
 typedef struct 
 {
