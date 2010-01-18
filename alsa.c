@@ -76,12 +76,13 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    {
       fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
             snd_strerror (rc));
-      exit (1);
+      clean_alsa_interface(interface);
+      return 0;
    }
    
 
    if ( verbose )
-      fprintf(stderr, "Buffer size: %u Fragment size: %u.\n", buffer_size, chunk_size);
+      fprintf(stderr, "Buffer size: %u, Fragment size: %u.\n", buffer_size, chunk_size);
 
    interface->buffer = (char *) malloc(interface->size);
    if ( interface->buffer == NULL )
