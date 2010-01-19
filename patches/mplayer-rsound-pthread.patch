@@ -1,0 +1,482 @@
+Index: libao2/audio_out.c
+===================================================================
+--- a/libao2/audio_out.c	(revision 30377)
++++ b/libao2/audio_out.c	(working copy)
+@@ -53,6 +53,7 @@
+ extern const ao_functions_t audio_out_v4l2;
+ extern const ao_functions_t audio_out_mpegpes;
+ extern const ao_functions_t audio_out_pcm;
++extern const ao_functions_t audio_out_rsound;
+ extern const ao_functions_t audio_out_pss;
+ 
+ const ao_functions_t* const audio_out_drivers[] =
+@@ -119,6 +120,7 @@
+ #endif
+         &audio_out_null,
+ // should not be auto-selected:
++        &audio_out_rsound,
+         &audio_out_pcm,
+         NULL
+ };
+Index: libao2/ao_rsound.c
+===================================================================
+--- a/libao2/ao_rsound.c	(revision 0)
++++ b/libao2/ao_rsound.c	(revision 0)
+@@ -0,0 +1,445 @@
++/*
++ * RSound audio output driver
++ *
++ * This file is part of MPlayer.
++ *
++ * MPlayer is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * MPlayer is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with MPlayer; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include "config.h"
++
++#include <stdlib.h>
++#include <string.h>
++
++#include "libavutil/common.h"
++#include "mpbswap.h"
++#include "subopt-helper.h"
++#include "libaf/af_format.h"
++#include "libaf/reorder_ch.h"
++#include "audio_out.h"
++#include "audio_out_internal.h"
++#include "mp_msg.h"
++#include "help_mp.h"
++
++#include <stdint.h>
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <arpa/inet.h>
++#include <netdb.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <time.h>
++#include "osdep/timer.h"
++#include <pthread.h>
++
++
++static const ao_info_t info =
++{
++   "RSound output driver",
++   "rsound",
++   "Themaister",
++   ""
++};
++
++LIBAO_EXTERN(rsound)
++
++/* Alternative method. Tries to make the play() function more snappy by offloading the send() functions to a thread.
++ * It might fix issues related to constant latency, but if the latency spikes occationally (laptop wifi comes to mind), this probably won't make a difference.
++ * Each thread is joined before starting another thread, to avoid possible race conditions. A bad connection will still give problems.
++ * It is probably more bug prone than the first implementation.
++ */
++
++typedef struct
++{
++   void* data;
++   int len;
++} rsound_thread_t;
++
++static char *host = NULL;
++static char *port = NULL;
++static int s;
++
++static int buffer;
++static int has_written;
++static int64_t total_written;
++static int init_send_size;
++
++static struct timespec start_tv;
++
++static int get_backend_info(int, uint32_t*, uint32_t*);
++static inline int is_little_endian(void);
++static inline void swap_endian_16(uint16_t*);
++static inline void swap_endian_32(uint32_t*);
++static void queqe_data(void*, int);
++static void* send_data_thread(void*);
++static int send_initial_data(void*, int);
++static int send_data(void*, int);
++static pthread_t last_t;
++
++static int control(int cmd, void *arg)
++{
++   return -1;
++}
++
++static void drain(void)
++{
++   // Simulates a sound card. Assumes that a certain bytes of sound have been played since the beginning, and estimated the buffer size accordingly.
++   if ( has_written )
++   {
++      int64_t temp, temp2;
++      
++      struct timespec now_tv;
++      clock_gettime(CLOCK_MONOTONIC, &now_tv);
++      
++      temp = (int64_t)now_tv.tv_sec - (int64_t)start_tv.tv_sec;
++      temp *= ao_data.bps;
++
++      temp2 = (int64_t)now_tv.tv_nsec - (int64_t)start_tv.tv_nsec;
++      temp2 *= (int64_t)ao_data.bps;
++      temp2 /= 1000000000;
++
++      temp += temp2;
++
++      buffer = (int)(total_written - temp);
++
++      if ( buffer < 0 )
++      {
++         mp_msg(MSGT_AO, MSGL_WARN,  "Warning, sound buffer was calculated to be empty.\n");
++         buffer = 0;
++      }
++   }
++   else
++      buffer = 0;
++}
++// Connects to the rsoundserv and sends the WAVE header. Server is ready to recieve audio data.
++static int create_connection(int rate, int channels)
++{
++   char waveheader[44] = {0};
++   int rc;
++   struct addrinfo hints, *res;
++
++   #define HEADER_SIZE 44
++   #define RATE 24
++   #define CHANNEL 22
++   #define BITS 34
++
++   // rsoundserv only requires these three params
++
++   uint32_t rate_temp = rate;
++   uint16_t channels_temp = channels;
++   uint16_t bits_temp = 16;
++
++   if ( !is_little_endian() )
++   {
++      swap_endian_32(&rate_temp);
++      swap_endian_16(&channels_temp);
++      swap_endian_16(&bits_temp);
++   }
++
++   *((uint32_t*)(waveheader + RATE)) = rate_temp;
++   *((uint16_t*)(waveheader + CHANNEL)) = channels_temp;
++   *((uint16_t*)(waveheader + BITS)) = bits_temp;
++
++   memset(&hints, 0, sizeof(struct addrinfo));
++   hints.ai_family = AF_UNSPEC;
++   hints.ai_socktype = SOCK_STREAM;
++
++   getaddrinfo(host, port, &hints, &res);
++   s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
++
++   if ( connect(s, res->ai_addr, res->ai_addrlen) != 0 )
++   {
++      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't connect to %s:%s\n", host, port);
++      return 0;
++   }
++
++   freeaddrinfo(res);
++
++   rc = send(s, waveheader, HEADER_SIZE, 0);
++   if ( rc != HEADER_SIZE )
++   {
++      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't send WAVE header\n");
++      close(s);
++      return 0;
++   }
++   
++   uint32_t chunk_size, buffer_size;
++   if ( !get_backend_info(s, &chunk_size, &buffer_size) )
++   {
++      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't get backend info from server %s:%s\n", host, port);
++      close(s);
++      return 0;
++   }
++   
++   int send_buffer_size = (int)chunk_size;
++   if ( setsockopt(s, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, sizeof(int)) == -1 )
++   {
++      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't set socket buffer size\n");
++      close(s);
++      return 0;
++   }
++
++   ao_data.outburst = chunk_size;
++   ao_data.buffersize = buffer_size;
++
++   total_written = 0;
++   has_written = 0;
++
++   return 1;
++}
++
++static int init(int rate, int channels, int format, int flags)
++{
++   buffer = 0;
++
++   if ( host )
++      free(host);
++   if ( port )
++      free(port);
++
++   // Parses commandline
++   const opt_t subopts[] = {
++      {"host", OPT_ARG_MSTRZ, &host, NULL},
++      {"port", OPT_ARG_MSTRZ, &port, NULL},
++      {NULL}
++   };
++
++   if (subopt_parse(ao_subdevice, subopts) != 0) {
++      return 0;
++   }
++
++   // Defaults
++   if ( !host )
++      host = strdup("localhost");
++   if ( !port )
++      port = strdup("12345");
++
++   ao_data.channels = channels;
++   ao_data.samplerate = rate;
++   ao_data.format = AF_FORMAT_S16_LE;
++   ao_data.bps = channels*rate*2;
++
++   return ( create_connection (ao_data.samplerate, ao_data.channels) );
++}
++
++static void uninit(int n)
++{
++   // simply closes connection
++   if ( s > 0 )
++      close(s);
++   s = -1;
++}
++
++static void reset(void)
++{
++   /* Closes connection, "resets" the buffer, and creates a new connection. 
++    The server might still be playing the remainding time of the buffer while the new sound is starting. This requires sound mixing.
++    MPlayer might otherwise crash. */
++
++   uninit(0);
++   buffer = 0;
++   create_connection(ao_data.samplerate, ao_data.channels);
++}
++
++static void audio_pause(void)
++{
++   uninit(0);
++}
++
++static void audio_resume(void)
++{
++   buffer = 0;
++   create_connection(ao_data.samplerate, ao_data.channels);
++}
++
++static int get_space(void)
++{
++   drain();
++   return ao_data.buffersize - buffer;
++}
++
++static int play(void* data, int len, int flags)
++{
++   unsigned int start = GetTimer();
++   unsigned int end;
++   int written = 0;
++   int rc = 0;
++
++   int maxbursts = (ao_data.buffersize - buffer) / ao_data.outburst;
++   int playbursts = len / ao_data.outburst;
++
++   int bursts = playbursts > maxbursts ? maxbursts : playbursts;
++   int playsize = bursts * ao_data.outburst;
++   
++   if ( !has_written )
++   {
++   // We need to know when the first chunk was sent to the sound card to get a 
++   // better calculation of the buffer size available. 
++      written = send_initial_data(data, playsize);
++      has_written = 1;
++      total_written += written;
++   // A bit dirty. We need to know when we can start joining the threads
++      init_send_size = written;
++      return written;
++   }   
++   
++   if ( s > 0 )
++   {
++   // Offloads data to the thread. Blindly assumes that playsize bytes were actually played back.
++      queqe_data(data, playsize); 
++      total_written += playsize;
++   }
++   
++   end = GetTimer();
++   if ( end - start > 200000 )
++      mp_msg(MSGT_AO, MSGL_WARN,  "Warning, sending %d bytes took more than 200 ms (%.3f ms).\n", written, (float)(end - start)/1000.0);
++   
++   return playsize;
++}
++
++static float get_delay(void)
++{
++   drain();
++   return (float)buffer / (float)ao_data.bps;
++}
++
++static int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
++{
++   uint32_t chunk_size_temp, buffer_size_temp;
++   int rc;
++
++   rc = recv(socket, &chunk_size_temp, sizeof(uint32_t), 0);
++   if ( rc != sizeof(uint32_t))
++   {
++      return 0;
++   }
++   rc = recv(socket, &buffer_size_temp, sizeof(uint32_t), 0);
++   if ( rc != sizeof(uint32_t))
++   {
++      return 0;
++   }
++
++   chunk_size_temp = ntohl(chunk_size_temp);
++   buffer_size_temp = ntohl(buffer_size_temp);
++
++   *chunk_size = chunk_size_temp;
++   *buffer_size = buffer_size_temp;
++
++   return 1;
++}
++
++static inline int is_little_endian(void)
++{
++   uint16_t i = 1;
++   return *((uint8_t*)&i);
++}
++
++static inline void swap_endian_16 ( uint16_t* x )
++{
++   *x = (*x>>8) | (*x<<8);
++}
++
++static inline void swap_endian_32 ( uint32_t* x )
++{
++   *x = (*x>>24) | 
++      ((*x<<8) & 0x00FF0000) |
++      ((*x>>8) & 0x0000FF00) |
++      (*x<<24);
++}
++
++static void queqe_data(void *data, int len)
++{
++   char *temp_buffer = malloc(len);
++   memcpy(temp_buffer, data, len);
++
++   rsound_thread_t *thread_data = malloc(sizeof(rsound_thread_t));
++   thread_data->data = temp_buffer;
++   thread_data->len = len;
++
++   pthread_t t;
++   
++   if ( total_written > init_send_size )
++      pthread_join(last_t, NULL);
++   
++   
++   pthread_create(&t, NULL, send_data_thread, thread_data);
++   last_t = t;
++}
++
++static void* send_data_thread( void *rsound_data )
++{
++   rsound_thread_t *thread_data = rsound_data;
++
++   int rc;
++   rc = send_data(thread_data->data, thread_data->len);
++
++   if ( rc != thread_data->len )
++      mp_msg(MSGT_AO, MSGL_WARN, "[AO_RSOUND] Didn't send required amount of data. Sent: %d, Assumed: %d\n", rc, thread_data->len);
++
++   free(thread_data->data);
++   free(thread_data);
++   pthread_exit(NULL);
++}   
++
++static int send_data(void* data, int playsize)
++{
++   char *buffer = data;
++   int written = 0;
++   int rc, count;
++
++   if ( s > 0 )
++   {
++      for ( count = 0; count < playsize; count += ao_data.outburst )
++      {
++         rc = send(s, buffer + count, ao_data.outburst, 0);
++         written += rc;
++         if ( rc == 0 )
++         {
++            mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Connection closed by server %s:%s\n", host, port);
++            uninit(0);
++            return 0;
++         }
++         else if ( rc == -1 )
++         {
++            return 0;
++         }
++
++      }
++   }
++   return written;
++}
++ 
++static int send_initial_data(void* data, int playsize)
++{
++   int rc, count;
++   int written = 0;
++
++   rc = send_data(data, (int)ao_data.outburst);
++   clock_gettime(CLOCK_MONOTONIC, &start_tv);
++
++   written += rc;
++   rc = send_data((char*)data + ao_data.outburst, playsize - (int)ao_data.outburst);
++
++   written += rc;
++
++   return written;
++}
++
++
++
++
++
++
++
+Index: Makefile
+===================================================================
+--- a/Makefile	(revision 30377)
++++ b/Makefile	(working copy)
+@@ -672,6 +672,7 @@
+                libao2/ao_mpegpes.c \
+                libao2/ao_null.c \
+                libao2/ao_pcm.c \
++               libao2/ao_rsound.c \
+                libao2/audio_out.c \
+                libvo/aspect.c \
+                libvo/geometry.c \
