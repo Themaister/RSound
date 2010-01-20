@@ -388,13 +388,6 @@ Index: libao2/ao_rsound.c
 +   static pthread_t last_t;
 +   static rsound_thread_t *last_thread_data = NULL;
 +   
-+   if ( last_thread_data )
-+   {
-+      if ( last_thread_data->data )
-+         free(last_thread_data->data);
-+      free(last_thread_data);
-+   }
-+
 +   char *temp_buffer = malloc(len);
 +   memcpy(temp_buffer, data, len);
 +
@@ -408,6 +401,13 @@ Index: libao2/ao_rsound.c
 +   {
 +      pthread_cancel(last_t);
 +      pthread_join(last_t, NULL);
++   }
++
++   if ( last_thread_data )
++   {
++      if ( last_thread_data->data )
++         free(last_thread_data->data);
++      free(last_thread_data);
 +   }
 +   
 +   last_thread_data = thread_data;
