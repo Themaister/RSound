@@ -1,7 +1,7 @@
 Index: libao2/audio_out.c
 ===================================================================
---- a/libao2/audio_out.c	(revision 30377)
-+++ b/libao2/audio_out.c	(working copy)
+--- libao2/audio_out.c	(revision 30380)
++++ libao2/audio_out.c	(working copy)
 @@ -53,6 +53,7 @@
  extern const ao_functions_t audio_out_v4l2;
  extern const ao_functions_t audio_out_mpegpes;
@@ -20,9 +20,9 @@ Index: libao2/audio_out.c
  };
 Index: libao2/ao_rsound.c
 ===================================================================
---- a/libao2/ao_rsound.c	(revision 0)
-+++ b/libao2/ao_rsound.c	(revision 0)
-@@ -0,0 +1,445 @@
+--- libao2/ao_rsound.c	(revision 0)
++++ libao2/ao_rsound.c	(revision 0)
+@@ -0,0 +1,452 @@
 +/*
 + * RSound audio output driver
 + *
@@ -140,7 +140,7 @@ Index: libao2/ao_rsound.c
 +
 +      if ( buffer < 0 )
 +      {
-+         mp_msg(MSGT_AO, MSGL_WARN,  "Warning, sound buffer was calculated to be empty.\n");
++         //mp_msg(MSGT_AO, MSGL_WARN,  "Warning, sound buffer was calculated to be empty. %d bytes\n", buffer);
 +         buffer = 0;
 +      }
 +   }
@@ -296,8 +296,8 @@ Index: libao2/ao_rsound.c
 +
 +static int play(void* data, int len, int flags)
 +{
-+   unsigned int start = GetTimer();
-+   unsigned int end;
++//   unsigned int start = GetTimer();
++//   unsigned int end;
 +   int written = 0;
 +   int rc = 0;
 +
@@ -326,10 +326,10 @@ Index: libao2/ao_rsound.c
 +      total_written += playsize;
 +   }
 +   
-+   end = GetTimer();
++/* end = GetTimer();
 +   if ( end - start > 200000 )
 +      mp_msg(MSGT_AO, MSGL_WARN,  "Warning, sending %d bytes took more than 200 ms (%.3f ms).\n", written, (float)(end - start)/1000.0);
-+   
++*/   
 +   return playsize;
 +}
 +
@@ -386,6 +386,15 @@ Index: libao2/ao_rsound.c
 +static void queqe_data(void *data, int len)
 +{
 +   static pthread_t last_t;
++   static rsound_thread_t *last_thread_data = NULL;
++   
++   if ( last_thread_data )
++   {
++      if ( last_thread_data->data )
++         free(last_thread_data->data);
++      free(last_thread_data);
++   }
++
 +   char *temp_buffer = malloc(len);
 +   memcpy(temp_buffer, data, len);
 +
@@ -401,7 +410,7 @@ Index: libao2/ao_rsound.c
 +      pthread_join(last_t, NULL);
 +   }
 +   
-+   
++   last_thread_data = thread_data;
 +   pthread_create(&t, NULL, send_data_thread, thread_data);
 +   last_t = t;
 +}
@@ -416,8 +425,6 @@ Index: libao2/ao_rsound.c
 +   if ( rc != thread_data->len )
 +      mp_msg(MSGT_AO, MSGL_WARN, "[AO_RSOUND] Didn't send required amount of data. Sent: %d, Assumed: %d\n", rc, thread_data->len);
 +
-+   free(thread_data->data);
-+   free(thread_data);
 +   pthread_exit(NULL);
 +}   
 +
@@ -468,13 +475,10 @@ Index: libao2/ao_rsound.c
 +
 +
 +
-+
-+
-+
 Index: Makefile
 ===================================================================
---- a/Makefile	(revision 30377)
-+++ b/Makefile	(working copy)
+--- Makefile	(revision 30380)
++++ Makefile	(working copy)
 @@ -672,6 +672,7 @@
                 libao2/ao_mpegpes.c \
                 libao2/ao_null.c \
