@@ -111,7 +111,6 @@ Index: libao2/ao_rsound.c
 +static void* send_data_thread(void*);
 +static int send_initial_data(void*, int);
 +static int send_data(void*, int);
-+static pthread_t last_t;
 +
 +static int control(int cmd, void *arg)
 +{
@@ -208,7 +207,7 @@ Index: libao2/ao_rsound.c
 +      return 0;
 +   }
 +   
-+   int send_buffer_size = (int)chunk_size;
++   int send_buffer_size = (int)buffer_size;
 +   if ( setsockopt(s, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, sizeof(int)) == -1 )
 +   {
 +      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't set socket buffer size\n");
@@ -386,6 +385,7 @@ Index: libao2/ao_rsound.c
 +
 +static void queqe_data(void *data, int len)
 +{
++   static pthread_t last_t;
 +   char *temp_buffer = malloc(len);
 +   memcpy(temp_buffer, data, len);
 +
@@ -396,7 +396,10 @@ Index: libao2/ao_rsound.c
 +   pthread_t t;
 +   
 +   if ( total_written > init_send_size )
++   {
++      pthread_cancel(last_t);
 +      pthread_join(last_t, NULL);
++   }
 +   
 +   
 +   pthread_create(&t, NULL, send_data_thread, thread_data);
