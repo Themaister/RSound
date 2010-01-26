@@ -207,7 +207,7 @@ Index: libao2/ao_rsound.c
 +      return 0;
 +   }
 +   
-+   int send_buffer_size = (int)buffer_size;
++   int send_buffer_size = (buffer_size / chunk_size >= 8) ? (int)buffer_size - (int)chunk_size : (int)buffer_size;
 +   if ( setsockopt(s, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, sizeof(int)) == -1 )
 +   {
 +      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't set socket buffer size\n");
