@@ -279,6 +279,7 @@ index 0000000..faf5842
 +static void
 +rsound_cancel(void *data)
 +{
++   (void) data;
 +}
 +
 +static void
