@@ -136,7 +136,7 @@ void* porta_thread( void* socket )
       memset(sound.buffer, 0, sound.size);
 
       // Reads complete buffer
-      for ( read_counter = 0; read_counter < sound.size; read_counter += DEFAULT_CHUNK_SIZE )
+      for ( read_counter = 0; read_counter < (int)sound.size; read_counter += DEFAULT_CHUNK_SIZE )
       {
          rc = recieve_data(s_new, sound.buffer + read_counter, DEFAULT_CHUNK_SIZE);
          if ( rc == 0 )

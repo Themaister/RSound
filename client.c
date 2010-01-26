@@ -97,7 +97,7 @@ int main(int argc, char **argv)
       // Somewhat dirty. Some CLI programs that output to stdout seem to prefer this approach. (E.g. flac, lame)
       read_count = 0;
       memset(buffer, 0, chunk_size);
-      for ( count = 0; count < (chunk_size/INPUT_CHUNK)*INPUT_CHUNK; count+=INPUT_CHUNK )
+      for ( count = 0; count < (int)(chunk_size/INPUT_CHUNK)*INPUT_CHUNK; count+=INPUT_CHUNK )
       {
          rc = read(0, buffer + count, INPUT_CHUNK);
          read_count += rc;
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
          }
       }
       // Reads the last bits that weren't done before
-      if ( read_count < chunk_size )
+      if ( read_count < (int)chunk_size )
       {
          rc = read(0, buffer + read_count, chunk_size - read_count);
          read_count += rc;
@@ -119,11 +119,11 @@ int main(int argc, char **argv)
          }
       }
 
-      if ( read_count != chunk_size )
+      if ( read_count != (int)chunk_size )
          fprintf(stderr, "Didn't read proper amount of data from stdin.\n");
 
       rc = send(s, buffer, chunk_size, 0);
-      if ( rc != chunk_size && rc > 0 )
+      if ( rc != (int)chunk_size && rc > 0 )
       {
          fprintf(stderr, "Sent not enough data ...\n");
       }

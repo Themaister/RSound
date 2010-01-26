@@ -89,7 +89,7 @@ static int init_oss(oss_t* sound, wav_header* w)
       return 0;
    }
    
-   if ( sampleRate != w->sampleRate )
+   if ( sampleRate != (int)w->sampleRate )
    {
       fprintf(stderr, "Sample rate couldn't be set correctly.\n");
       close(sound->audio_fd);
@@ -188,7 +188,7 @@ void* oss_thread( void* socket )
       }
 
       rc = write(sound.audio_fd, sound.buffer, sound.fragsize);
-      if (rc < sound.fragsize) 
+      if (rc < (int)sound.fragsize) 
       {
          fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
       } 
@@ -197,7 +197,7 @@ void* oss_thread( void* socket )
          fprintf(stderr,
                "Error from write\n");
       }  
-      else if (rc != sound.fragsize) 
+      else if (rc != (int)sound.fragsize) 
       {
          fprintf(stderr,
                "Short write, write %d frames\n", rc);
