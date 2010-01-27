@@ -33,16 +33,16 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = src/rsound$(EXEEXT) src/rsoundserv$(EXEEXT)
-@HAVE_ALSA_TRUE@am__append_1 = src/alsa.c
+@HAVE_ALSA_TRUE@am__append_1 = src/alsa.c src/alsa.h
 @HAVE_ALSA_TRUE@am__append_2 = -D_ALSA
 @HAVE_ALSA_TRUE@am__append_3 = -lasound
-@HAVE_AO_TRUE@am__append_4 = src/ao.c
+@HAVE_AO_TRUE@am__append_4 = src/ao.c src/ao.h
 @HAVE_AO_TRUE@am__append_5 = -D_AO
 @HAVE_AO_TRUE@am__append_6 = -lao
-@HAVE_PORTA_TRUE@am__append_7 = src/porta.c
+@HAVE_PORTA_TRUE@am__append_7 = src/porta.c src/porta.h
 @HAVE_PORTA_TRUE@am__append_8 = -D_PORTA
 @HAVE_PORTA_TRUE@am__append_9 = -lportaudio
-@HAVE_OSS_TRUE@am__append_10 = src/oss.c
+@HAVE_OSS_TRUE@am__append_10 = src/oss.c src/oss.h
 @HAVE_OSS_TRUE@am__append_11 = -D_OSS
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
@@ -64,7 +64,9 @@ am_src_rsound_OBJECTS = src/client.$(OBJEXT) src/endian.$(OBJEXT)
 src_rsound_OBJECTS = $(am_src_rsound_OBJECTS)
 src_rsound_LDADD = $(LDADD)
 am__src_rsoundserv_SOURCES_DIST = src/daemon.c src/endian.c \
-	src/rsound-common.c src/alsa.c src/ao.c src/porta.c src/oss.c
+	src/endian.h src/rsound-common.c src/rsound.h src/audio.h \
+	src/alsa.c src/alsa.h src/ao.c src/ao.h src/porta.c \
+	src/porta.h src/oss.c src/oss.h
 @HAVE_ALSA_TRUE@am__objects_1 = src/alsa.$(OBJEXT)
 @HAVE_AO_TRUE@am__objects_2 = src/ao.$(OBJEXT)
 @HAVE_PORTA_TRUE@am__objects_3 = src/porta.$(OBJEXT)
@@ -193,8 +195,17 @@ sources_serv = $(am__append_1) $(am__append_4) $(am__append_7) \
 	$(am__append_10)
 AM_CFLAGS = $(am__append_2) $(am__append_5) $(am__append_8) \
 	$(am__append_11)
-src_rsound_SOURCES = src/client.c src/endian.c
-src_rsoundserv_SOURCES = src/daemon.c src/endian.c src/rsound-common.c $(sources_serv)
+src_rsound_SOURCES = src/client.c \
+                     src/endian.c \
+                     src/endian.h
+
+src_rsoundserv_SOURCES = src/daemon.c \
+                           src/endian.c \
+                           src/endian.h \
+                           src/rsound-common.c \
+                           src/rsound.h \
+                           src/audio.h $(sources_serv)
+
 src_rsoundserv_LDADD = $(SERV_LIBS)
 all: all-am
 

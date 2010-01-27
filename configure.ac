@@ -1,4 +1,4 @@
-AC_INIT(RSound, git-devel, maister@archlinux.us)
+AC_INIT(RSound, 0.1, maister@archlinux.us)
 
 AM_INIT_AUTOMAKE
 
