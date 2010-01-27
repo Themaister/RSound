@@ -2,7 +2,7 @@ bin_PROGRAMS = src/rsound src/rsoundserv
 AUTOMAKE_OPTIONS = subdir-objects
 
 sources_serv = 
-AM_CFLAGS =
+AM_CFLAGS = -Wall -Wextra -O2
 
 if HAVE_ALSA
    sources_serv += src/alsa.c
