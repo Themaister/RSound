@@ -11,6 +11,17 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 
 SERV_LIBS="-lpthread"
+
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h])
+AC_C_INLINE
+AC_TYPE_SIZE_T
+AC_TYPE_UINT16_T
+AC_TYPE_UINT32_T
+AC_TYPE_UINT8_T
+AC_FUNC_FORK
+AC_FUNC_MALLOC
+AC_CHECK_FUNCS([memset select socket strerror])
+
 AC_CHECK_HEADER(sys/soundcard.h, ,enable_oss=no,)
 AC_CHECK_HEADER(alsa/asoundlib.h, ,enable_alsa=no,)
 AC_CHECK_HEADER(ao/ao.h, ,enable_ao=no,)
@@ -21,7 +32,8 @@ AC_CHECK_LIB(portaudio, Pa_OpenStream, ,enable_porta=no)
 
 AC_SUBST(SERV_LIBS)
 
-LIBS=""
+AM_SUBST_NOTMAKE(LIBS)
+AM_SUBST_NOTMAKE(DEFS)
 
 AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
 AM_CONDITIONAL(HAVE_OSS, test x$enable_oss = xyes)
