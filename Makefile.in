@@ -47,7 +47,7 @@ bin_PROGRAMS = src/rsound$(EXEEXT) src/rsoundserv$(EXEEXT)
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(top_srcdir)/configure AUTHORS COPYING \
-	ChangeLog INSTALL NEWS depcomp install-sh missing
+	ChangeLog INSTALL NEWS compile depcomp install-sh missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -59,20 +59,20 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_src_rsound_OBJECTS = client.$(OBJEXT) endian.$(OBJEXT)
+am__dirstamp = $(am__leading_dot)dirstamp
+am_src_rsound_OBJECTS = src/client.$(OBJEXT) src/endian.$(OBJEXT)
 src_rsound_OBJECTS = $(am_src_rsound_OBJECTS)
 src_rsound_LDADD = $(LDADD)
-am__dirstamp = $(am__leading_dot)dirstamp
 am__src_rsoundserv_SOURCES_DIST = src/daemon.c src/endian.c \
 	src/rsound-common.c src/alsa.c src/ao.c src/porta.c src/oss.c
-@HAVE_ALSA_TRUE@am__objects_1 = alsa.$(OBJEXT)
-@HAVE_AO_TRUE@am__objects_2 = ao.$(OBJEXT)
-@HAVE_PORTA_TRUE@am__objects_3 = porta.$(OBJEXT)
-@HAVE_OSS_TRUE@am__objects_4 = oss.$(OBJEXT)
+@HAVE_ALSA_TRUE@am__objects_1 = src/alsa.$(OBJEXT)
+@HAVE_AO_TRUE@am__objects_2 = src/ao.$(OBJEXT)
+@HAVE_PORTA_TRUE@am__objects_3 = src/porta.$(OBJEXT)
+@HAVE_OSS_TRUE@am__objects_4 = src/oss.$(OBJEXT)
 am__objects_5 = $(am__objects_1) $(am__objects_2) $(am__objects_3) \
 	$(am__objects_4)
-am_src_rsoundserv_OBJECTS = daemon.$(OBJEXT) endian.$(OBJEXT) \
-	rsound-common.$(OBJEXT) $(am__objects_5)
+am_src_rsoundserv_OBJECTS = src/daemon.$(OBJEXT) src/endian.$(OBJEXT) \
+	src/rsound-common.$(OBJEXT) $(am__objects_5)
 src_rsoundserv_OBJECTS = $(am_src_rsoundserv_OBJECTS)
 am__DEPENDENCIES_1 =
 am__DEPENDENCIES_2 = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
@@ -190,6 +190,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+AUTOMAKE_OPTIONS = subdir-objects
 sources_serv = $(am__append_1) $(am__append_4) $(am__append_7) \
 	$(am__append_10)
 AM_CFLAGS = $(am__append_2) $(am__append_5) $(am__append_8) \
@@ -275,153 +276,66 @@ clean-binPROGRAMS:
 src/$(am__dirstamp):
 	@$(MKDIR_P) src
 	@: > src/$(am__dirstamp)
+src/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) src/$(DEPDIR)
+	@: > src/$(DEPDIR)/$(am__dirstamp)
+src/client.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
+src/endian.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
 src/rsound$(EXEEXT): $(src_rsound_OBJECTS) $(src_rsound_DEPENDENCIES) src/$(am__dirstamp)
 	@rm -f src/rsound$(EXEEXT)
 	$(LINK) $(src_rsound_OBJECTS) $(src_rsound_LDADD) $(LIBS)
+src/daemon.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
+src/rsound-common.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
+src/alsa.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
+src/ao.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
+src/porta.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
+src/oss.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
 src/rsoundserv$(EXEEXT): $(src_rsoundserv_OBJECTS) $(src_rsoundserv_DEPENDENCIES) src/$(am__dirstamp)
 	@rm -f src/rsoundserv$(EXEEXT)
 	$(LINK) $(src_rsoundserv_OBJECTS) $(src_rsoundserv_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f src/alsa.$(OBJEXT)
+	-rm -f src/ao.$(OBJEXT)
+	-rm -f src/client.$(OBJEXT)
+	-rm -f src/daemon.$(OBJEXT)
+	-rm -f src/endian.$(OBJEXT)
+	-rm -f src/oss.$(OBJEXT)
+	-rm -f src/porta.$(OBJEXT)
+	-rm -f src/rsound-common.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alsa.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ao.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/daemon.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/endian.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/oss.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/porta.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rsound-common.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/alsa.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/ao.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/client.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/daemon.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/endian.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/oss.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/porta.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/rsound-common.Po@am__quote@
 
 .c.o:
-@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(COMPILE) -c $<
+@am__fastdepCC_FALSE@	$(COMPILE) -c -o $@ $<
 
 .c.obj:
-@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
-
-client.o: src/client.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT client.o -MD -MP -MF $(DEPDIR)/client.Tpo -c -o client.o `test -f 'src/client.c' || echo '$(srcdir)/'`src/client.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/client.Tpo $(DEPDIR)/client.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/client.c' object='client.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o client.o `test -f 'src/client.c' || echo '$(srcdir)/'`src/client.c
-
-client.obj: src/client.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT client.obj -MD -MP -MF $(DEPDIR)/client.Tpo -c -o client.obj `if test -f 'src/client.c'; then $(CYGPATH_W) 'src/client.c'; else $(CYGPATH_W) '$(srcdir)/src/client.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/client.Tpo $(DEPDIR)/client.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/client.c' object='client.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o client.obj `if test -f 'src/client.c'; then $(CYGPATH_W) 'src/client.c'; else $(CYGPATH_W) '$(srcdir)/src/client.c'; fi`
-
-endian.o: src/endian.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT endian.o -MD -MP -MF $(DEPDIR)/endian.Tpo -c -o endian.o `test -f 'src/endian.c' || echo '$(srcdir)/'`src/endian.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/endian.Tpo $(DEPDIR)/endian.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/endian.c' object='endian.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o endian.o `test -f 'src/endian.c' || echo '$(srcdir)/'`src/endian.c
-
-endian.obj: src/endian.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT endian.obj -MD -MP -MF $(DEPDIR)/endian.Tpo -c -o endian.obj `if test -f 'src/endian.c'; then $(CYGPATH_W) 'src/endian.c'; else $(CYGPATH_W) '$(srcdir)/src/endian.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/endian.Tpo $(DEPDIR)/endian.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/endian.c' object='endian.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o endian.obj `if test -f 'src/endian.c'; then $(CYGPATH_W) 'src/endian.c'; else $(CYGPATH_W) '$(srcdir)/src/endian.c'; fi`
-
-daemon.o: src/daemon.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT daemon.o -MD -MP -MF $(DEPDIR)/daemon.Tpo -c -o daemon.o `test -f 'src/daemon.c' || echo '$(srcdir)/'`src/daemon.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/daemon.Tpo $(DEPDIR)/daemon.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/daemon.c' object='daemon.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o daemon.o `test -f 'src/daemon.c' || echo '$(srcdir)/'`src/daemon.c
-
-daemon.obj: src/daemon.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT daemon.obj -MD -MP -MF $(DEPDIR)/daemon.Tpo -c -o daemon.obj `if test -f 'src/daemon.c'; then $(CYGPATH_W) 'src/daemon.c'; else $(CYGPATH_W) '$(srcdir)/src/daemon.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/daemon.Tpo $(DEPDIR)/daemon.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/daemon.c' object='daemon.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o daemon.obj `if test -f 'src/daemon.c'; then $(CYGPATH_W) 'src/daemon.c'; else $(CYGPATH_W) '$(srcdir)/src/daemon.c'; fi`
-
-rsound-common.o: src/rsound-common.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT rsound-common.o -MD -MP -MF $(DEPDIR)/rsound-common.Tpo -c -o rsound-common.o `test -f 'src/rsound-common.c' || echo '$(srcdir)/'`src/rsound-common.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/rsound-common.Tpo $(DEPDIR)/rsound-common.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/rsound-common.c' object='rsound-common.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o rsound-common.o `test -f 'src/rsound-common.c' || echo '$(srcdir)/'`src/rsound-common.c
-
-rsound-common.obj: src/rsound-common.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT rsound-common.obj -MD -MP -MF $(DEPDIR)/rsound-common.Tpo -c -o rsound-common.obj `if test -f 'src/rsound-common.c'; then $(CYGPATH_W) 'src/rsound-common.c'; else $(CYGPATH_W) '$(srcdir)/src/rsound-common.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/rsound-common.Tpo $(DEPDIR)/rsound-common.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/rsound-common.c' object='rsound-common.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o rsound-common.obj `if test -f 'src/rsound-common.c'; then $(CYGPATH_W) 'src/rsound-common.c'; else $(CYGPATH_W) '$(srcdir)/src/rsound-common.c'; fi`
-
-alsa.o: src/alsa.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT alsa.o -MD -MP -MF $(DEPDIR)/alsa.Tpo -c -o alsa.o `test -f 'src/alsa.c' || echo '$(srcdir)/'`src/alsa.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/alsa.Tpo $(DEPDIR)/alsa.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/alsa.c' object='alsa.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o alsa.o `test -f 'src/alsa.c' || echo '$(srcdir)/'`src/alsa.c
-
-alsa.obj: src/alsa.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT alsa.obj -MD -MP -MF $(DEPDIR)/alsa.Tpo -c -o alsa.obj `if test -f 'src/alsa.c'; then $(CYGPATH_W) 'src/alsa.c'; else $(CYGPATH_W) '$(srcdir)/src/alsa.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/alsa.Tpo $(DEPDIR)/alsa.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/alsa.c' object='alsa.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o alsa.obj `if test -f 'src/alsa.c'; then $(CYGPATH_W) 'src/alsa.c'; else $(CYGPATH_W) '$(srcdir)/src/alsa.c'; fi`
-
-ao.o: src/ao.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ao.o -MD -MP -MF $(DEPDIR)/ao.Tpo -c -o ao.o `test -f 'src/ao.c' || echo '$(srcdir)/'`src/ao.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/ao.Tpo $(DEPDIR)/ao.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/ao.c' object='ao.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ao.o `test -f 'src/ao.c' || echo '$(srcdir)/'`src/ao.c
-
-ao.obj: src/ao.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT ao.obj -MD -MP -MF $(DEPDIR)/ao.Tpo -c -o ao.obj `if test -f 'src/ao.c'; then $(CYGPATH_W) 'src/ao.c'; else $(CYGPATH_W) '$(srcdir)/src/ao.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/ao.Tpo $(DEPDIR)/ao.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/ao.c' object='ao.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ao.obj `if test -f 'src/ao.c'; then $(CYGPATH_W) 'src/ao.c'; else $(CYGPATH_W) '$(srcdir)/src/ao.c'; fi`
-
-porta.o: src/porta.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT porta.o -MD -MP -MF $(DEPDIR)/porta.Tpo -c -o porta.o `test -f 'src/porta.c' || echo '$(srcdir)/'`src/porta.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/porta.Tpo $(DEPDIR)/porta.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/porta.c' object='porta.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o porta.o `test -f 'src/porta.c' || echo '$(srcdir)/'`src/porta.c
-
-porta.obj: src/porta.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT porta.obj -MD -MP -MF $(DEPDIR)/porta.Tpo -c -o porta.obj `if test -f 'src/porta.c'; then $(CYGPATH_W) 'src/porta.c'; else $(CYGPATH_W) '$(srcdir)/src/porta.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/porta.Tpo $(DEPDIR)/porta.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/porta.c' object='porta.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o porta.obj `if test -f 'src/porta.c'; then $(CYGPATH_W) 'src/porta.c'; else $(CYGPATH_W) '$(srcdir)/src/porta.c'; fi`
-
-oss.o: src/oss.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT oss.o -MD -MP -MF $(DEPDIR)/oss.Tpo -c -o oss.o `test -f 'src/oss.c' || echo '$(srcdir)/'`src/oss.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/oss.Tpo $(DEPDIR)/oss.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/oss.c' object='oss.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o oss.o `test -f 'src/oss.c' || echo '$(srcdir)/'`src/oss.c
-
-oss.obj: src/oss.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT oss.obj -MD -MP -MF $(DEPDIR)/oss.Tpo -c -o oss.obj `if test -f 'src/oss.c'; then $(CYGPATH_W) 'src/oss.c'; else $(CYGPATH_W) '$(srcdir)/src/oss.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/oss.Tpo $(DEPDIR)/oss.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/oss.c' object='oss.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o oss.obj `if test -f 'src/oss.c'; then $(CYGPATH_W) 'src/oss.c'; else $(CYGPATH_W) '$(srcdir)/src/oss.c'; fi`
+@am__fastdepCC_FALSE@	$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -650,6 +564,7 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-rm -f src/$(DEPDIR)/$(am__dirstamp)
 	-rm -f src/$(am__dirstamp)
 
 maintainer-clean-generic:
@@ -661,7 +576,7 @@ clean-am: clean-binPROGRAMS clean-generic mostlyclean-am
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf ./$(DEPDIR)
+	-rm -rf src/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -709,7 +624,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf ./$(DEPDIR)
+	-rm -rf src/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

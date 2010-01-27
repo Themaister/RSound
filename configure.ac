@@ -8,6 +8,7 @@ AC_ARG_ENABLE( portaudio,  [  --disable-portaudio     Disables portaudio support
 AC_ARG_ENABLE( libao,      [  --disable-libao         Disables libao support], enable_ao=no, enable_ao=yes)
 
 AC_PROG_CC
+AM_PROG_CC_C_O
 
 SERV_LIBS="-lpthread"
 AC_CHECK_HEADER(sys/soundcard.h, ,enable_oss=no,)

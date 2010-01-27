@@ -1,4 +1,5 @@
 bin_PROGRAMS = src/rsound src/rsoundserv
+AUTOMAKE_OPTIONS = subdir-objects
 
 sources_serv = 
 AM_CFLAGS =
