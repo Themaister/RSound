@@ -1,6 +1,6 @@
 Index: libao2/audio_out.c
 ===================================================================
---- libao2/audio_out.c	(revision 30380)
+--- libao2/audio_out.c	(revision 30447)
 +++ libao2/audio_out.c	(working copy)
 @@ -53,6 +53,7 @@
  extern const ao_functions_t audio_out_v4l2;
@@ -22,7 +22,7 @@ Index: libao2/ao_rsound.c
 ===================================================================
 --- libao2/ao_rsound.c	(revision 0)
 +++ libao2/ao_rsound.c	(revision 0)
-@@ -0,0 +1,452 @@
+@@ -0,0 +1,461 @@
 +/*
 + * RSound audio output driver
 + *
@@ -112,6 +112,8 @@ Index: libao2/ao_rsound.c
 +static int send_initial_data(void*, int);
 +static int send_data(void*, int);
 +
++extern int vo_pts; /* To detect if we're playing video or not */
++
 +static int control(int cmd, void *arg)
 +{
 +   return -1;
@@ -164,6 +166,8 @@ Index: libao2/ao_rsound.c
 +   uint32_t rate_temp = rate;
 +   uint16_t channels_temp = channels;
 +   uint16_t bits_temp = 16;
++   uint32_t chunk_size, buffer_size;
++   int send_buffer_size;
 +
 +   if ( !is_little_endian() )
 +   {
@@ -199,7 +203,6 @@ Index: libao2/ao_rsound.c
 +      return 0;
 +   }
 +   
-+   uint32_t chunk_size, buffer_size;
 +   if ( !get_backend_info(s, &chunk_size, &buffer_size) )
 +   {
 +      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't get backend info from server %s:%s\n", host, port);
@@ -207,7 +210,7 @@ Index: libao2/ao_rsound.c
 +      return 0;
 +   }
 +   
-+   int send_buffer_size = (buffer_size / chunk_size >= 8) ? (int)buffer_size - (int)chunk_size : (int)buffer_size;
++   send_buffer_size = (buffer_size / chunk_size >= 8) ? (int)buffer_size - (int)chunk_size : (int)buffer_size;
 +   if ( setsockopt(s, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, sizeof(int)) == -1 )
 +   {
 +      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't set socket buffer size\n");
@@ -226,6 +229,12 @@ Index: libao2/ao_rsound.c
 +
 +static int init(int rate, int channels, int format, int flags)
 +{
++   const opt_t subopts[] = {
++      {"host", OPT_ARG_MSTRZ, &host, NULL},
++      {"port", OPT_ARG_MSTRZ, &port, NULL},
++      {NULL}
++   };
++   
 +   buffer = 0;
 +
 +   if ( host )
@@ -234,11 +243,6 @@ Index: libao2/ao_rsound.c
 +      free(port);
 +
 +   // Parses commandline
-+   const opt_t subopts[] = {
-+      {"host", OPT_ARG_MSTRZ, &host, NULL},
-+      {"port", OPT_ARG_MSTRZ, &port, NULL},
-+      {NULL}
-+   };
 +
 +   if (subopt_parse(ao_subdevice, subopts) != 0) {
 +      return 0;
@@ -386,20 +390,25 @@ Index: libao2/ao_rsound.c
 +static void queqe_data(void *data, int len)
 +{
 +   static pthread_t last_t;
++   rsound_thread_t *thread_data;
++   char *temp_buffer;
++   pthread_t t;
 +   static rsound_thread_t *last_thread_data = NULL;
 +   
-+   char *temp_buffer = malloc(len);
++   temp_buffer = malloc(len);
 +   memcpy(temp_buffer, data, len);
 +
-+   rsound_thread_t *thread_data = malloc(sizeof(rsound_thread_t));
++   thread_data = malloc(sizeof(rsound_thread_t));
 +   thread_data->data = temp_buffer;
 +   thread_data->len = len;
 +
-+   pthread_t t;
 +   
 +   if ( total_written > init_send_size )
 +   {
-+      pthread_cancel(last_t);
++      if ( vo_pts > 0 )
++         pthread_cancel(last_t);
++         /* No point canceling audio if we don't need to sync with video */
++
 +      pthread_join(last_t, NULL);
 +   }
 +
@@ -477,7 +486,7 @@ Index: libao2/ao_rsound.c
 +
 Index: Makefile
 ===================================================================
---- Makefile	(revision 30380)
+--- Makefile	(revision 30447)
 +++ Makefile	(working copy)
 @@ -672,6 +672,7 @@
                 libao2/ao_mpegpes.c \
