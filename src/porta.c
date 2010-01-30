@@ -116,8 +116,8 @@ void* porta_thread( void* socket )
       close(s_new);
       pthread_exit(NULL);
    }
-  
-   if ( !send_backend_info(s_new, DEFAULT_CHUNK_SIZE, 16*DEFAULT_CHUNK_SIZE ) )
+   // Just have to set something for buffer_size 
+   if ( !send_backend_info(s_new, DEFAULT_CHUNK_SIZE, 32*DEFAULT_CHUNK_SIZE ) )
    {
       fprintf(stderr, "Couldn't send backend info.\n");
       close(s_new);
@@ -149,8 +149,7 @@ void* porta_thread( void* socket )
       err = Pa_WriteStream( sound.stream, sound.buffer, FRAMES_PER_BUFFER );
       if ( err )
       {
-         fprintf(stderr, "Error occured while writing stream.\n");
-         active_connection = 0;
+         fprintf(stderr, "Buffer underrun occured.\n");
       }
       
    }
@@ -161,6 +160,7 @@ void* porta_thread( void* socket )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
    pthread_exit(NULL);
+   return NULL; /* To make GCC warning happy */
 
 }
 
