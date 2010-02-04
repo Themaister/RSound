@@ -1,8 +1,8 @@
 Index: libao2/audio_out.c
 ===================================================================
---- libao2/audio_out.c	(revision 30447)
+--- libao2/audio_out.c	(revision 30496)
 +++ libao2/audio_out.c	(working copy)
-@@ -53,6 +53,7 @@
+@@ -54,6 +54,7 @@
  extern const ao_functions_t audio_out_v4l2;
  extern const ao_functions_t audio_out_mpegpes;
  extern const ao_functions_t audio_out_pcm;
@@ -10,7 +10,7 @@ Index: libao2/audio_out.c
  extern const ao_functions_t audio_out_pss;
  
  const ao_functions_t* const audio_out_drivers[] =
-@@ -119,6 +120,7 @@
+@@ -123,6 +124,7 @@
  #endif
          &audio_out_null,
  // should not be auto-selected:
@@ -69,6 +69,8 @@ Index: libao2/ao_rsound.c
 +#include "osdep/timer.h"
 +#include <pthread.h>
 +
++#define DEFAULT_HOST "localhost"
++#define DEFAULT_PORT "12345"
 +
 +static const ao_info_t info =
 +{
@@ -81,7 +83,8 @@ Index: libao2/ao_rsound.c
 +LIBAO_EXTERN(rsound)
 +
 +/* Alternative method. Tries to make the play() function more snappy by offloading the send() functions to a thread.
-+ * It might fix issues related to constant latency, but if the latency spikes occationally (laptop wifi comes to mind), this probably won't make a difference.
++ * It might fix issues related to constant latency, but if the latency spikes occationally (laptop wifi comes to mind), 
++ * this probably won't make a difference.
 + * Each thread is joined before starting another thread, to avoid possible race conditions. A bad connection will still give problems.
 + * It is probably more bug prone than the first implementation.
 + */
@@ -94,6 +97,7 @@ Index: libao2/ao_rsound.c
 +
 +static char *host = NULL;
 +static char *port = NULL;
++static int audio_cancel; /* If we want to force video sync by pthread_cancel() the network thread. It's dirty */
 +static int s;
 +
 +static int buffer;
@@ -121,12 +125,13 @@ Index: libao2/ao_rsound.c
 +
 +static void drain(void)
 +{
-+   // Simulates a sound card. Assumes that a certain bytes of sound have been played since the beginning, and estimated the buffer size accordingly.
++   /* Simulates a sound card. Assumes that a certain bytes of sound have been played since the beginning, and estimated the buffer size accordingly. */
 +   if ( has_written )
 +   {
 +      int64_t temp, temp2;
 +      
 +      struct timespec now_tv;
++      /* Might change this later */
 +      clock_gettime(CLOCK_MONOTONIC, &now_tv);
 +      
 +      temp = (int64_t)now_tv.tv_sec - (int64_t)start_tv.tv_sec;
@@ -141,15 +146,13 @@ Index: libao2/ao_rsound.c
 +      buffer = (int)(total_written - temp);
 +
 +      if ( buffer < 0 )
-+      {
-+         //mp_msg(MSGT_AO, MSGL_WARN,  "Warning, sound buffer was calculated to be empty. %d bytes\n", buffer);
 +         buffer = 0;
-+      }
 +   }
 +   else
 +      buffer = 0;
 +}
-+// Connects to the rsoundserv and sends the WAVE header. Server is ready to recieve audio data.
++
++/* Connects to the rsoundserv and sends the WAVE header. Server is ready to recieve audio data. */
 +static int create_connection(int rate, int channels)
 +{
 +   char waveheader[44] = {0};
@@ -161,7 +164,7 @@ Index: libao2/ao_rsound.c
 +   #define CHANNEL 22
 +   #define BITS 34
 +
-+   // rsoundserv only requires these three params
++   /* rsoundserv only requires these three params */
 +
 +   uint32_t rate_temp = rate;
 +   uint16_t channels_temp = channels;
@@ -219,7 +222,7 @@ Index: libao2/ao_rsound.c
 +   }
 +
 +   ao_data.outburst = chunk_size;
-+   ao_data.buffersize = buffer_size;
++   ao_data.buffersize = send_buffer_size;
 +
 +   total_written = 0;
 +   has_written = 0;
@@ -229,9 +232,12 @@ Index: libao2/ao_rsound.c
 +
 +static int init(int rate, int channels, int format, int flags)
 +{
++   static strarg_t host_opt;
++   static strarg_t port_opt;
 +   const opt_t subopts[] = {
 +      {"host", OPT_ARG_MSTRZ, &host, NULL},
 +      {"port", OPT_ARG_MSTRZ, &port, NULL},
++      {"forcesync", OPT_ARG_BOOL, &audio_cancel, NULL},
 +      {NULL}
 +   };
 +   
@@ -242,17 +248,17 @@ Index: libao2/ao_rsound.c
 +   if ( port )
 +      free(port);
 +
-+   // Parses commandline
++   /* Parses commandline */
 +
 +   if (subopt_parse(ao_subdevice, subopts) != 0) {
 +      return 0;
 +   }
 +
-+   // Defaults
++   /* Defaults */
 +   if ( !host )
-+      host = strdup("localhost");
++      host = strdup(DEFAULT_HOST);
 +   if ( !port )
-+      port = strdup("12345");
++      port = strdup(DEFAULT_PORT);
 +
 +   ao_data.channels = channels;
 +   ao_data.samplerate = rate;
@@ -264,7 +270,7 @@ Index: libao2/ao_rsound.c
 +
 +static void uninit(int n)
 +{
-+   // simply closes connection
++   /* Simply closes connection */
 +   if ( s > 0 )
 +      close(s);
 +   s = -1;
@@ -300,8 +306,6 @@ Index: libao2/ao_rsound.c
 +
 +static int play(void* data, int len, int flags)
 +{
-+//   unsigned int start = GetTimer();
-+//   unsigned int end;
 +   int written = 0;
 +   int rc = 0;
 +
@@ -313,27 +317,23 @@ Index: libao2/ao_rsound.c
 +   
 +   if ( !has_written )
 +   {
-+   // We need to know when the first chunk was sent to the sound card to get a 
-+   // better calculation of the buffer size available. 
++   /* We need to know when the first chunk was sent to the sound card to get a 
++      better calculation of the buffer size available. */
 +      written = send_initial_data(data, playsize);
 +      has_written = 1;
 +      total_written += written;
-+   // A bit dirty. We need to know when we can start joining the threads
++   /* A bit dirty. We need to know when we can start joining the threads */
 +      init_send_size = written;
 +      return written;
 +   }   
 +   
 +   if ( s > 0 )
 +   {
-+   // Offloads data to the thread. Blindly assumes that playsize bytes were actually played back.
++   /* Offloads data to the thread. Blindly assumes that playsize bytes were actually played back. */
 +      queqe_data(data, playsize); 
 +      total_written += playsize;
 +   }
 +   
-+/* end = GetTimer();
-+   if ( end - start > 200000 )
-+      mp_msg(MSGT_AO, MSGL_WARN,  "Warning, sending %d bytes took more than 200 ms (%.3f ms).\n", written, (float)(end - start)/1000.0);
-+*/   
 +   return playsize;
 +}
 +
@@ -405,7 +405,7 @@ Index: libao2/ao_rsound.c
 +   
 +   if ( total_written > init_send_size )
 +   {
-+      if ( vo_pts > 0 )
++      if ( vo_pts > 0 && audio_cancel )
 +         pthread_cancel(last_t);
 +         /* No point canceling audio if we don't need to sync with video */
 +
@@ -486,9 +486,9 @@ Index: libao2/ao_rsound.c
 +
 Index: Makefile
 ===================================================================
---- Makefile	(revision 30447)
+--- Makefile	(revision 30496)
 +++ Makefile	(working copy)
-@@ -672,6 +672,7 @@
+@@ -673,6 +673,7 @@
                 libao2/ao_mpegpes.c \
                 libao2/ao_null.c \
                 libao2/ao_pcm.c \
