@@ -16,7 +16,7 @@
 #include "porta.h"
 #include "rsound.h"
 
-#define FRAMES_PER_BUFFER DEFAULT_CHUNK_SIZE
+#define FRAMES_PER_BUFFER (DEFAULT_CHUNK_SIZE/4)
 
 static void clean_porta_interface(porta_t* sound)
 {

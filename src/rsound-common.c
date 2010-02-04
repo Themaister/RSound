@@ -166,14 +166,22 @@ void parse_input(int argc, char ** argv)
 
    if ( backend == NULL )
    {
-#ifdef _ALSA
-      backend = alsa_thread;
-#elif _OSS
-      backend = oss_thread;
-#elif _PORTA
+#ifdef __CYGWIN__
+   #ifdef _PORTA
       backend = porta_thread;
-#elif _AO
+   #elif _OSS
+      backend = oss_thread;
+   #endif
+#else
+   #ifdef _ALSA
+      backend = alsa_thread;
+   #elif _OSS
+      backend = oss_thread;
+   #elif _AO
       backend = ao_thread;
+   #elif _PORTA
+      backend = porta_thread;
+   #endif
 #endif
    }
 

@@ -124,5 +124,6 @@ void* ao_thread ( void* data )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
    pthread_exit(NULL);
+   return NULL; /* GCC warning */
 
 }

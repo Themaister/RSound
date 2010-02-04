@@ -1,6 +1,6 @@
 Index: libao2/audio_out.c
 ===================================================================
---- libao2/audio_out.c	(revision 30496)
+--- libao2/audio_out.c	(revision 30504)
 +++ libao2/audio_out.c	(working copy)
 @@ -54,6 +54,7 @@
  extern const ao_functions_t audio_out_v4l2;
@@ -22,7 +22,7 @@ Index: libao2/ao_rsound.c
 ===================================================================
 --- libao2/ao_rsound.c	(revision 0)
 +++ libao2/ao_rsound.c	(revision 0)
-@@ -0,0 +1,461 @@
+@@ -0,0 +1,467 @@
 +/*
 + * RSound audio output driver
 + *
@@ -132,7 +132,11 @@ Index: libao2/ao_rsound.c
 +      
 +      struct timespec now_tv;
 +      /* Might change this later */
++#ifdef _POSIX_MONOTONIC_CLOCK
 +      clock_gettime(CLOCK_MONOTONIC, &now_tv);
++#else
++      clock_gettime(CLOCK_REALTIME, &now_tv);
++#endif
 +      
 +      temp = (int64_t)now_tv.tv_sec - (int64_t)start_tv.tv_sec;
 +      temp *= ao_data.bps;
@@ -232,8 +236,6 @@ Index: libao2/ao_rsound.c
 +
 +static int init(int rate, int channels, int format, int flags)
 +{
-+   static strarg_t host_opt;
-+   static strarg_t port_opt;
 +   const opt_t subopts[] = {
 +      {"host", OPT_ARG_MSTRZ, &host, NULL},
 +      {"port", OPT_ARG_MSTRZ, &port, NULL},
@@ -307,7 +309,6 @@ Index: libao2/ao_rsound.c
 +static int play(void* data, int len, int flags)
 +{
 +   int written = 0;
-+   int rc = 0;
 +
 +   int maxbursts = (ao_data.buffersize - buffer) / ao_data.outburst;
 +   int playbursts = len / ao_data.outburst;
@@ -435,6 +436,7 @@ Index: libao2/ao_rsound.c
 +      mp_msg(MSGT_AO, MSGL_WARN, "[AO_RSOUND] Didn't send required amount of data. Sent: %d, Assumed: %d\n", rc, thread_data->len);
 +
 +   pthread_exit(NULL);
++   return NULL; /* GCC warning */
 +}   
 +
 +static int send_data(void* data, int playsize)
@@ -467,11 +469,15 @@ Index: libao2/ao_rsound.c
 + 
 +static int send_initial_data(void* data, int playsize)
 +{
-+   int rc, count;
++   int rc;
 +   int written = 0;
 +
 +   rc = send_data(data, (int)ao_data.outburst);
++#ifdef _POSIX_MONOTONIC_CLOCK
 +   clock_gettime(CLOCK_MONOTONIC, &start_tv);
++#else
++   clock_gettime(CLOCK_REALTIME, &start_tv);
++#endif
 +
 +   written += rc;
 +   rc = send_data((char*)data + ao_data.outburst, playsize - (int)ao_data.outburst);
@@ -486,7 +492,7 @@ Index: libao2/ao_rsound.c
 +
 Index: Makefile
 ===================================================================
---- Makefile	(revision 30496)
+--- Makefile	(revision 30504)
 +++ Makefile	(working copy)
 @@ -673,6 +673,7 @@
                 libao2/ao_mpegpes.c \
