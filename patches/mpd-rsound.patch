@@ -226,7 +226,7 @@ index 0000000..faf5842
 +   chunk_size_temp = ntohl(chunk_size_temp);
 +   buffer_size_temp = ntohl(buffer_size_temp);
 +
-+   int socket_buffer_size = (int)chunk_size_temp;
++   int socket_buffer_size = (int)chunk_size_temp * 4;
 +   if ( setsockopt(rd->socket, SOL_SOCKET, SO_SNDBUF, &socket_buffer_size, sizeof(int)) == -1 )
 +   {
 +      g_set_error(error, rsound_output_quark(), 0, "Couldn't set socket buffer size");
