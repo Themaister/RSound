@@ -135,12 +135,15 @@ void* alsa_thread ( void* data )
       pthread_exit(NULL);
    }
 
-   if ( !send_backend_info(s_new, chunk_size, buffer_size) )
+   if ( !send_backend_info(s_new, &chunk_size, buffer_size, (int)w.numChannels) )
    {
       fprintf(stderr, "Failed to send buffer info ...\n");
       close(s_new);
       pthread_exit(NULL);
    }
+
+   sound.size = chunk_size;
+   sound.frames = chunk_size/(w.numChannels*2);
 
    if ( verbose )
       fprintf(stderr, "Initializing of ALSA successful... Party time!\n");
@@ -152,7 +155,8 @@ void* alsa_thread ( void* data )
       memset(sound.buffer, 0, sound.size);
 
       // Reads complete buffer
-      rc = recieve_data(s_new, sound.buffer, sound.size);
+      //rc = recieve_data(s_new, sound.buffer, chunk_size, sound.size);
+      rc = recieve_data(s_new, sound.buffer, sound.size, sound.size);
       if ( rc == 0 )
       {
          active_connection = 0;
@@ -172,7 +176,7 @@ void* alsa_thread ( void* data )
                "Error from writei: %s\n",
                snd_strerror(rc));
       }  
-      else if (rc != (int)sound.frames) 
+      else if (rc != (int)sound.frames )
       {
          fprintf(stderr,
                "Short write, write %d frames\n", rc);

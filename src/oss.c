@@ -19,6 +19,8 @@
 static void clean_oss_interface(oss_t* sound)
 {
    close(sound->audio_fd);
+   if ( sound->buffer )
+      free(sound->buffer);
 }
 
 // Opens and sets params
@@ -100,8 +102,6 @@ static int init_oss(oss_t* sound, wav_header* w)
     return 1;
 }
 
-
-
 void* oss_thread( void* socket )
 {
    oss_t sound;
@@ -140,7 +140,7 @@ void* oss_thread( void* socket )
       pthread_exit(NULL);
    }
 
-   uint32_t chunk_size, buffer_size;
+   uint32_t buffer_size;
    audio_buf_info zz;
 
    if ( ioctl( sound.audio_fd, SNDCTL_DSP_GETOSPACE, &zz ) != 0 )
@@ -151,23 +151,24 @@ void* oss_thread( void* socket )
    }
 
    buffer_size = (uint32_t)zz.bytes;
-   chunk_size = (uint32_t)zz.fragsize;
-   sound.fragsize = chunk_size;
-   sound.buffer = malloc ( sound.fragsize );
+   sound.fragsize = (uint32_t)zz.fragsize;
    
    if ( verbose )
-      fprintf(stderr, "Fragsize %d, Buffer size %d\n", (int)chunk_size, (int)buffer_size);
-
-   if ( !sound.buffer )
+      fprintf(stderr, "Fragsize %d, Buffer size %d\n", sound.fragsize, (int)buffer_size);
+   
+   if ( !send_backend_info(s_new, &sound.fragsize, buffer_size, (int)w.numChannels ))
    {
-      fprintf(stderr, "Error allocating memory for buffer.\n");
+      fprintf(stderr, "Error sending backend info.\n");
+      clean_oss_interface(&sound);
       close(s_new);
       pthread_exit(NULL);
    }
    
-   if ( !send_backend_info(s_new, chunk_size, buffer_size ))
+   sound.buffer = malloc ( sound.fragsize );
+   if ( !sound.buffer )
    {
-      fprintf(stderr, "Error sending backend info.\n");
+      fprintf(stderr, "Error allocating memory for sound buffer.\n");
+      clean_oss_interface(&sound);
       close(s_new);
       pthread_exit(NULL);
    }
@@ -177,10 +178,10 @@ void* oss_thread( void* socket )
 
 
    active_connection = 1;
-   // While connection is active, read CHUNK_SIZE bytes and reroutes it to OSS_DEVICE
+   // While connection is active, read data and reroutes it to OSS_DEVICE
    while(active_connection)
    {
-      rc = recieve_data(s_new, sound.buffer, sound.fragsize);
+      rc = recieve_data(s_new, sound.buffer, sound.fragsize, sound.fragsize);
       if ( rc == 0 )
       {
          active_connection = 0;

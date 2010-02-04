@@ -25,6 +25,8 @@ typedef struct
    PaStream *stream;
    char *buffer;
    size_t size;
+   size_t fragsize;
+   size_t frames;
 } porta_t;
 
 void* porta_thread( void* socket );

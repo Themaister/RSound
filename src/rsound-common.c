@@ -220,20 +220,20 @@ void print_help(char *appname)
 
 void pheader(wav_header *w)
 {
-   printf("============================================\n");
-   printf("WAV header:\n");
+   fprintf(stderr, "============================================\n");
+   fprintf(stderr, "WAV header:\n");
 
    if (w->numChannels == 1)
-      printf("  Mono | ");
+      fprintf(stderr, "  Mono | ");
    else if (w->numChannels == 2)
-      printf("  Stereo | ");
+      fprintf(stderr, "  Stereo | ");
    else
-      printf("  Multichannel | ");
+      fprintf(stderr, "  Multichannel | ");
 
-   printf("%d / ", w->sampleRate);
-   printf("%d\n", w->bitsPerSample);
+   fprintf(stderr, "%d / ", w->sampleRate);
+   fprintf(stderr, "%d\n", w->bitsPerSample);
 
-   printf("============================================\n\n");
+   fprintf(stderr, "============================================\n\n");
 }
 
 // Reads raw 44 bytes WAV header and parses this
@@ -294,7 +294,7 @@ int get_wav_header(int socket, wav_header* head)
     */
 
    // Checks some basic sanity of header file
-   if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 )
+   if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 || head->bitsPerSample == 0 )
    {
       fprintf(stderr, "Got garbage header data ...\n");
       fprintf(stderr, "Channels: %d, Samplerate: %d, Bits/sample: %d\n",
@@ -305,9 +305,19 @@ int get_wav_header(int socket, wav_header* head)
    return 1;
 }
 
-int send_backend_info(int socket, uint32_t chunk_size, uint32_t buffer_size)
+int send_backend_info(int socket, uint32_t *chunk_size, uint32_t buffer_size, int channels)
 {
+   #define IDEAL_PACKAGE_SIZE 1024
+
    int rc;
+
+   uint32_t temp_chunk_size = *chunk_size;
+   
+   // Tries to split package size in 2 until the package size reaches the ideal size. It also needs to be divisble by samplesize (channels * 2) (16 bits)
+   while ( ((temp_chunk_size & (channels*2)) == 0 ) && temp_chunk_size > IDEAL_PACKAGE_SIZE ) 
+      temp_chunk_size >>= 1;
+
+   *chunk_size = temp_chunk_size;
    
    int socket_buffer_size = (int)buffer_size;
    if ( setsockopt(socket, SOL_SOCKET, SO_RCVBUF, &socket_buffer_size, sizeof(int)) == -1 )
@@ -316,10 +326,13 @@ int send_backend_info(int socket, uint32_t chunk_size, uint32_t buffer_size)
          return 0;
    }
 
-   chunk_size = htonl(chunk_size);
+   if ( verbose )
+      fprintf(stderr, "TCP Packet size = %u\n", temp_chunk_size);
+
+   temp_chunk_size = htonl(*chunk_size);
    buffer_size = htonl(buffer_size);
 
-   rc = send(socket, &chunk_size, sizeof(uint32_t), 0);
+   rc = send(socket, &temp_chunk_size, sizeof(uint32_t), 0);
    if ( rc != sizeof(uint32_t))
       return 0;
    rc = send(socket, &buffer_size, sizeof(uint32_t), 0);
@@ -388,9 +401,11 @@ error:
 
 }
 
-int recieve_data(int socket, char* buffer, size_t size)
+int recieve_data(int socket, char* buffer, size_t chunk_size, size_t full_size)
 {
    int rc;
+   int written = 0;
+
    fd_set readfds;
    struct timeval tv;
 
@@ -401,14 +416,21 @@ int recieve_data(int socket, char* buffer, size_t size)
    tv.tv_sec = 20;
    tv.tv_usec = 0;
 
-   rc = select(n, &readfds, NULL, NULL, &tv);
-   if ( rc == -1 )
-      return 0;
-   else if ( rc == 0 )
-      return 0;
+   int count;
+   for ( count = 0; count < (int)full_size; count += (int)chunk_size )
+   {
+      rc = select(n, &readfds, NULL, NULL, &tv);
+      if ( rc == -1 )
+         return 0;
+      else if ( rc == 0 )
+         return 0;
 
-   rc = recv(socket, buffer, size, 0);
-   return rc;
+      rc = recv(socket, buffer + count, chunk_size, 0);
+      if ( rc <= 0 )
+         return 0;
+      written += rc;
+   }
+   return written;
 }
 
 

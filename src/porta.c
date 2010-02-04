@@ -46,6 +46,7 @@ static int init_porta(porta_t* sound, wav_header* w)
    params.hostApiSpecificStreamInfo = NULL;
    
    sound->size = FRAMES_PER_BUFFER * 2 * w->numChannels;
+   sound->frames = FRAMES_PER_BUFFER;
    sound->buffer = malloc ( sound->size );
    
    err = Pa_OpenStream (
@@ -53,7 +54,7 @@ static int init_porta(porta_t* sound, wav_header* w)
          NULL,
          &params,
          w->sampleRate,
-         FRAMES_PER_BUFFER,
+         sound->frames,
          paClipOff,
          NULL,
          NULL );  
@@ -76,14 +77,11 @@ static int init_porta(porta_t* sound, wav_header* w)
    return 1;
 }
 
-
-
 void* porta_thread( void* socket )
 {
    porta_t sound;
    wav_header w;
    int rc;
-   int read_counter;
    int active_connection;
    PaError err;
    
@@ -116,13 +114,17 @@ void* porta_thread( void* socket )
       close(s_new);
       pthread_exit(NULL);
    }
+
+   uint32_t chunk_size = sound.size;
    // Just have to set something for buffer_size 
-   if ( !send_backend_info(s_new, DEFAULT_CHUNK_SIZE, 32*DEFAULT_CHUNK_SIZE ) )
+   if ( !send_backend_info(s_new, &chunk_size, 16*chunk_size, w.numChannels ) )
    {
       fprintf(stderr, "Couldn't send backend info.\n");
       close(s_new);
       pthread_exit(NULL);
    }
+
+   sound.fragsize = chunk_size;
 
    if ( verbose )
       printf("Initializing of PortAudio successful... Party time!\n");
@@ -136,17 +138,14 @@ void* porta_thread( void* socket )
       memset(sound.buffer, 0, sound.size);
 
       // Reads complete buffer
-      for ( read_counter = 0; read_counter < (int)sound.size; read_counter += DEFAULT_CHUNK_SIZE )
+      rc = recieve_data(s_new, sound.buffer, sound.fragsize, sound.size);
+      if ( rc == 0 )
       {
-         rc = recieve_data(s_new, sound.buffer + read_counter, DEFAULT_CHUNK_SIZE);
-         if ( rc == 0 )
-         {
-            active_connection = 0;
-            break;
-         }
+         active_connection = 0;
+         break;
       }
    
-      err = Pa_WriteStream( sound.stream, sound.buffer, FRAMES_PER_BUFFER );
+      err = Pa_WriteStream( sound.stream, sound.buffer, sound.frames );
       if ( err )
       {
          fprintf(stderr, "Buffer underrun occured.\n");
