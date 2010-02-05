@@ -22,7 +22,8 @@ static void clean_porta_interface(porta_t* sound)
 {
    Pa_StopStream ( sound->stream );
    Pa_CloseStream ( sound->stream );
-   free(sound->buffer);
+   if ( sound->buffer )
+      free(sound->buffer);
 }
 
 // Designed to use the blocking I/O API. It's just a more simple design.
@@ -111,8 +112,7 @@ void* porta_thread( void* socket )
    if ( !init_porta(&sound, &w) )
    {
       fprintf(stderr, "Initializing of PortAudio failed ...\n");
-      close(s_new);
-      pthread_exit(NULL);
+      goto porta_quit;
    }
 
    uint32_t chunk_size = sound.size;
@@ -120,8 +120,7 @@ void* porta_thread( void* socket )
    if ( !send_backend_info(s_new, &chunk_size, 16*chunk_size, w.numChannels ) )
    {
       fprintf(stderr, "Couldn't send backend info.\n");
-      close(s_new);
-      pthread_exit(NULL);
+      goto porta_quit;
    }
 
    sound.fragsize = chunk_size;
@@ -152,11 +151,13 @@ void* porta_thread( void* socket )
       }
       
    }
-   
-   close(s_new);
-   clean_porta_interface(&sound);
+
    if ( verbose )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+
+porta_quit: 
+   close(s_new);
+   clean_porta_interface(&sound);
 
    pthread_exit(NULL);
    return NULL; /* To make GCC warning happy */
