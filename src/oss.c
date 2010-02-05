@@ -29,9 +29,9 @@ static int init_oss(oss_t* sound, wav_header* w)
    char oss_device[64] = {0};
 
    if ( strcmp(device, "default") != 0 )
-      strncpy(oss_device, device, 64);
+      strncpy(oss_device, device, 63);
    else
-      strncpy(oss_device, OSS_DEVICE, 64);
+      strncpy(oss_device, OSS_DEVICE, 63);
 
 
    sound->audio_fd = open(oss_device, O_WRONLY, 0);
