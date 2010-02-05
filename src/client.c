@@ -215,7 +215,7 @@ int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
    *chunk_size = chunk_size_temp;
    *buffer_size = buffer_size_temp;
    
-   int socket_buffer_size = (int)chunk_size_temp;
+   int socket_buffer_size = (int)chunk_size_temp * 4;
    if ( setsockopt(socket,SOL_SOCKET,SO_SNDBUF,&socket_buffer_size,sizeof(int)) == -1 )
    {
       perror("setsockopt");
