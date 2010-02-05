@@ -166,8 +166,12 @@ void parse_input(int argc, char ** argv)
 
    if ( backend == NULL )
    {
+
 #ifdef __CYGWIN__
-   #ifdef _PORTA
+   // We prefer libao if we're in Windows.
+   #ifdef _AO
+      backend = ao_thread;
+   #elif _PORTA
       backend = porta_thread;
    #elif _OSS
       backend = oss_thread;
@@ -183,6 +187,7 @@ void parse_input(int argc, char ** argv)
       backend = porta_thread;
    #endif
 #endif
+
    }
 
    if ( backend == NULL )
