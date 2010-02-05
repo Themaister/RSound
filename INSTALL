@@ -15,6 +15,8 @@ To explicitly disable support, you can add these
 --disable-oss
 --disable-libao
 --disable-portaudio
+(Note that I've had huge problems with portaudio on Linux,
+you've been warned :P)
 
 $ ./configure --disable-things-here
 $ make
@@ -22,10 +24,18 @@ $ make
 
 To compile (Cygwin):
 
+Windows is supported via:
+   libao <-- recommended
+   portaudio
+
 The build process in cygwin is very similar. You will however need
-to download, compile and install the portaudio library in the cygwin
-environment. http://www.portaudio.com/trac/wiki/TutorialDir/Compile/WindowsMinGW
-Then you could build with
+to download, compile and install the latest portaudio and/or libao library 
+in the cygwin environment, if this isn't provided by cygwin itself. 
+
+Portaudio: http://www.portaudio.com/trac/wiki/TutorialDir/Compile/WindowsMinGW
+LibAO: http://www.xiph.org/ao/ - Grab latest source and build as you would expect.
+
+Then you could build with:
 
 $ ./configure
 $ make
@@ -35,5 +45,5 @@ and copy over rsound.exe and rsoundserv.exe to where it might fit. To distribute
 the applications you will need to include:
 
 cyggcc_s-1.dll
-cygportaudio-2.dll
+cygportaudio-2.dll / cygao-2.dll
 cygwin1.dll
