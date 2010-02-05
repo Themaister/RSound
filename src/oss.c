@@ -29,9 +29,9 @@ static int init_oss(oss_t* sound, wav_header* w)
    char oss_device[64] = {0};
 
    if ( strcmp(device, "default") != 0 )
-      strcpy(oss_device, device);
+      strncpy(oss_device, device, 64);
    else
-      strcpy(oss_device, OSS_DEVICE);
+      strncpy(oss_device, OSS_DEVICE, 64);
 
 
    sound->audio_fd = open(oss_device, O_WRONLY, 0);
@@ -105,6 +105,7 @@ static int init_oss(oss_t* sound, wav_header* w)
 void* oss_thread( void* socket )
 {
    oss_t sound;
+   sound.buffer = NULL;
    wav_header w;
    int rc;
    int active_connection;
@@ -146,8 +147,7 @@ void* oss_thread( void* socket )
    if ( ioctl( sound.audio_fd, SNDCTL_DSP_GETOSPACE, &zz ) != 0 )
    {
       fprintf(stderr, "Getting data from ioctl failed SNDCTL_DSP_GETOSPACE.\n");
-      close(s_new);
-      pthread_exit(NULL);
+      goto oss_exit;
    }
 
    buffer_size = (uint32_t)zz.bytes;
@@ -159,18 +159,14 @@ void* oss_thread( void* socket )
    if ( !send_backend_info(s_new, &sound.fragsize, buffer_size, (int)w.numChannels ))
    {
       fprintf(stderr, "Error sending backend info.\n");
-      clean_oss_interface(&sound);
-      close(s_new);
-      pthread_exit(NULL);
+      goto oss_exit;
    }
    
    sound.buffer = malloc ( sound.fragsize );
    if ( !sound.buffer )
    {
       fprintf(stderr, "Error allocating memory for sound buffer.\n");
-      clean_oss_interface(&sound);
-      close(s_new);
-      pthread_exit(NULL);
+      goto oss_exit;
    }
   
    if ( verbose )
@@ -206,10 +202,12 @@ void* oss_thread( void* socket )
 
    }
 
-   close(s_new);
-   clean_oss_interface(&sound);
    if ( verbose )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+
+oss_exit:
+   close(s_new);
+   clean_oss_interface(&sound);
 
    pthread_exit(NULL);
    return NULL; /* GCC warning */

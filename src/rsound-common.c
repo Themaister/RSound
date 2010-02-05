@@ -322,7 +322,7 @@ int send_backend_info(int socket, uint32_t *chunk_size, uint32_t buffer_size, in
    uint32_t temp_chunk_size = *chunk_size;
    
    // Tries to split package size in 2 until the package size reaches the ideal size. It also needs to be divisble by samplesize (channels * 2) (16 bits)
-   while ( ((temp_chunk_size & (channels*2)) == 0 ) && temp_chunk_size > IDEAL_PACKAGE_SIZE ) 
+   while ( ((temp_chunk_size / (channels*2*2)) * channels*2*2 == temp_chunk_size ) && temp_chunk_size > IDEAL_PACKAGE_SIZE ) 
       temp_chunk_size >>= 1;
 
    *chunk_size = temp_chunk_size;

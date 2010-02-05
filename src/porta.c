@@ -81,6 +81,7 @@ static int init_porta(porta_t* sound, wav_header* w)
 void* porta_thread( void* socket )
 {
    porta_t sound;
+   sound.buffer = NULL;
    wav_header w;
    int rc;
    int active_connection;

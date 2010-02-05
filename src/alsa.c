@@ -23,7 +23,8 @@ static void clean_alsa_interface(alsa_t* sound)
 {
    snd_pcm_drop(sound->handle);
    snd_pcm_close(sound->handle);
-   free(sound->buffer);
+   if ( sound->buffer )
+      free(sound->buffer);
 }
 
 // ALSA is just wonderful, isn't it? ...
@@ -131,15 +132,13 @@ void* alsa_thread ( void* data )
    if ( !init_alsa(&sound, &w) )
    {
       fprintf(stderr, "Failed to initialize ALSA ...\n");
-      close(s_new);
-      pthread_exit(NULL);
+      goto alsa_exit;
    }
 
    if ( !send_backend_info(s_new, &chunk_size, buffer_size, (int)w.numChannels) )
    {
       fprintf(stderr, "Failed to send buffer info ...\n");
-      close(s_new);
-      pthread_exit(NULL);
+      goto alsa_exit;
    }
 
    sound.size = chunk_size;
@@ -184,10 +183,12 @@ void* alsa_thread ( void* data )
 
    }
 
-   close(s_new);
-   clean_alsa_interface(&sound);
    if ( verbose )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+
+alsa_exit:
+   close(s_new);
+   clean_alsa_interface(&sound);
 
    pthread_exit(NULL);
    return NULL; /* GCC warning */

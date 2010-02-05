@@ -18,8 +18,10 @@
 
 static void clean_ao_interface(ao_t* sound)
 {
-   ao_close(sound->device);
-   free(sound->buffer);
+   if ( sound->device )
+      ao_close(sound->device);
+   if ( sound->buffer )
+      free(sound->buffer);
 }
 
 static int init_ao(ao_t* interface, wav_header* w)
@@ -35,6 +37,7 @@ static int init_ao(ao_t* interface, wav_header* w)
    interface->format.channels = w->numChannels;
    interface->format.rate = w->sampleRate;
    interface->format.byte_format = AO_FMT_LITTLE;
+   interface->buffer = NULL;
 
    interface->device = ao_open_live(default_driver, &interface->format, NULL);
    if ( interface->device == NULL )
@@ -80,8 +83,7 @@ void* ao_thread ( void* data )
    if ( !init_ao(&sound, &w) )
    {
       fprintf(stderr, "Failed to initialize AO\n");
-      close(s_new);
-      pthread_exit(NULL);
+      goto ao_exit;
    }
 
    uint32_t chunk_size = DEFAULT_CHUNK_SIZE;
@@ -89,8 +91,7 @@ void* ao_thread ( void* data )
    if ( !send_backend_info(s_new, &chunk_size, 16*chunk_size, (int)w.numChannels) )
    {
       fprintf(stderr, "Couldn't send backend info.\n");
-      close(s_new);
-      pthread_exit(NULL);
+      goto ao_exit;
    }
 
    if ( verbose )
@@ -100,8 +101,7 @@ void* ao_thread ( void* data )
    if ( !sound.buffer )
    {
       fprintf(stderr, "Couldn't allocate memory for buffer.");
-      close(s_new);
-      pthread_exit(NULL);
+      goto ao_exit;
    }
 
    active_connection = 1;
@@ -118,10 +118,12 @@ void* ao_thread ( void* data )
 
    }
 
-   close(s_new);
-   clean_ao_interface(&sound);
    if ( verbose )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+
+ao_exit:
+   close(s_new);
+   clean_ao_interface(&sound);
 
    pthread_exit(NULL);
    return NULL; /* GCC warning */
