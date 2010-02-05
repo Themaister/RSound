@@ -21,8 +21,11 @@ static uint32_t buffer_size = 0;
 
 static void clean_alsa_interface(alsa_t* sound)
 {
-   snd_pcm_drop(sound->handle);
-   snd_pcm_close(sound->handle);
+   if ( sound->handle )
+   {
+      snd_pcm_drop(sound->handle);
+      snd_pcm_close(sound->handle);
+   }
    if ( sound->buffer )
       free(sound->buffer);
 }
@@ -32,6 +35,7 @@ static int init_alsa(alsa_t* interface, wav_header* w)
 {
    int rc;
    unsigned int buffer_time = BUFFER_TIME;
+   interface->buffer = NULL;
    // Prefer a small frame count for this, with a high buffer/framesize.
    snd_pcm_uframes_t frames = 256;
 
@@ -59,7 +63,7 @@ static int init_alsa(alsa_t* interface, wav_header* w)
       fprintf(stderr,
             "unable to set hw parameters: %s\n",
             snd_strerror(rc));
-      clean_alsa_interface(interface);
+      //clean_alsa_interface(interface);
       return 0;
    }
 
@@ -77,7 +81,7 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    {
       fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
             snd_strerror (rc));
-      clean_alsa_interface(interface);
+      //clean_alsa_interface(interface);
       return 0;
    }
    
@@ -85,11 +89,11 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    if ( verbose )
       fprintf(stderr, "Buffer size: %u, Fragment size: %u.\n", buffer_size, chunk_size);
 
-   interface->buffer = (char *) malloc(interface->size);
+   interface->buffer = malloc(interface->size);
    if ( interface->buffer == NULL )
    {
       fprintf(stderr, "Error allocation memory for buffer.\n");
-      clean_alsa_interface(interface);
+      //clean_alsa_interface(interface);
       return 0;
    }
    return 1;
@@ -132,7 +136,10 @@ void* alsa_thread ( void* data )
    if ( !init_alsa(&sound, &w) )
    {
       fprintf(stderr, "Failed to initialize ALSA ...\n");
+      /*close(s_new);
+      pthread_exit(NULL);*/
       goto alsa_exit;
+
    }
 
    if ( !send_backend_info(s_new, &chunk_size, buffer_size, (int)w.numChannels) )
@@ -154,7 +161,6 @@ void* alsa_thread ( void* data )
       memset(sound.buffer, 0, sound.size);
 
       // Reads complete buffer
-      //rc = recieve_data(s_new, sound.buffer, chunk_size, sound.size);
       rc = recieve_data(s_new, sound.buffer, sound.size, sound.size);
       if ( rc == 0 )
       {

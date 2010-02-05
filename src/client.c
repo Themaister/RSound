@@ -76,7 +76,7 @@ int main(int argc, char **argv)
    // buffer_size isn't in this program, since we don't care about blocking.
    if ( !get_backend_info(s, &chunk_size, &buffer_size))
    {
-      fprintf(stderr, "Couldn't recieve backend info\n");
+      fprintf(stderr, "Server closed connection.\n");
       close(s);
       exit(1);
    }
