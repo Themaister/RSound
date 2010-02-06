@@ -17,7 +17,7 @@ The values are in network byte order, and uint32_t.
 buffer_size corresponds to the maximum buffer size that the sound card can hold before blocking occurs.
 
 (4.) For the sake of having the server respond quickly to common tasks such as pausing and stopping the stream, 
-you'd might want to limit the output network buffer to the size of chunk_size. 
+you'd might want to limit the output network buffer. 
 This is especially true when the application in mind tries to send as much audio data as possible all the time, 
 and is limited by blocking.
 
