@@ -32,6 +32,8 @@
 #include "porta.h"
 #endif
 
+#define _GNU_SOURCE
+#include <getopt.h>
 
 /* This file defines some backend independed operations */
 
@@ -50,118 +52,101 @@ void new_sound_thread ( int socket )
       pthread_join(thread, NULL);
 }
 
-/* Parses input (TODO: Make this more elegant?) */
-void parse_input(int argc, char ** argv)
+void parse_input(int argc, char **argv)
 {
-   int i;
+   int c, option_index = 0;
 
-   for ( i = 1; i < argc; i++ )
+   struct option opts[] = {
+      { "port", 1, NULL, 'p' },
+      { "help", 0, NULL, 'h' },
+      { "backend", 1, NULL, 'b' },
+      { "device", 1, NULL, 'd' },
+      { "no-daemon", 0, NULL, 'n' },
+      { "verbose", 0, NULL, 'v' },
+      { "no-threading", 0, NULL, 'T' },
+      { NULL, 0, NULL, 0 }
+   };
+
+   char optstring[] = "d:b:p:nvh";
+
+   while ( 1 )
    {
-      if ( !strcmp( "-d", argv[i] ) || !strcmp( "--device", argv[i] ) )
+      c = getopt_long ( argc, argv, optstring, opts, &option_index );
+
+      if ( c == -1 )
+         break;
+
+      switch ( c )
       {
-         if ( i < argc -1 )
-         {
-            strncpy( device, argv[++i], 64 );
-            continue;
-         }
-         else
-         {
-            fprintf(stderr, "-d/--device takes an argument.\n");
+         case 'd':
+            strncpy(device, optarg, 127);
+            device[127] = 0;
+            break;
+
+         case 'p':
+            strncpy(port, optarg, 127);
+            port[127] = 0;
+            break;
+         
+         case '?':
+            print_help(argv[0]);
             exit(1);
-         }
 
-      }
+         case 'h':
+            print_help(argv[0]);
+            exit(0);
 
-      if ( !strcmp( "-p", argv[i] ) || !strcmp ( "--port", argv[i] ) )
-      {
-         if ( i < argc -1 )
-         {
-            if ( atoi ( argv[++i] ) < 1 || atoi ( argv[i] ) >= 0xFFFF )
-            {
-               fprintf(stderr, "Invalid port\n");
-               exit(1);
-            }
-            strncpy( port, argv[i], 6 );
-            continue;
-         }
-         else
-         {
-            fprintf(stderr, "-p/--port takes an argument.\n");
-            exit(1);
-         }
+         case 'T':
+            no_threading = 0;
+            break;
 
-      }
-
-      if ( !strcmp( "-v", argv[i] ) || !strcmp( "--verbose", argv[i] ) )
-      {
-         verbose = 1;
-         continue;
-      }
-
-      if ( !strcmp( "--no-threading", argv[i] ))
-      {
-         no_threading = 1;
-         continue;
-      }
-
-      if ( !strcmp( "-b", argv[i] ) || !strcmp( "--backend", argv[i] ) )
-      {
-         if ( i < argc - 1 )
-         {
-            i++;
+         case 'b':
 #ifdef _ALSA
-            if ( !strcmp( "alsa", argv[i] ) )
+            if ( !strcmp( "alsa", optarg ) )
             {
                backend = alsa_thread;
-               continue;
+               break;
             }  
 #endif
 #ifdef _OSS
-            if ( !strcmp( "oss", argv[i] ) )
+            if ( !strcmp( "oss", optarg ) )
             {
                backend = oss_thread;
-               continue;
+               break;
             }
 #endif
 #ifdef _AO
-            if ( !strcmp( "libao", argv[i] ) )
+            if ( !strcmp( "libao", optarg ) )
             {
                backend = ao_thread;
-               continue;
+               break;
             }
 #endif
 #ifdef _PORTA
-            if ( !strcmp( "portaudio", argv[i] ) )
+            if ( !strcmp( "portaudio", optarg ) )
             {
                backend = porta_thread;
-               continue;
+               break;
             }
 #endif
-
-            fprintf(stderr, "Valid backend not given. Exiting ...\n");
+            fprintf(stderr, "\nValid backend not given. Exiting ...\n\n");
+            print_help(argv[0]);
             exit(1);
-         }
-         else
-         {
-            fprintf(stderr, "Valid backend not given. Exiting ...\n");
+
+         case 'n':
+            daemonize = 0;
+            break;
+
+         case 'v':
+            verbose = 1;
+            break;
+
+         default:
+            fprintf(stderr, "Error parsing arguments.\n");
             exit(1);
-         }
       }
-
-      if ( !strcmp ( "-n", argv[i] ) || !strcmp( "--no-daemon", argv[i] ) )
-      {
-         daemonize = 0;
-         continue;
-      }
-
-      if ( !strcmp ( "-h", argv[i] ) || !strcmp( "--help", argv[i] ) )
-      {
-         print_help(argv[0]);
-         exit(0);
-      }
-
    }
-
+   
    if ( backend == NULL )
    {
 
@@ -192,7 +177,6 @@ void parse_input(int argc, char ** argv)
    {
       fprintf(stderr, "%s was not compiled with any output support, exiting ...", argv[0]);
    }
-
 
 }
 

@@ -16,8 +16,8 @@
 #include "rsound.h"
 
 /* Default values */
-char device[64] = "default";
-char port[6] = "12345";
+char device[128] = "default";
+char port[128] = "12345";
 int verbose = 0;
 void* (*backend) ( void * ) = NULL;
 int daemonize = 1;

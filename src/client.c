@@ -14,6 +14,7 @@
  */
 
 #define _POSIX_SOURCE
+#define _GNU_SOURCE
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -24,21 +25,22 @@
 #include "endian.h"
 #include <stdint.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #define HEADER_SIZE 44
 
-int raw_mode = 0;
-uint32_t raw_rate = 44100;
-uint16_t channel = 2;
-uint16_t bitsPerSample = 16;
+static int raw_mode = 0;
+static uint32_t raw_rate = 44100;
+static uint16_t channel = 2;
+static uint16_t bitsPerSample = 16;
 
-char port[6] = "12345";
-char host[128] = "localhost";
+static char port[128] = "12345";
+static char host[128] = "localhost";
 
-int send_header_info(int);
-int get_backend_info(int, uint32_t*, uint32_t*);
-void print_help(char*);
-void parse_input(int, char**);
+static int send_header_info(int);
+static int get_backend_info(int, uint32_t*, uint32_t*);
+static void print_help(char*);
+static void parse_input(int, char**);
 
 
 int main(int argc, char **argv)
@@ -117,7 +119,7 @@ int main(int argc, char **argv)
    return 0;
 }
       
-int send_header_info(int s)
+static int send_header_info(int s)
 {
    /* If client is big endian, swaps over the data that the client sends if sending
     * premade WAV-header (--raw). 
@@ -171,7 +173,7 @@ int send_header_info(int s)
    }
 }
 
-int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
+static int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
 {
    uint32_t chunk_size_temp, buffer_size_temp;
    int rc;
@@ -206,7 +208,7 @@ int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
 
 }
 
-void print_help(char *appname)
+static void print_help(char *appname)
 {
    printf("Usage: %s [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels ]\n", appname);
    
@@ -227,76 +229,71 @@ void print_help(char *appname)
    printf("-h/--help: Prints this help\n\n");
 }
 
-void parse_input(int argc, char** argv)
+static void parse_input(int argc, char **argv)
 {
-   int i;
-   for ( i = 1; i < argc; i++ )
-   {
-      if ( !strcmp( "-r", argv[i] ) || !strcmp( "--rate", argv[i] ) )
-      {
-         if ( i < argc -1 )
-         {
-            raw_rate = atoi ( argv[++i] );
-            continue;
-         }
-         else
-         {
-            fprintf(stderr, "-r/--rate takes an argument.\n");
-            exit(1);
-         }
+   int c, option_index = 0;
 
-      }
-      if ( !strcmp( "--raw", argv[i] ))
+   struct option opts[] = {
+      { "raw", 0, NULL, 'R' },
+      { "port", 1, NULL, 'p' },
+      { "help", 0, NULL, 'h'},
+      { "rate", 1, NULL, 'r'},
+      { "channels", 1, NULL, 'c'},
+      { NULL, 0, NULL, 0 }
+   };
+
+   char optstring[] = "r:p:hc:";
+
+   while ( 1 )
+   {
+      c = getopt_long ( argc, argv, optstring, opts, &option_index );
+
+      if ( c == -1 )
+         break;
+
+      switch ( c )
       {
-         raw_mode = 1;
-         continue;
-      }
-      if ( !strcmp( "-p", argv[i] ) || !strcmp ( "--port", argv[i] ) )
-      {
-         if ( i < argc -1 )
-         {
-            if ( atoi ( argv[++i] ) < 1 || atoi ( argv[i] ) >= 0xFFFF )
-            {
-               fprintf(stderr, "Invalid port\n");
-               exit(1);
-            }
-            strncpy( port, argv[i], 6 );
-            continue;
-         }
-         else
-         {
-            fprintf(stderr, "-p/--port takes an argument.\n");
+         case 'r':
+            raw_rate = atoi(optarg);
+            break;
+
+         case 'R':
+            raw_mode = 1;
+            break;
+
+         case 'p':
+            strncpy(port, optarg, 127);
+            port[127] = 0;
+            break;
+
+         case 'c':
+            channel = atoi(optarg);
+            break;
+
+         case '?':
+            print_help(argv[0]);
             exit(1);
-         }
-         
-      }
-      if ( !strcmp( "-c", argv[i] ) || !strcmp ( "--channel", argv[i] ) )
-      {
-         if ( i < argc -1 )
-         {
-            if ( atoi ( argv[++i] ) < 1 )
-            {
-               fprintf(stderr, "Invalid num of channels\n");
-               exit(1);
-            }
-            channel = atoi ( argv[i] );
-            continue;
-         }
-         else
-         {
-            fprintf(stderr, "-c/--channel takes an argument.\n");
+
+         case 'h':
+            print_help(argv[1]);
+            exit(0);
+
+         default:
+            fprintf(stderr, "Error in parsing arguments.\n");
             exit(1);
-         }
-         
       }
-      if ( !strcmp ( "-h", argv[i] ) || !strcmp( "--help", argv[i] ) )
+
+   }
+
+   if ( optind < argc )
+   {
+      printf("Non-opt elements: ");
+      while ( optind < argc )
       {
-         print_help(argv[0]);
-         exit(0);
+         strncpy(host, argv[optind++], 127);
+         host[127] = 0;
       }
-      strncpy(host, argv[i], 128);
-      
    }
 }
-   
-   
+
+

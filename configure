@@ -4268,7 +4268,7 @@ fi
 done
 
 
-for ac_header in arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h
+for ac_header in arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h getopt.h
 do :
   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
 ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
@@ -4667,7 +4667,7 @@ $as_echo "#define malloc rpl_malloc" >>confdefs.h
 fi
 
 
-for ac_func in memset select socket strerror
+for ac_func in memset select socket strerror getopt_long
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"

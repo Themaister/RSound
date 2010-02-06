@@ -12,7 +12,7 @@ AM_PROG_CC_C_O
 
 SERV_LIBS="-lpthread"
 
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h getopt.h])
 AC_C_INLINE
 AC_TYPE_SIZE_T
 AC_TYPE_UINT16_T
@@ -20,7 +20,7 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT8_T
 AC_FUNC_FORK
 AC_FUNC_MALLOC
-AC_CHECK_FUNCS([memset select socket strerror])
+AC_CHECK_FUNCS([memset select socket strerror getopt_long])
 
 AC_CHECK_HEADER(sys/soundcard.h, ,enable_oss=no,)
 AC_CHECK_HEADER(alsa/asoundlib.h, ,enable_alsa=no,)
