@@ -27,5 +27,5 @@ typedef struct
 } ao_t;
 
 void* ao_thread( void* socket );
-extern int verbose;
+/*extern int verbose;*/
 #endif

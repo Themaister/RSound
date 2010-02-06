@@ -26,10 +26,11 @@ static void clean_porta_interface(porta_t* sound)
       free(sound->buffer);
 }
 
-// Designed to use the blocking I/O API. It's just a more simple design.
+/* Designed to use the blocking I/O API. It's just a more simple design. */
 static int init_porta(porta_t* sound, wav_header* w)
 {
    PaError err;
+   PaStreamParameters params;
    
    err = Pa_Initialize();
    if ( err != paNoError )
@@ -39,7 +40,6 @@ static int init_porta(porta_t* sound, wav_header* w)
       return 0;
    }
    
-   PaStreamParameters params;
    params.device = Pa_GetDefaultOutputDevice();
    params.channelCount = w->numChannels;
    params.sampleFormat = paInt16;
@@ -81,15 +81,17 @@ static int init_porta(porta_t* sound, wav_header* w)
 void* porta_thread( void* socket )
 {
    porta_t sound;
-   sound.buffer = NULL;
    wav_header w;
    int rc;
    int active_connection;
    PaError err;
+   uint32_t chunk_size;
    
    int s_new = *((int*)socket);
    free(socket);
 
+   sound.buffer = NULL;
+   
    if ( verbose )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
@@ -116,8 +118,8 @@ void* porta_thread( void* socket )
       goto porta_quit;
    }
 
-   uint32_t chunk_size = sound.size;
-   // Just have to set something for buffer_size 
+   chunk_size = sound.size;
+   /* Just have to set something for buffer_size */
    if ( !send_backend_info(s_new, &chunk_size, 16*chunk_size, w.numChannels ) )
    {
       fprintf(stderr, "Couldn't send backend info.\n");
@@ -137,7 +139,7 @@ void* porta_thread( void* socket )
       
       memset(sound.buffer, 0, sound.size);
 
-      // Reads complete buffer
+      /* Reads complete buffer */
       rc = recieve_data(s_new, sound.buffer, sound.fragsize, sound.size);
       if ( rc == 0 )
       {

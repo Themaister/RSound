@@ -13,13 +13,14 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define _POSIX_SOURCE
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include "endian.h"
 #include <stdint.h>
 #include <unistd.h>
@@ -42,10 +43,13 @@ void parse_input(int, char**);
 
 int main(int argc, char **argv)
 {
-   parse_input(argc, argv);
-   
    int s, rc;
    struct addrinfo hints, *res;
+   uint32_t chunk_size, buffer_size;
+   char *buffer;
+   
+   parse_input(argc, argv);
+   
    memset(&hints, 0, sizeof( struct addrinfo ));
    hints.ai_family = AF_UNSPEC;
    hints.ai_socktype = SOCK_STREAM;
@@ -69,8 +73,7 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   uint32_t chunk_size, buffer_size;
-   // buffer_size isn't in this program, since we don't care about blocking.
+   /* buffer_size isn't in this program, since we don't care about blocking. */
    if ( !get_backend_info(s, &chunk_size, &buffer_size))
    {
       fprintf(stderr, "Server closed connection.\n");
@@ -78,7 +81,7 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   char *buffer = malloc ( chunk_size );
+   buffer = malloc ( chunk_size );
    if ( !buffer )
    {
       fprintf(stderr, "Couldn't allocate memory for buffer.\n");
@@ -172,6 +175,7 @@ int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
 {
    uint32_t chunk_size_temp, buffer_size_temp;
    int rc;
+   int socket_buffer_size;
 
    rc = recv(socket, &chunk_size_temp, sizeof(uint32_t), 0);
    if ( rc != sizeof(uint32_t))
@@ -190,7 +194,7 @@ int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
    *chunk_size = chunk_size_temp;
    *buffer_size = buffer_size_temp;
    
-   int socket_buffer_size = (int)chunk_size_temp * 4;
+   socket_buffer_size = (int)chunk_size_temp * 4;
    if ( setsockopt(socket,SOL_SOCKET,SO_SNDBUF,&socket_buffer_size,sizeof(int)) == -1 )
    {
       perror("setsockopt");

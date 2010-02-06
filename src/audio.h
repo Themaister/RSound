@@ -21,15 +21,20 @@
 #define HEADER_SIZE 44 
 #define DEFAULT_CHUNK_SIZE 1024
 
+#define _POSIX_SOURCE 
+#define __USE_POSIX
+#define _POSIX_C_SOURCE 200112L
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/select.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <errno.h>
 #include <stdint.h>
 #include <pthread.h>
-#include <netdb.h>
 #include <time.h>
 #include <unistd.h>
 

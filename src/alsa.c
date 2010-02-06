@@ -30,14 +30,15 @@ static void clean_alsa_interface(alsa_t* sound)
       free(sound->buffer);
 }
 
-// ALSA is just wonderful, isn't it? ...
+/* ALSA is just wonderful, isn't it? ... */
 static int init_alsa(alsa_t* interface, wav_header* w)
 {
    int rc;
    unsigned int buffer_time = BUFFER_TIME;
-   interface->buffer = NULL;
-   // Prefer a small frame count for this, with a high buffer/framesize.
    snd_pcm_uframes_t frames = 256;
+   snd_pcm_uframes_t bufferSize;
+   interface->buffer = NULL;
+   /* Prefer a small frame count for this, with a high buffer/framesize. */
 
    rc = snd_pcm_open(&interface->handle, device, SND_PCM_STREAM_PLAYBACK, 0);
 
@@ -63,7 +64,6 @@ static int init_alsa(alsa_t* interface, wav_header* w)
       fprintf(stderr,
             "unable to set hw parameters: %s\n",
             snd_strerror(rc));
-      //clean_alsa_interface(interface);
       return 0;
    }
 
@@ -71,7 +71,6 @@ static int init_alsa(alsa_t* interface, wav_header* w)
          NULL);
    interface->size = (int)interface->frames * w->numChannels * 2;
    chunk_size = (uint32_t)interface->size;
-   snd_pcm_uframes_t bufferSize;
    snd_pcm_hw_params_get_buffer_size(interface->params, &bufferSize);
    buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
    
@@ -81,7 +80,6 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    {
       fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
             snd_strerror (rc));
-      //clean_alsa_interface(interface);
       return 0;
    }
    
@@ -93,13 +91,10 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    if ( interface->buffer == NULL )
    {
       fprintf(stderr, "Error allocation memory for buffer.\n");
-      //clean_alsa_interface(interface);
       return 0;
    }
    return 1;
 }
-
-
 
 void* alsa_thread ( void* data )
 {
@@ -136,8 +131,6 @@ void* alsa_thread ( void* data )
    if ( !init_alsa(&sound, &w) )
    {
       fprintf(stderr, "Failed to initialize ALSA ...\n");
-      /*close(s_new);
-      pthread_exit(NULL);*/
       goto alsa_exit;
 
    }
@@ -160,7 +153,7 @@ void* alsa_thread ( void* data )
    {
       memset(sound.buffer, 0, sound.size);
 
-      // Reads complete buffer
+      /* Reads complete buffer */
       rc = recieve_data(s_new, sound.buffer, sound.size, sound.size);
       if ( rc == 0 )
       {
@@ -168,7 +161,7 @@ void* alsa_thread ( void* data )
          break;
       }
 
-      // Plays it back :D
+      /* Plays it back :D */
       rc = snd_pcm_writei(sound.handle, sound.buffer, sound.frames);
       if (rc == -EPIPE) 
       {

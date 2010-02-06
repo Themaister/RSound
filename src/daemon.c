@@ -15,7 +15,7 @@
 
 #include "rsound.h"
 
-// Default values
+/* Default values */
 char device[64] = "default";
 char port[6] = "12345";
 int verbose = 0;
@@ -25,19 +25,20 @@ int no_threading = 0;
 
 int main(int argc, char ** argv)
 {
+   int s, s_new, i;
+   
    parse_input(argc, argv);
    
    if ( daemonize )
    {
       fprintf(stderr, "Forking into background ...\n");
-      int i = fork();
+      i = fork();
       if ( i < 0 ) exit(1);
       if ( i > 0 ) exit(0);
       /* Forking into background */
    }
 
-   // Sets up listening socket
-   int s, s_new;
+   /* Sets up listening socket */
    s = set_up_socket();
 
    if ( s < 0 )
@@ -51,7 +52,7 @@ int main(int argc, char ** argv)
 
    while(1)
    {
-      // Listens, accepts, and creates new sound thread
+      /* Listens, accepts, and creates new sound thread */
       if ( listen(s, 1) == -1 )
       {
          fprintf(stderr, "Couldn't listen for connection ...\n");

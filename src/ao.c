@@ -55,6 +55,7 @@ void* ao_thread ( void* data )
    wav_header w;
    int rc;
    int active_connection;
+   uint32_t chunk_size = DEFAULT_CHUNK_SIZE;
 
    int s_new = *((int*)data);
    free(data);
@@ -86,8 +87,7 @@ void* ao_thread ( void* data )
       goto ao_exit;
    }
 
-   uint32_t chunk_size = DEFAULT_CHUNK_SIZE;
-// Dirty, and should be avoided, but I need to study the API better.
+   /* Dirty, and should be avoided, but I need to study the API better. */
    if ( !send_backend_info(s_new, &chunk_size, 16*chunk_size, (int)w.numChannels) )
    {
       fprintf(stderr, "Couldn't send backend info.\n");

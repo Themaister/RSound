@@ -32,7 +32,7 @@ typedef struct
 #define OSS_DEVICE "/dev/dsp"
 
 void* oss_thread( void* socket );
-extern int verbose;
-extern char device[];
+/*extern int verbose;
+extern char device[];*/
 #endif
 

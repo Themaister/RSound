@@ -15,7 +15,7 @@
 
 #include <stdint.h>
 
-inline int is_little_endian();
-inline void swap_endian_32 ( uint32_t* );
-inline void swap_endian_16 ( uint16_t* );
+int is_little_endian();
+void swap_endian_32 ( uint32_t* );
+void swap_endian_16 ( uint16_t* );
 

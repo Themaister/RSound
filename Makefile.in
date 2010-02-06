@@ -193,8 +193,10 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = subdir-objects
 sources_serv = $(am__append_1) $(am__append_4) $(am__append_7) \
 	$(am__append_10)
-AM_CFLAGS = -Wall -Wextra -O2 $(am__append_2) $(am__append_5) \
-	$(am__append_8) $(am__append_11)
+AM_CFLAGS = -Wall -Wextra -Wpointer-arith -Wredundant-decls \
+	-Wuninitialized -Wreturn-type -Wimplicit -O2 -pedantic -ansi \
+	$(am__append_2) $(am__append_5) $(am__append_8) \
+	$(am__append_11)
 src_rsound_SOURCES = src/client.c \
                      src/endian.c \
                      src/endian.h

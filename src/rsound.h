@@ -13,9 +13,10 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #ifndef RSOUND_H
 #define RSOUND_H
+
+#define _POSIX_SOURCE
 
 #include "audio.h"
 
@@ -31,6 +32,7 @@ int recieve_data(int, char*, size_t, size_t);
 extern char device[];
 extern char port[];
 extern int verbose;
+extern int no_threading;
 extern void* (*backend) ( void * );
 extern int daemonize;
 

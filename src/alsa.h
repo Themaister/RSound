@@ -32,6 +32,6 @@ typedef struct
 } alsa_t;
 
 void* alsa_thread( void* socket );
-extern int verbose;
-extern char device[];
+/*extern int verbose;
+extern char device[];*/
 #endif

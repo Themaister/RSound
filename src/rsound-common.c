@@ -33,18 +33,16 @@
 #endif
 
 
-// This file defines some backend independed operations
-
+/* This file defines some backend independed operations */
 
 void new_sound_thread ( int socket )
 {
+
+   pthread_t thread;
+   
    int *s = malloc ( sizeof(int));
    *s = socket;
 
-   extern void* (*backend) (void *);
-   extern int no_threading;
-
-   pthread_t thread;
 
    pthread_create(&thread, NULL, backend, (void*)s);     
 
@@ -52,10 +50,11 @@ void new_sound_thread ( int socket )
       pthread_join(thread, NULL);
 }
 
-// Parses input (TODO: Make this more elegant?)
+/* Parses input (TODO: Make this more elegant?) */
 void parse_input(int argc, char ** argv)
 {
    int i;
+
    for ( i = 1; i < argc; i++ )
    {
       if ( !strcmp( "-d", argv[i] ) || !strcmp( "--device", argv[i] ) )
@@ -101,7 +100,6 @@ void parse_input(int argc, char ** argv)
 
       if ( !strcmp( "--no-threading", argv[i] ))
       {
-         extern int no_threading;
          no_threading = 1;
          continue;
       }
@@ -168,7 +166,7 @@ void parse_input(int argc, char ** argv)
    {
 
 #ifdef __CYGWIN__
-   // We prefer libao if we're in Windows.
+   /* We prefer libao if we're in Windows. */
    #ifdef _AO
       backend = ao_thread;
    #elif _PORTA
@@ -249,12 +247,12 @@ void pheader(wav_header *w)
    fprintf(stderr, "============================================\n\n");
 }
 
-// Reads raw 44 bytes WAV header and parses this
+/* Reads raw 44 bytes WAV header and parses this */
 int get_wav_header(int socket, wav_header* head)
 {
 
    int i = is_little_endian();
-   // WAV files are little-endian. If server is big-endian, swaps over data to get sane results.
+   /* WAV files are little-endian. If server is big-endian, swaps over data to get sane results. */
    uint16_t temp16;
    uint32_t temp32;
 
@@ -306,7 +304,7 @@ int get_wav_header(int socket, wav_header* head)
       memcpy(&head->subChunkSize2, header+40, 4);
     */
 
-   // Checks some basic sanity of header file
+   /* Checks some basic sanity of header file */
    if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 || head->bitsPerSample == 0 )
    {
       fprintf(stderr, "Got garbage header data ...\n");
@@ -323,16 +321,16 @@ int send_backend_info(int socket, uint32_t *chunk_size, uint32_t buffer_size, in
    #define IDEAL_PACKAGE_SIZE 1024
 
    int rc;
+   int socket_buffer_size = (int)buffer_size;
 
    uint32_t temp_chunk_size = *chunk_size;
    
-   // Tries to split package size in 2 until the package size reaches the ideal size. It also needs to be divisble by samplesize (channels * 2) (16 bits)
+   /* Tries to split package size in 2 until the package size reaches the ideal size. It also needs to be divisble by samplesize (channels * 2) (16 bits) */
    while ( ((temp_chunk_size / (channels*2*2)) * channels*2*2 == temp_chunk_size ) && temp_chunk_size > IDEAL_PACKAGE_SIZE ) 
       temp_chunk_size >>= 1;
 
    *chunk_size = temp_chunk_size;
    
-   int socket_buffer_size = (int)buffer_size;
    if ( setsockopt(socket, SOL_SOCKET, SO_RCVBUF, &socket_buffer_size, sizeof(int)) == -1 )
    {
          fprintf(stderr, "Couldn't set socket buffer size.\n");
@@ -356,16 +354,17 @@ int send_backend_info(int socket, uint32_t *chunk_size, uint32_t buffer_size, in
 }
 
 
-// Sets up listening socket for further use
+/* Sets up listening socket for further use */
 int set_up_socket()
 {
    int rc;
    int s;
    struct addrinfo hints, *servinfo;
+   int yes = 1;
 
    memset(&hints, 0, sizeof (struct addrinfo));
 #ifdef __CYGWIN__
-   // Because Windows fails.
+   /* Because Windows fails. */
    hints.ai_family = AF_INET;
 #else
    hints.ai_family = AF_UNSPEC;
@@ -390,8 +389,6 @@ int set_up_socket()
       goto error;
    }
 
-
-   int yes = 1;
    if ( setsockopt(s,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) 
    {
       perror("setsockopt");
@@ -418,18 +415,18 @@ int recieve_data(int socket, char* buffer, size_t chunk_size, size_t full_size)
 {
    int rc;
    int written = 0;
+   int n = socket + 1;
+   int count;
 
    fd_set readfds;
    struct timeval tv;
 
    FD_ZERO(&readfds);
    FD_SET(socket, &readfds);
-   int n = socket + 1;
 
    tv.tv_sec = 20;
    tv.tv_usec = 0;
 
-   int count;
    for ( count = 0; count < (int)full_size; count += (int)chunk_size )
    {
       rc = select(n, &readfds, NULL, NULL, &tv);

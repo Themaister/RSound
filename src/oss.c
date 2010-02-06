@@ -23,10 +23,13 @@ static void clean_oss_interface(oss_t* sound)
       free(sound->buffer);
 }
 
-// Opens and sets params
+/* Opens and sets params */
 static int init_oss(oss_t* sound, wav_header* w)
 {
+   int format = AFMT_S16_LE;
+   int stereo; 
    char oss_device[64] = {0};
+   int sampleRate = w->sampleRate;
 
    if ( strcmp(device, "default") != 0 )
       strncpy(oss_device, device, 63);
@@ -42,7 +45,6 @@ static int init_oss(oss_t* sound, wav_header* w)
       return 0;
    }
    
-   int format = AFMT_S16_LE;
    if ( ioctl( sound->audio_fd, SNDCTL_DSP_SETFMT, &format) == -1 )
    {
       perror("SNDCTL_DSP_SETFMT");
@@ -57,7 +59,6 @@ static int init_oss(oss_t* sound, wav_header* w)
       return 0;
    }
    
-   int stereo; 
    if ( w->numChannels == 2 )
       stereo = 1;
    else if ( w->numChannels == 1 )
@@ -83,7 +84,6 @@ static int init_oss(oss_t* sound, wav_header* w)
       return 0;
    }
    
-   int sampleRate = w->sampleRate;
    if ( ioctl ( sound->audio_fd, SNDCTL_DSP_SPEED, &sampleRate ) == -1 )
    {
       perror("SNDCTL_DSP_SPEED");
@@ -105,15 +105,18 @@ static int init_oss(oss_t* sound, wav_header* w)
 void* oss_thread( void* socket )
 {
    oss_t sound;
-   sound.buffer = NULL;
    wav_header w;
    int rc;
    int active_connection;
    int underrun_count = 0;
+   uint32_t buffer_size;
+   audio_buf_info zz;
 
    int s_new = *((int*)socket);
    free(socket);
 
+   sound.buffer = NULL;
+   
    if ( verbose )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
@@ -140,9 +143,6 @@ void* oss_thread( void* socket )
       close(s_new);
       pthread_exit(NULL);
    }
-
-   uint32_t buffer_size;
-   audio_buf_info zz;
 
    if ( ioctl( sound.audio_fd, SNDCTL_DSP_GETOSPACE, &zz ) != 0 )
    {
@@ -174,7 +174,7 @@ void* oss_thread( void* socket )
 
 
    active_connection = 1;
-   // While connection is active, read data and reroutes it to OSS_DEVICE
+   /* While connection is active, read data and reroutes it to OSS_DEVICE */
    while(active_connection)
    {
       rc = recieve_data(s_new, sound.buffer, sound.fragsize, sound.fragsize);

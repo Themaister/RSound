@@ -30,6 +30,6 @@ typedef struct
 } porta_t;
 
 void* porta_thread( void* socket );
-extern int verbose;
+/*extern int verbose;*/
 #endif
 
