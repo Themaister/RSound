@@ -26,9 +26,6 @@
 
 #define HEADER_SIZE 44
 
-#define DEFAULT_CHUNK_SIZE 1024
-#define INPUT_CHUNK 4
-
 int raw_mode = 0;
 uint32_t raw_rate = 44100;
 uint16_t channel = 2;
@@ -60,7 +57,7 @@ int main(int argc, char **argv)
    if ( connect(s, res->ai_addr, res->ai_addrlen) != 0 )
    {
       fprintf(stderr, "Error connecting to %s\n", host);
-      exit(2);
+      exit(1);
    }
    
    freeaddrinfo(res);
@@ -69,7 +66,7 @@ int main(int argc, char **argv)
    if ( send_header_info(s) == -1 )
    {
       fprintf(stderr, "Couldn't send WAV-info\n");
-      exit(3);
+      exit(1);
    }
 
    uint32_t chunk_size, buffer_size;
@@ -81,8 +78,6 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   //fprintf(stderr, "Fragsize: %d, Buffersize: %d.\n", (int)chunk_size, (int)buffer_size);
-
    char *buffer = malloc ( chunk_size );
    if ( !buffer )
    {
@@ -91,36 +86,16 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   int count, read_count; 
    while(1)
    {
-      // Somewhat dirty. Some CLI programs that output to stdout seem to prefer this approach. (E.g. flac, lame)
-      read_count = 0;
       memset(buffer, 0, chunk_size);
-      for ( count = 0; count < (int)(chunk_size/INPUT_CHUNK)*INPUT_CHUNK; count+=INPUT_CHUNK )
+      
+      rc = read(0, buffer, chunk_size);
+      if ( rc <= 0 )
       {
-         rc = read(0, buffer + count, INPUT_CHUNK);
-         read_count += rc;
-         if ( rc == 0 )
-         {
-            close(s);
-            exit(0);
-         }
+         close(s);
+         exit(0);
       }
-      // Reads the last bits that weren't done before
-      if ( read_count < (int)chunk_size )
-      {
-         rc = read(0, buffer + read_count, chunk_size - read_count);
-         read_count += rc;
-         if ( rc == 0 )
-         {
-            close(s);
-            exit(0);
-         }
-      }
-
-      if ( read_count != (int)chunk_size )
-         fprintf(stderr, "Didn't read proper amount of data from stdin.\n");
 
       rc = send(s, buffer, chunk_size, 0);
       if ( rc != (int)chunk_size && rc > 0 )
@@ -129,9 +104,9 @@ int main(int argc, char **argv)
       }
       else if ( rc == 0 )
       {
-         fprintf(stderr, "Connection error ...\n");
+         fprintf(stderr, "Server closed connection ...\n");
          close(s);
-         exit(8);
+         exit(0);
       }
       
    }
