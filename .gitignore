@@ -1,0 +1,12 @@
+*.o
+*.log
+*.cache
+/.deps
+/src/.deps
+/Makefile.in
+/Makefile
+/configure
+/depcomp
+/install-sh
+/missing
+/aclocal.m4
