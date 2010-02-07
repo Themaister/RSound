@@ -8,6 +8,8 @@ You will need at least one of these (headers and libraries):
    libao
    portaudio
 
+You will need autoconf and automake.
+
 =========================
 To compile (Unix-like):
 =========================
@@ -22,6 +24,7 @@ To explicitly disable support, you can add these
 (Note that I've had huge problems with portaudio on Linux,
 you've been warned :P)
 
+$ ./autogen.sh
 $ ./configure --disable-things-here
 $ make
 # make install
@@ -43,6 +46,7 @@ LibAO: http://www.xiph.org/ao/ - Grab latest source and build as you would expec
 
 Then you could build with:
 
+$ ./autogen.sh
 $ ./configure
 $ make
 $ make install
