@@ -97,7 +97,7 @@ void parse_input(int argc, char **argv)
             exit(0);
 
          case 'T':
-            no_threading = 0;
+            no_threading = 1;
             break;
 
          case 'b':
