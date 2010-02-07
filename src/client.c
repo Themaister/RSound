@@ -287,7 +287,6 @@ static void parse_input(int argc, char **argv)
 
    if ( optind < argc )
    {
-      printf("Non-opt elements: ");
       while ( optind < argc )
       {
          strncpy(host, argv[optind++], 127);
