@@ -3,9 +3,13 @@
 *.cache
 /.deps
 /src/.deps
+/src/.dirstamp
 /Makefile.in
 /Makefile
 /configure
+/config.status
+/src/rsound
+/src/rsoundserv
 /depcomp
 /install-sh
 /missing
