@@ -399,26 +399,10 @@ int recieve_data(int socket, char* buffer, size_t chunk_size, size_t full_size)
 {
    int rc;
    int written = 0;
-   int n = socket + 1;
    int count;
-
-   fd_set readfds;
-   struct timeval tv;
-
-   FD_ZERO(&readfds);
-   FD_SET(socket, &readfds);
-
-   tv.tv_sec = 20;
-   tv.tv_usec = 0;
 
    for ( count = 0; count < (int)full_size; count += (int)chunk_size )
    {
-      rc = select(n, &readfds, NULL, NULL, &tv);
-      if ( rc == -1 )
-         return 0;
-      else if ( rc == 0 )
-         return 0;
-
       rc = recv(socket, buffer + count, chunk_size, 0);
       if ( rc <= 0 )
          return 0;
