@@ -72,6 +72,7 @@ int main(int argc, char **argv)
    if ( send_header_info(s) == -1 )
    {
       fprintf(stderr, "Couldn't send WAV-info\n");
+      close(s);
       exit(1);
    }
 
@@ -138,15 +139,14 @@ static int send_header_info(int s)
       char buffer[HEADER_SIZE] = {0};
       int rc = 0;
       
-      read( 0, buffer, HEADER_SIZE );
+      rc = read( 0, buffer, HEADER_SIZE );
+      if ( rc != HEADER_SIZE )
+         return -1;
+
       rc = send ( s, buffer, HEADER_SIZE, 0 );
       
       if ( rc == HEADER_SIZE )
-      {
          return 1;
-         
-      }
-      
       else
          return -1;
    }
@@ -164,10 +164,7 @@ static int send_header_info(int s)
       *((uint16_t*)(buffer+BITRATE)) = 16;
       rc = send ( s, buffer, HEADER_SIZE, 0 );
       if ( rc == HEADER_SIZE )
-      {
          return 1;
-      }
-
       else
          return -1;
    }
