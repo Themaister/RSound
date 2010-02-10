@@ -228,6 +228,8 @@ static void print_help(char *appname)
 
 static void parse_input(int argc, char **argv)
 {
+
+   char *program_name;
    int c, option_index = 0;
 
    struct option opts[] = {
@@ -240,6 +242,13 @@ static void parse_input(int argc, char **argv)
    };
 
    char optstring[] = "r:p:hc:";
+   program_name = malloc(strlen(argv[0] + 1));
+   if ( program_name == NULL )
+   {
+      fprintf(stderr, "Error allocating memory.\n");
+      exit(1);
+   }
+   strcpy(program_name, argv[0]);
 
    while ( 1 )
    {
@@ -268,11 +277,13 @@ static void parse_input(int argc, char **argv)
             break;
 
          case '?':
-            print_help(argv[0]);
+            print_help(program_name);
+            free(program_name);
             exit(1);
 
          case 'h':
-            print_help(argv[1]);
+            print_help(program_name);
+            free(program_name);
             exit(0);
 
          default:
