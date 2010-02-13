@@ -163,11 +163,11 @@ void parse_input(int argc, char **argv)
    {
 
 #ifdef __CYGWIN__
-   /* We prefer libao if we're in Windows. */
-   #ifdef _AO
-      backend = ao_thread;
-   #elif _PORTA
+   /* We prefer portaudio if we're in Windows. */
+   #ifdef _PORTA
       backend = porta_thread;
+   #elif _AO
+      backend = ao_thread;
    #elif _OSS
       backend = oss_thread;
    #endif

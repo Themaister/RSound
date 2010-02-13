@@ -34,7 +34,7 @@ To compile (Cygwin):
 ======================
 
 Windows is supported via:
-   libao <-- recommended
+   libao
    portaudio
 
 The build process in cygwin is very similar. You will however need
