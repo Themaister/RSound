@@ -20,7 +20,6 @@
 static void clean_alsa_interface(void* data)
 {
    alsa_t *sound = data;
-   fprintf(stderr, "Calling :D\n");
 
    close(sound->conn.socket);
    close(sound->conn.ctl_socket);
@@ -31,7 +30,6 @@ static void clean_alsa_interface(void* data)
    }
    if ( sound->buffer )
       free(sound->buffer);
-   fprintf(stderr, "Quitted.\n");
 }
 
 /* ALSA is just wonderful, isn't it? ... */

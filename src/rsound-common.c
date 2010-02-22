@@ -408,14 +408,11 @@ int recieve_data(connection_t conn, char* buffer, size_t size)
    
    while ( read < size )
    {
-      if ( poll(fd, 2, 100) < 0)
+      if ( poll(fd, 2, 500) < 0)
          return 0;
 
       if ( fd[1].revents & POLLIN )
-      {
-         fprintf(stderr, "Closed connection ........\n");
          return 0;
-      }
 
       if ( fd[0].revents & POLLHUP )
          return 0;

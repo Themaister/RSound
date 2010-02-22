@@ -27,6 +27,7 @@ typedef struct
    char *buffer;
    int audio_fd;
    uint32_t fragsize;
+   connection_t conn;
 } oss_t;
 
 #define OSS_DEVICE "/dev/dsp"

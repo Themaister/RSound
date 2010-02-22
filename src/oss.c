@@ -19,6 +19,8 @@
 static void clean_oss_interface(oss_t* sound)
 {
    close(sound->audio_fd);
+   close(sound->conn.socket);
+   close(sound->conn.ctl_socket);
    if ( sound->buffer )
       free(sound->buffer);
 }
@@ -102,7 +104,7 @@ static int init_oss(oss_t* sound, wav_header* w)
     return 1;
 }
 
-void* oss_thread( void* socket )
+void* oss_thread( void* data )
 {
    oss_t sound;
    wav_header w;
@@ -112,21 +114,23 @@ void* oss_thread( void* socket )
    uint32_t buffer_size;
    audio_buf_info zz;
 
-   int s_new = *((int*)socket);
-   free(socket);
+   connection_t *conn = data;
+   sound.conn.socket = conn->socket;
+   sound.conn.ctl_socket = conn->ctl_socket;
+   free(conn);
 
    sound.buffer = NULL;
+   sound.audio_fd = -1;
    
    if ( verbose )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
-   rc = get_wav_header(s_new, &w);
+   rc = get_wav_header(sound.conn, &w);
 
    if ( rc != 1 )
    {
-      close(s_new);
       fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-      pthread_exit(NULL);
+      goto oss_exit;
    }
 
    if ( verbose )
@@ -140,8 +144,7 @@ void* oss_thread( void* socket )
    if ( !init_oss(&sound, &w) )
    {
       fprintf(stderr, "Initializing of OSS failed ...\n");
-      close(s_new);
-      pthread_exit(NULL);
+      goto oss_exit;
    }
 
    if ( ioctl( sound.audio_fd, SNDCTL_DSP_GETOSPACE, &zz ) != 0 )
@@ -152,12 +155,15 @@ void* oss_thread( void* socket )
 
    buffer_size = (uint32_t)zz.bytes;
    sound.fragsize = (uint32_t)zz.fragsize;
-   sound.fragsize = 1024;
+   
+   /* Low packet size */
+   sound.fragsize = 128 * w.numChannels * 2;
+   /* :) */
    
    if ( verbose )
       fprintf(stderr, "Fragsize %d, Buffer size %d\n", sound.fragsize, (int)buffer_size);
    
-   if ( !send_backend_info(s_new, sound.fragsize ))
+   if ( !send_backend_info(sound.conn, sound.fragsize ))
    {
       fprintf(stderr, "Error sending backend info.\n");
       goto oss_exit;
@@ -178,7 +184,7 @@ void* oss_thread( void* socket )
    /* While connection is active, read data and reroutes it to OSS_DEVICE */
    while(active_connection)
    {
-      rc = recieve_data(s_new, sound.buffer, sound.fragsize);
+      rc = recieve_data(sound.conn, sound.buffer, sound.fragsize);
       if ( rc == 0 )
       {
          active_connection = 0;
@@ -207,9 +213,7 @@ void* oss_thread( void* socket )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
 oss_exit:
-   close(s_new);
    clean_oss_interface(&sound);
-
    pthread_exit(NULL);
    return NULL; /* GCC warning */
 }
