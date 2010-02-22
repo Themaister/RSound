@@ -25,7 +25,8 @@ int no_threading = 0;
 
 int main(int argc, char ** argv)
 {
-   int s, s_new, i;
+   int s, s_new, s_ctl, i;
+   connection_t conn;
    
    parse_input(argc, argv);
    
@@ -68,7 +69,25 @@ int main(int argc, char ** argv)
          continue;
       }
 
-      new_sound_thread(s_new);
+      if ( listen(s, 1) == -1 )
+      {
+         fprintf(stderr, "Couldn't listen for connection ...\n");
+         exit(10);
+      }
+      
+      /* Accepts a ctl socket */
+      s_ctl = accept(s, NULL, NULL);
+
+      if ( s_new == -1 )
+      {
+         fprintf(stderr, "Accepting ctl socket failed... Errno: %d\n", errno);
+         fprintf(stderr, "%s\n", strerror( errno ) ); 
+         continue;
+      }
+
+      conn.socket = s_new;
+      conn.ctl_socket = s_ctl;
+      new_sound_thread(conn);
    }    
    
    return 0;

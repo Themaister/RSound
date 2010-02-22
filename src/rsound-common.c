@@ -40,21 +40,28 @@
 
 /* This file defines some backend independed operations */
 
-void new_sound_thread ( int socket )
+void new_sound_thread ( connection_t connection )
 {
-
    pthread_t thread;
    
-   int *s = malloc ( sizeof(int) );
-   *s = socket;
-   if ( fcntl(*s, F_SETFL, O_NONBLOCK) < 0)
+   connection_t *conn = malloc(sizeof(*conn));
+   conn->socket = connection.socket;
+   conn->ctl_socket = connection.ctl_socket;
+
+   if ( fcntl(conn->socket, F_SETFL, O_NONBLOCK) < 0)
    {
-      free(s);
+      free(conn);
       fprintf(stderr, "Setting non-blocking socket failed.\n");
       return;
    }
 
-   pthread_create(&thread, NULL, backend, (void*)s);     
+   if ( fcntl(conn->ctl_socket, F_SETFL, O_NONBLOCK) < 0)
+   {
+      free(conn);
+      fprintf(stderr, "Setting non-blocking socket failed.\n");
+      return;
+   }
+   pthread_create(&thread, NULL, backend, (void*)conn);     
 
    if ( no_threading )
       pthread_join(thread, NULL);
@@ -251,15 +258,8 @@ void pheader(wav_header *w)
 }
 
 /* Reads raw 44 bytes WAV header and parses this */
-int get_wav_header(int socket, wav_header* head)
+int get_wav_header(connection_t conn, wav_header* head)
 {
-
-#define STREAM_CONNECTION 0
-#define CANCEL_CONNECTION 1
-   
-   /* Might recieve immediate termination request */
-   uint16_t stream_type;
-   uint32_t threadId;
 
    int i = is_little_endian();
    /* WAV files are little-endian. If server is big-endian, swaps over data to get sane results. */
@@ -270,7 +270,7 @@ int get_wav_header(int socket, wav_header* head)
    char header[HEADER_SIZE] = {0};
 
    struct pollfd fd;
-   fd.fd = socket;
+   fd.fd = conn.socket;
    fd.events = POLLIN;
 
    if ( poll(&fd, 1, 500) < 0 )
@@ -279,7 +279,7 @@ int get_wav_header(int socket, wav_header* head)
    if ( fd.revents == POLLHUP )
       return 0;
 
-   rc = recv(socket, header, HEADER_SIZE, 0);
+   rc = recv(conn.socket, header, HEADER_SIZE, 0);
    if ( rc != HEADER_SIZE )
    {
       fprintf(stderr, "Didn't read enough data for WAV header. recv() returned %d. \n", rc);
@@ -305,16 +305,6 @@ int get_wav_header(int socket, wav_header* head)
       swap_endian_16 ( &temp16 );
    head->bitsPerSample = temp16;
 
-   stream_type = ntohs(*((uint16_t*)header));
-   threadId = ntohl(*((uint32_t*)(header+4)));
-
-   if ( stream_type == CANCEL_CONNECTION )
-   {
-      pthread_cancel((pthread_t)threadId);
-      pthread_join((pthread_t)threadId, NULL);
-      return -2;
-   }
-
    /* Checks some basic sanity of header file */
    if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 || head->bitsPerSample == 0 )
    {
@@ -327,30 +317,21 @@ int get_wav_header(int socket, wav_header* head)
    return 1;
 }
 
-int send_backend_info(int socket, uint32_t chunk_size, uint32_t threadId )
+int send_backend_info(connection_t conn, uint32_t chunk_size )
 {
    int rc;
    struct pollfd fd;
 
    chunk_size = htonl(chunk_size);
-   threadId = htonl(threadId);
 
-   fd.fd = socket;
+   fd.fd = conn.socket;
    fd.events = POLLOUT;
 
    if ( poll(&fd, 1, 10000) < 0 )
       return 0;
    if ( fd.revents == POLLHUP )
       return 0;
-   rc = send(socket, &chunk_size, sizeof(uint32_t), 0);
-   if ( rc != sizeof(uint32_t))
-      return 0;
-
-   if ( poll(&fd, 1, 10000) < 0 )
-      return 0;
-   if ( fd.revents == POLLHUP )
-      return 0;
-   rc = send(socket, &threadId, sizeof(uint32_t), 0);
+   rc = send(conn.socket, &chunk_size, sizeof(uint32_t), 0);
    if ( rc != sizeof(uint32_t))
       return 0;
 
@@ -414,26 +395,35 @@ error:
 
 }
 
-int recieve_data(int socket, char* buffer, size_t size)
+int recieve_data(connection_t conn, char* buffer, size_t size)
 {
    int rc;
    size_t read = 0;
-   struct pollfd fd;
+   struct pollfd fd[2];
    size_t read_size;
-   fd.fd = socket;
-   fd.events = POLLIN;
+   fd[0].fd = conn.socket;
+   fd[0].events = POLLIN;
+   fd[1].fd = conn.ctl_socket;
+   fd[1].events = POLLIN;
    
    while ( read < size )
    {
-      if ( poll(&fd, 1, 500) < 0)
+      if ( poll(fd, 2, 100) < 0)
          return 0;
 
-      if ( fd.revents == POLLHUP )
+      if ( fd[1].revents & POLLIN )
+      {
+         fprintf(stderr, "Closed connection ........\n");
          return 0;
-      else if ( fd.revents == POLLIN )
+      }
+
+      if ( fd[0].revents & POLLHUP )
+         return 0;
+
+      else if ( fd[0].revents & POLLIN )
       {
          read_size = size - read > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - read;
-         rc = recv(socket, buffer + read, read_size, 0);
+         rc = recv(conn.socket, buffer + read, read_size, 0);
          if ( rc <= 0 )
          return 0;
          

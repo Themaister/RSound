@@ -55,4 +55,10 @@ typedef struct
    uint32_t subChunkSize2;
 } wav_header;
 
+typedef struct
+{
+   int socket;
+   int ctl_socket;
+} connection_t;
+
 #endif

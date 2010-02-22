@@ -19,10 +19,11 @@
 
 static void clean_alsa_interface(void* data)
 {
-   fprintf(stderr, "Calling :D\n");
    alsa_t *sound = data;
+   fprintf(stderr, "Calling :D\n");
 
-   close(sound->socket);
+   close(sound->conn.socket);
+   close(sound->conn.ctl_socket);
    if ( sound->handle )
    {
       snd_pcm_drop(sound->handle);
@@ -79,6 +80,12 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    interface->frames = (int)interface->frames;
    snd_pcm_hw_params_get_buffer_size(interface->params, &bufferSize);
 
+
+   /* :D :D :D Force small packet sizes */
+   interface->frames = 128;
+   interface->size = 128 * w->numChannels * 2;
+   /* :D:D:D:D */
+
    chunk_size = (uint32_t)interface->size;
    buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
 
@@ -105,24 +112,23 @@ void* alsa_thread ( void* data )
    int active_connection;
    int underrun_count = 0;
 
-   int s_new = *((int*)data);
-   free(data);
-   sound.socket = s_new;
+   connection_t *conn = data;
+   sound.conn.socket = conn->socket;
+   sound.conn.ctl_socket = conn->ctl_socket;
+   free(conn);
 
    if ( verbose )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
-   rc = get_wav_header(s_new, &w);
-   if ( rc == -2 )
-      pthread_exit(NULL);
+   rc = get_wav_header(sound.conn, &w);
    if ( rc == -1 )
    {
-      close(s_new);
+      close(sound.conn.socket);
+      close(sound.conn.ctl_socket);
       fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
       pthread_exit(NULL);
    }
    
-
    if ( verbose )
    {
       fprintf(stderr, "Successfully got WAV header ...\n");
@@ -136,36 +142,31 @@ void* alsa_thread ( void* data )
    if ( !init_alsa(&sound, &w) )
    {
       fprintf(stderr, "Failed to initialize ALSA ...\n");
-      pthread_exit(NULL);
+      goto alsa_exit;
    }
 
-   if ( !send_backend_info(s_new, sound.size, (uint32_t)pthread_self()) )
+   if ( !send_backend_info(sound.conn, sound.size) )
    {
       fprintf(stderr, "Failed to send buffer info ...\n");
-      pthread_exit(NULL);
+      goto alsa_exit;
    }
 
    if ( verbose )
       fprintf(stderr, "Initializing of ALSA successful... Party time!\n");
 
-
    active_connection = 1;
 
-
-   pthread_cleanup_push(clean_alsa_interface, &sound);
    while(active_connection)
    {
       memset(sound.buffer, 0, sound.size);
 
       /* Reads complete buffer */
-      rc = recieve_data(s_new, sound.buffer, sound.size);
+      rc = recieve_data(sound.conn, sound.buffer, sound.size);
       if ( rc == 0 )
       {
          active_connection = 0;
          break;
       }
-
-      pthread_testcancel();
 
       /* Plays it back :D */
       rc = snd_pcm_writei(sound.handle, sound.buffer, sound.frames);
@@ -187,10 +188,13 @@ void* alsa_thread ( void* data )
       }
 
    }
-   pthread_cleanup_pop(1);
 
    if ( verbose )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
+alsa_exit:
+   
+   clean_alsa_interface(&sound);
+   pthread_exit(NULL);
    return NULL; /* GCC warning */
 }
