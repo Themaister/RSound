@@ -24,6 +24,7 @@ typedef struct
    ao_device *device;
    ao_sample_format format;
    char *buffer;
+   connection_t conn;
 } ao_t;
 
 void* ao_thread( void* socket );

@@ -18,6 +18,9 @@
 
 static void clean_ao_interface(ao_t* sound)
 {
+   close(sound->conn.socket);
+   close(sound->conn.ctl_socket);
+
    if ( sound->device )
       ao_close(sound->device);
    if ( sound->buffer )
@@ -37,7 +40,6 @@ static int init_ao(ao_t* interface, wav_header* w)
    interface->format.channels = w->numChannels;
    interface->format.rate = w->sampleRate;
    interface->format.byte_format = AO_FMT_LITTLE;
-   interface->buffer = NULL;
 
    interface->device = ao_open_live(default_driver, &interface->format, NULL);
    if ( interface->device == NULL )
@@ -57,19 +59,23 @@ void* ao_thread ( void* data )
    int active_connection;
    uint32_t chunk_size = DEFAULT_CHUNK_SIZE;
 
-   int s_new = *((int*)data);
-   free(data);
+   connection_t *conn = data;
+   sound.conn.socket = conn->socket;
+   sound.conn.ctl_socket = conn->ctl_socket;
+   free(conn);
+
+   sound.buffer = NULL;
+   sound.device = NULL;
 
    if ( verbose )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
-   rc = get_wav_header(s_new, &w);
+   rc = get_wav_header(sound.conn, &w);
 
    if ( rc != 1 )
    {
-      close(s_new);
       fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-      pthread_exit(NULL);
+      goto ao_exit;
    }
 
    if ( verbose )
@@ -88,7 +94,7 @@ void* ao_thread ( void* data )
    }
 
    /* Dirty, and should be avoided, but I need to study the API better. */
-   if ( !send_backend_info(s_new, chunk_size ))
+   if ( !send_backend_info(sound.conn, chunk_size ))
    {
       fprintf(stderr, "Couldn't send backend info.\n");
       goto ao_exit;
@@ -107,7 +113,7 @@ void* ao_thread ( void* data )
    active_connection = 1;
    while(active_connection)
    {
-      rc = recieve_data(s_new, sound.buffer, chunk_size );
+      rc = recieve_data(sound.conn, sound.buffer, chunk_size );
       if ( rc == 0 )
       {
          active_connection = 0;
@@ -122,9 +128,7 @@ void* ao_thread ( void* data )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
 ao_exit:
-   close(s_new);
    clean_ao_interface(&sound);
-
    pthread_exit(NULL);
    return NULL; /* GCC warning */
 

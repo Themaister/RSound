@@ -19,7 +19,7 @@
 #define MONO 1
 #define STEREO 2
 #define HEADER_SIZE 44 
-#define DEFAULT_CHUNK_SIZE 1024
+#define DEFAULT_CHUNK_SIZE 512
 
 #define _POSIX_SOURCE 
 #define __USE_POSIX
