@@ -16,7 +16,6 @@
 #include "alsa.h"
 #include "rsound.h"
 
-
 static void clean_alsa_interface(void* data)
 {
    alsa_t *sound = data;
