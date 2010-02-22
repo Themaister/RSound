@@ -94,12 +94,6 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   if ( fcntl(conn.ctl_socket, F_SETFL, O_NONBLOCK) < 0)
-   {
-      fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
-      exit(1);
-   }
-
    if ( send_header_info(conn.socket) == -1 )
    {
       fprintf(stderr, "Couldn't send WAV-info\n");
@@ -362,12 +356,12 @@ static void parse_input(int argc, char **argv)
 
 static void cancel_stream(int signal)
 {
+   const char buf[] = "CLOSE";
    (void) signal;
    fprintf(stderr, "Caught signal. Quitting.\n");
    if ( buffer )
       free(buffer);
    
-   const char *buf = "CLOSE";
    send(fd[1].fd, buf, 5, 0);
    close(fd[1].fd);
    close(fd[0].fd);

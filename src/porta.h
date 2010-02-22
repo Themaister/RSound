@@ -25,11 +25,10 @@ typedef struct
    PaStream *stream;
    char *buffer;
    size_t size;
-   size_t fragsize;
    size_t frames;
+   connection_t conn;
 } porta_t;
 
 void* porta_thread( void* socket );
-/*extern int verbose;*/
 #endif
 

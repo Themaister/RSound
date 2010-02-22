@@ -20,8 +20,13 @@
 
 static void clean_porta_interface(porta_t* sound)
 {
-   Pa_StopStream ( sound->stream );
-   Pa_CloseStream ( sound->stream );
+   close(sound->conn.socket);
+   close(sound->conn.ctl_socket);
+   if ( sound->stream )
+   {
+      Pa_StopStream ( sound->stream );
+      Pa_CloseStream ( sound->stream );
+   }
    if ( sound->buffer )
       free(sound->buffer);
 }
@@ -78,30 +83,31 @@ static int init_porta(porta_t* sound, wav_header* w)
    return 1;
 }
 
-void* porta_thread( void* socket )
+void* porta_thread( void* data )
 {
    porta_t sound;
    wav_header w;
    int rc;
    int active_connection;
    PaError err;
-   uint32_t chunk_size;
    
-   int s_new = *((int*)socket);
-   free(socket);
+   connection_t *conn = data;
+   sound.conn.socket = conn->socket;
+   sound.conn.ctl_socket = conn->ctl_socket;
+   free(conn);
 
    sound.buffer = NULL;
+   sound.stream = NULL;
    
    if ( verbose )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
-   rc = get_wav_header(s_new, &w);
+   rc = get_wav_header(sound.conn, &w);
 
    if ( rc != 1 )
    {
-      close(s_new);
       fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-      pthread_exit(NULL);
+      goto porta_quit;
    }
 
    if ( verbose )
@@ -118,29 +124,24 @@ void* porta_thread( void* socket )
       goto porta_quit;
    }
 
-   chunk_size = sound.size;
    /* Just have to set something for buffer_size */
-   if ( !send_backend_info(s_new, &chunk_size, 16*chunk_size, w.numChannels ) )
+   if ( !send_backend_info(sound.conn, sound.size ) )
    {
       fprintf(stderr, "Couldn't send backend info.\n");
       goto porta_quit;
    }
 
-   sound.fragsize = chunk_size;
-
    if ( verbose )
       printf("Initializing of PortAudio successful... Party time!\n");
-
 
    active_connection = 1;
    
    while(active_connection)
    {
-      
       memset(sound.buffer, 0, sound.size);
 
       /* Reads complete buffer */
-      rc = recieve_data(s_new, sound.buffer, sound.fragsize, sound.size);
+      rc = recieve_data(sound.conn, sound.buffer, sound.size);
       if ( rc == 0 )
       {
          active_connection = 0;
@@ -159,9 +160,7 @@ void* porta_thread( void* socket )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
 porta_quit: 
-   close(s_new);
    clean_porta_interface(&sound);
-
    pthread_exit(NULL);
    return NULL; /* To make GCC warning happy */
 
