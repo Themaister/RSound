@@ -1,28 +1,75 @@
-Index: libao2/audio_out.c
-===================================================================
---- a/libao2/audio_out.c	(revision 30341)
-+++ b/libao2/audio_out.c	(working copy)
-@@ -53,6 +53,7 @@
- extern const ao_functions_t audio_out_v4l2;
- extern const ao_functions_t audio_out_mpegpes;
- extern const ao_functions_t audio_out_pcm;
-+extern const ao_functions_t audio_out_rsound;
- extern const ao_functions_t audio_out_pss;
+From 3314d9e5887908c9401eac7875c44f698afa5a7e Mon Sep 17 00:00:00 2001
+From: Themaister <maister@archlinux.us>
+Date: Mon, 22 Feb 2010 20:45:07 +0100
+Subject: [PATCH 1/3] RSound non-block test.
+
+---
+ Makefile            |    3 +
+ libao2/ao_alsa.c    |    7 +-
+ libao2/ao_rsound.c  |  150 ++++++++++++++++++++
+ libao2/audio_out.c  |    2 +
+ libao2/pcm_rsound.c |  149 ++++++++++++++++++++
+ libao2/rsound.c     |  390 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ libao2/rsound.h     |   95 +++++++++++++
+ 7 files changed, 795 insertions(+), 1 deletions(-)
+ create mode 100644 libao2/ao_rsound.c
+ create mode 100644 libao2/pcm_rsound.c
+ create mode 100644 libao2/rsound.c
+ create mode 100644 libao2/rsound.h
+
+diff --git a/Makefile b/Makefile
+index 225caae..abd0fa2 100644
+--- a/Makefile
++++ b/Makefile
+@@ -629,6 +629,9 @@ SRCS_MPLAYER = command.c \
+                libao2/ao_mpegpes.c \
+                libao2/ao_null.c \
+                libao2/ao_pcm.c \
++               libao2/ao_rsound.c \
++               libao2/rsound.c \
++               libao2/pcm_rsound.c \
+                libao2/audio_out.c \
+                libvo/aspect.c \
+                libvo/geometry.c \
+diff --git a/libao2/ao_alsa.c b/libao2/ao_alsa.c
+index 49f4237..4c46dc1 100644
+--- a/libao2/ao_alsa.c
++++ b/libao2/ao_alsa.c
+@@ -795,6 +795,7 @@ static int play(void* data, int len, int flags)
+     return 0;
  
- const ao_functions_t* const audio_out_drivers[] =
-@@ -119,6 +120,7 @@
- #endif
-         &audio_out_null,
- // should not be auto-selected:
-+        &audio_out_rsound,
-         &audio_out_pcm,
-         NULL
- };
-Index: libao2/ao_rsound.c
-===================================================================
---- a/libao2/ao_rsound.c	(revision 0)
-+++ b/libao2/ao_rsound.c	(revision 0)
-@@ -0,0 +1,350 @@
+   do {
++    fprintf(stderr, "ALSA playing %d frames!                  \n", (int)num_frames);
+     res = snd_pcm_writei(alsa_handler, data, num_frames);
+ 
+       if (res == -EINTR) {
+@@ -834,15 +835,19 @@ static int get_space(void)
+ 	return 0;
+     }
+ 
+-    unsigned space = snd_pcm_status_get_avail(status) * bytes_per_sample;
++    int space = snd_pcm_status_get_avail(status) * bytes_per_sample;
+     if (space > ao_data.buffersize) // Buffer underrun?
+         space = ao_data.buffersize;
++
++    fprintf(stderr, "get_avail(): %d\n             ", space);
+     return space;
+ }
+ 
+ /* delay in seconds between first and last sample in buffer */
+ static float get_delay(void)
+ {
++
++
+   if (alsa_handler) {
+     snd_pcm_sframes_t delay;
+ 
+diff --git a/libao2/ao_rsound.c b/libao2/ao_rsound.c
+new file mode 100644
+index 0000000..4a73abe
+--- /dev/null
++++ b/libao2/ao_rsound.c
+@@ -0,0 +1,150 @@
 +/*
 + * RSound audio output driver
 + *
@@ -58,16 +105,7 @@ Index: libao2/ao_rsound.c
 +#include "mp_msg.h"
 +#include "help_mp.h"
 +
-+#include <stdint.h>
-+#include <sys/types.h>
-+#include <sys/socket.h>
-+#include <arpa/inet.h>
-+#include <netdb.h>
-+#include <fcntl.h>
-+#include <unistd.h>
-+#include <time.h>
-+#include "osdep/timer.h"
-+
++#include "rsound.h"
 +
 +static const ao_info_t info =
 +{
@@ -79,137 +117,23 @@ Index: libao2/ao_rsound.c
 +
 +LIBAO_EXTERN(rsound)
 +
-+// Uses the "null" plugin timing algorithm for creating a fake audio buffer
-+// Timing accuracy is though improved
++/* Alternative method. Tries to make the play() function more snappy by offloading the send() functions to a thread.
++ * It might fix issues related to constant latency, but if the latency spikes occationally (laptop wifi comes to mind), this probably won't make a difference.
++ * Each thread is joined before starting another thread, to avoid possible race conditions. A bad connection will still give problems.
++ * It is probably more bug prone than the first implementation.
++ */
 +
 +static char *host = NULL;
 +static char *port = NULL;
-+static int s;
-+
-+static int buffer;
-+static int has_written;
-+static int64_t total_written;
-+
-+static struct timespec start_tv;
-+
-+static int get_backend_info(int, uint32_t*, uint32_t*);
-+static inline int is_little_endian(void);
-+static inline void swap_endian_16(uint16_t*);
-+static inline void swap_endian_32(uint32_t*);
++static rsound_t* rsound;
 +
 +static int control(int cmd, void *arg)
 +{
 +   return -1;
 +}
 +
-+static void drain(void)
-+{
-+   // Simulates a sound card. Assumes that a certain bytes of sound have been played since the beginning, and estimated the buffer size accordingly.
-+   if ( has_written )
-+   {
-+      int64_t temp, temp2;
-+      
-+      struct timespec now_tv;
-+      clock_gettime(CLOCK_MONOTONIC, &now_tv);
-+      
-+      temp = (int64_t)now_tv.tv_sec - (int64_t)start_tv.tv_sec;
-+      temp *= ao_data.bps;
-+
-+      temp2 = (int64_t)now_tv.tv_nsec - (int64_t)start_tv.tv_nsec;
-+      temp2 *= (int64_t)ao_data.bps;
-+      temp2 /= 1000000000;
-+
-+      temp += temp2;
-+
-+      buffer = (int)(total_written - temp);
-+
-+      if ( buffer < 0 )
-+         buffer = 0;
-+   }
-+   else
-+      buffer = 0;
-+}
-+// Connects to the rsoundserv and sends the WAVE header. Server is ready to recieve audio data.
-+static int create_connection(int rate, int channels)
-+{
-+   char waveheader[44] = {0};
-+   int rc;
-+   struct addrinfo hints, *res;
-+
-+   #define HEADER_SIZE 44
-+   #define RATE 24
-+   #define CHANNEL 22
-+   #define BITS 34
-+
-+   // rsoundserv only requires these three params
-+
-+   uint32_t rate_temp = rate;
-+   uint16_t channels_temp = channels;
-+   uint16_t bits_temp = 16;
-+
-+   if ( !is_little_endian() )
-+   {
-+      swap_endian_32(&rate_temp);
-+      swap_endian_16(&channels_temp);
-+      swap_endian_16(&bits_temp);
-+   }
-+
-+   *((uint32_t*)(waveheader + RATE)) = rate_temp;
-+   *((uint16_t*)(waveheader + CHANNEL)) = channels_temp;
-+   *((uint16_t*)(waveheader + BITS)) = bits_temp;
-+
-+   memset(&hints, 0, sizeof(struct addrinfo));
-+   hints.ai_family = AF_UNSPEC;
-+   hints.ai_socktype = SOCK_STREAM;
-+
-+   getaddrinfo(host, port, &hints, &res);
-+   s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-+
-+   if ( connect(s, res->ai_addr, res->ai_addrlen) != 0 )
-+   {
-+      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't connect to %s:%s\n", host, port);
-+      return 0;
-+   }
-+
-+   freeaddrinfo(res);
-+
-+   rc = send(s, waveheader, HEADER_SIZE, 0);
-+   if ( rc != HEADER_SIZE )
-+   {
-+      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't send WAVE header\n");
-+      close(s);
-+      return 0;
-+   }
-+   
-+   uint32_t chunk_size, buffer_size;
-+   if ( !get_backend_info(s, &chunk_size, &buffer_size) )
-+   {
-+      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't get backend info from server %s:%s\n", host, port);
-+      close(s);
-+      return 0;
-+   }
-+   
-+   int send_buffer_size = (int)chunk_size;
-+   if ( setsockopt(s, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, sizeof(int)) == -1 )
-+   {
-+      mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Couldn't set socket buffer size\n");
-+      close(s);
-+      return 0;
-+   }
-+
-+   ao_data.outburst = chunk_size;
-+   ao_data.buffersize = buffer_size;
-+
-+   total_written = 0;
-+   has_written = 0;
-+
-+   return 1;
-+}
-+
 +static int init(int rate, int channels, int format, int flags)
 +{
-+   buffer = 0;
-+
 +   if ( host )
 +      free(host);
 +   if ( port )
@@ -232,20 +156,26 @@ Index: libao2/ao_rsound.c
 +   if ( !port )
 +      port = strdup("12345");
 +
++   if ( rsound != NULL )
++      rsound_init(rsound, host, port);
++
++   rsound->channels = channels;
++   rsound->rate = rate;
 +   ao_data.channels = channels;
 +   ao_data.samplerate = rate;
 +   ao_data.format = AF_FORMAT_S16_LE;
 +   ao_data.bps = channels*rate*2;
 +
-+   return ( create_connection (ao_data.samplerate, ao_data.channels) );
++   if ( rsound_start(rsound) == 0 )
++      return 1;
++   else
++      return 0;
 +}
 +
 +static void uninit(int n)
 +{
-+   // simply closes connection
-+   if ( s > 0 )
-+      close(s);
-+   s = -1;
++   rsound_stop(rsound);
++   rsound_close(rsound);
 +}
 +
 +static void reset(void)
@@ -255,133 +185,992 @@ Index: libao2/ao_rsound.c
 +    MPlayer might otherwise crash. */
 +
 +   uninit(0);
-+   buffer = 0;
-+   create_connection(ao_data.samplerate, ao_data.channels);
++   rsound_start(rsound);
 +}
 +
 +static void audio_pause(void)
 +{
-+   uninit(0);
++   rsound_pause(rsound, 1);
 +}
 +
 +static void audio_resume(void)
 +{
-+   buffer = 0;
-+   create_connection(ao_data.samplerate, ao_data.channels);
++   rsound_pause(rsound, 0);
 +}
 +
 +static int get_space(void)
 +{
-+   drain();
-+   return ao_data.buffersize - buffer;
++   int ptr = rsound_pointer(rsound);
++   return ao_data.buffersize - ptr;
 +}
 +
 +static int play(void* data, int len, int flags)
 +{
-+   unsigned int start = GetTimer();
-+   unsigned int end;
-+   int count;
-+   int written = 0;
-+   int rc = 0;
-+
-+   int maxbursts = (ao_data.buffersize - buffer) / ao_data.outburst;
-+   int playbursts = len / ao_data.outburst;
-+
-+   int bursts = playbursts > maxbursts ? maxbursts : playbursts;
-+   int playsize = bursts * ao_data.outburst;
-+
-+   for ( count = 0; count < playsize; count += ao_data.outburst )
-+   {
-+      rc = send(s, (char*)data + count, ao_data.outburst, 0);
-+      if ( rc == 0 )
-+      {
-+         mp_msg(MSGT_AO, MSGL_ERR, "[AO_RSOUND] Connection closed by server %s:%s\n", host, port);
-+         uninit(0);
-+         return written;
-+      }
-+      else if ( rc == -1 )
-+      {
-+         return 0;
-+      }
-+      written += rc;
-+   
-+   // Simulates that the buffer has been written to.
-+      total_written += rc;
-+      if ( !has_written )
-+      {
-+         clock_gettime(CLOCK_MONOTONIC, &start_tv);
-+         has_written = 1;
-+      }  
-+   }
-+   
-+   
-+   end = GetTimer();
-+   if ( end - start > 200000 )
-+      mp_msg(MSGT_AO, MSGL_WARN,  "Warning, sending %d bytes took more than 200ms (%.3f ms).\n", written, (float)(end - start)/1000.0);
-+   
-+   return written;
++   int rc = rsound_write(rsound, data, len);
++   return rc;
 +}
 +
 +static float get_delay(void)
 +{
-+   drain();
-+   return (float) buffer / (float) ao_data.bps;
++   int ptr = rsound_delay(rsound);
++   return (float)ptr / (float)ao_data.bps;
 +}
 +
-+static int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
++
++
++
++
+diff --git a/libao2/audio_out.c b/libao2/audio_out.c
+index 5ceafff..29fc3a1 100644
+--- a/libao2/audio_out.c
++++ b/libao2/audio_out.c
+@@ -53,6 +53,7 @@ extern const ao_functions_t audio_out_v4l2;
+ extern const ao_functions_t audio_out_mpegpes;
+ extern const ao_functions_t audio_out_pcm;
+ extern const ao_functions_t audio_out_pss;
++extern const ao_functions_t audio_out_rsound;
+ 
+ const ao_functions_t* const audio_out_drivers[] =
+ {
+@@ -119,6 +120,7 @@ const ao_functions_t* const audio_out_drivers[] =
+         &audio_out_null,
+ // should not be auto-selected:
+         &audio_out_pcm,
++        &audio_out_rsound,
+         NULL
+ };
+ 
+diff --git a/libao2/pcm_rsound.c b/libao2/pcm_rsound.c
+new file mode 100644
+index 0000000..b8f19cc
+--- /dev/null
++++ b/libao2/pcm_rsound.c
+@@ -0,0 +1,149 @@
++#include "rsound.h"
++
++int rsound_stop(rsound_t *rd)
 +{
-+   uint32_t chunk_size_temp, buffer_size_temp;
-+   int rc;
++   rsnd_stop_thread(rd);
 +
-+   rc = recv(socket, &chunk_size_temp, sizeof(uint32_t), 0);
-+   if ( rc != sizeof(uint32_t))
++   const char buf[] = "CLOSE";
++
++   send(rd->conn.ctl_socket, buf, 5, 0);
++   close(rd->conn.ctl_socket);
++   close(rd->conn.socket);
++   
++   rd->conn.socket = -1;
++   rd->conn.ctl_socket = -1;
++   rd->has_written = 0;
++   rd->ready_for_data = 0;
++   rd->buffer_pointer = 0;
++   rd->has_written = 0;
++   rd->total_written = 0;
++
++   return 0;
++}
++
++int rsound_write( rsound_t *rsound, const char* buf, size_t size)
++{
++   ssize_t result;
++   
++   result = rsnd_fill_buffer(rsound, buf, size);
++
++   if ( result <= 0 )
++   {
++      rsound_stop(rsound);
++      return -1;
++   }
++   return result;
++}
++
++int rsound_start(rsound_t *rsound)
++{
++   if ( rsnd_create_connection(rsound) )
 +   {
 +      return 0;
 +   }
-+   rc = recv(socket, &buffer_size_temp, sizeof(uint32_t), 0);
-+   if ( rc != sizeof(uint32_t))
++   else
 +   {
++      return -1;
++   }
++}
++
++int rsound_pointer(rsound_t *rsound)
++{
++   int ptr;
++
++   ptr = rsnd_get_ptr(rsound);	
++
++   return ptr;
++}
++
++int rsound_close(rsound_t* rsound)
++{
++   if ( rsound )
++      free(rsound);
++	
++   return 0;
++}
++
++int rsound_prepare(rsound_t* rsound)
++{
++   if ( rsnd_create_connection(rsound)) 
++      return 0;
++   else
++      return -1;
++}
++
++int rsound_delay(rsound_t *rd)
++{
++   int ptr = rsnd_get_delay(rd);
++   if ( ptr < 0 )
++      ptr = 0;
++   
++   return ptr;
++}
++
++int rsound_drain(rsound_t *rd)
++{
++   rsound_stop(rd);
++   rsound_start(rd);
++   return 0;
++}
++
++int rsound_pause(rsound_t* rsound, int enable)
++{
++   if ( !enable )
++      rsound_start(rsound);
++   else
++      rsound_stop(rsound);
++   return 0;
++}
++
++int rsound_init(rsound_t* rsound, const char* host, const char* port)
++{
++   int err;
++	rsound = calloc(1, sizeof(*rsound));
++	if ( ! rsound )
++	{
++		return -1;
++	}
++
++	rsound->host = strdup(host);
++	if ( !rsound->host )
++	{
++		free(rsound);
++		return -1;
++	}
++	
++	rsound->port = strdup(port);
++	if ( !rsound->port )
++	{
++		free(rsound);
++		return -1;
++	}
++
++   rsound->conn.socket = -1;
++   rsound->conn.socket = -1;
++   err = rsnd_connect_server(rsound);
++   if ( err != 1 )
++   {
++      err = -1;
++      goto error;
++   }
++
++	rsound->has_written = 0;
++	rsound->buffer_pointer = 0;
++   rsound->ready_for_data = 0;
++   rsound->thread_active = 0;
++   rsound->buffer = NULL;
++   pthread_mutex_init(&rsound->thread.mutex, NULL);
++   pthread_mutex_init(&rsound->thread.cond_mutex, NULL);
++   pthread_cond_init(&rsound->thread.cond, NULL);
++
++   return 0;
++
++error:
++	free(rsound->host);
++	free(rsound->port);
++	free(rsound);
++	return err;
++}
++
+diff --git a/libao2/rsound.c b/libao2/rsound.c
+new file mode 100644
+index 0000000..5e5b102
+--- /dev/null
++++ b/libao2/rsound.c
+@@ -0,0 +1,390 @@
++#include "rsound.h"
++
++#define DEBUG(x) fprintf(stderr, x);
++
++int rsnd_is_little_endian(void)
++{
++	uint16_t i = 1;
++	return *((uint8_t*)&i);
++}
++
++void rsnd_swap_endian_16 ( uint16_t * x )
++{
++	*x = (*x>>8) | (*x<<8);
++}
++
++void rsnd_swap_endian_32 ( uint32_t * x )
++{
++	*x = 	(*x >> 24 ) |
++			((*x<<8) & 0x00FF0000) |
++			((*x>>8) & 0x0000FF00) |
++			(*x << 24);
++}
++
++int rsnd_connect_server( rsound_t *rd )
++{
++	struct addrinfo hints, *res;
++	memset(&hints, 0, sizeof( hints ));
++	hints.ai_family = AF_UNSPEC;
++	hints.ai_socktype = SOCK_STREAM;
++   
++   getaddrinfo(rd->host, rd->port, &hints, &res);
++
++	rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
++   rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
++
++	if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) != 0 )
++		return 0;
++
++	if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) != 0 )
++		return 0;
++
++   if ( fcntl(rd->conn.socket, F_SETFL, O_NONBLOCK) < 0)
++   {
++      fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
 +      return 0;
 +   }
 +
-+   chunk_size_temp = ntohl(chunk_size_temp);
-+   buffer_size_temp = ntohl(buffer_size_temp);
++	freeaddrinfo(res);
++	return 1;
++}
 +
-+   *chunk_size = chunk_size_temp;
-+   *buffer_size = buffer_size_temp;
++int rsnd_send_header_info(rsound_t *rd)
++{
++#define HEADER_SIZE 44
++	char buffer[HEADER_SIZE] = {0};
++	int rc = 0;
 +
++#define RATE 24
++#define CHANNEL 22
++#define FRAMESIZE 34
++
++	uint32_t sample_rate_temp = rd->rate;
++	uint16_t channels_temp = rd->channels;
++	uint16_t framesize_temp = 16;
++
++	if ( !rsnd_is_little_endian() )
++	{
++		rsnd_swap_endian_32(&sample_rate_temp);
++		rsnd_swap_endian_16(&channels_temp);
++		rsnd_swap_endian_16(&framesize_temp);
++	}
++
++	*((uint32_t*)(buffer+RATE)) = sample_rate_temp;
++	*((uint16_t*)(buffer+CHANNEL)) = channels_temp;
++	*((uint16_t*)(buffer+FRAMESIZE)) = framesize_temp;
++
++   struct pollfd fd;
++   fd.fd = rd->conn.socket;
++   fd.events = POLLOUT;
++
++   if ( poll(&fd, 1, 500) < 0 )
++   {
++		close(rd->conn.socket);
++		close(rd->conn.ctl_socket);
++      return 0;
++   }
++
++   if (fd.revents & POLLHUP )
++   {
++		close(rd->conn.socket);
++		close(rd->conn.ctl_socket);
++      return 0;
++   }
++
++	rc = send ( rd->conn.socket, buffer, HEADER_SIZE, 0);
++	if ( rc != HEADER_SIZE )
++	{
++		close(rd->conn.socket);
++		close(rd->conn.ctl_socket);
++		return 0;
++	}
++
++	return 1;
++}
++
++int rsnd_get_backend_info ( rsound_t *rd )
++{
++	uint32_t chunk_size_temp;
++	int rc;
++
++   struct pollfd fd;
++   fd.fd = rd->conn.socket;
++   fd.events = POLLIN;
++
++   if ( poll(&fd, 1, 500) < 0 )
++   {
++      close(rd->conn.socket);
++      close(rd->conn.ctl_socket);
++      return 0;
++   }
++
++   if ( fd.revents & POLLHUP )
++   {
++      close(rd->conn.socket);
++      close(rd->conn.ctl_socket);
++      return 0;
++   }
++
++	rc = recv(rd->conn.socket, &chunk_size_temp, sizeof(uint32_t), 0);
++	if ( rc != sizeof(uint32_t))
++	{
++		close(rd->conn.socket);
++      close(rd->conn.ctl_socket);
++		return 0;
++	}
++
++	chunk_size_temp = ntohl(chunk_size_temp);
++
++   rd->chunk_size = chunk_size_temp;
++   rd->buffer_size = chunk_size_temp * 32;
++
++	rd->buffer = realloc ( rd->buffer, rd->buffer_size );
++	rd->buffer_pointer = 0;
++
++	return 1;
++}
++int rsnd_create_connection(rsound_t *rd)
++{
++	int rc;
++
++   if ( rd->conn.socket < 0 && rd->conn.ctl_socket < 0 )
++   {
++      rc = rsnd_connect_server(rd);
++      if (!rc)
++      {
++         close(rd->conn.socket);
++         close(rd->conn.ctl_socket);
++         rd->conn.socket = -1;
++         rd->conn.ctl_socket = -1;
++         return 0;
++      }
++   }
++   if ( !rd->ready_for_data )
++   {
++      rc = rsnd_send_header_info(rd);
++      if (!rc)
++      {
++         rsound_stop(rd);
++         return 0;
++      }
++
++      rc = rsnd_get_backend_info(rd);
++      if (!rc)
++      {
++         rsound_stop(rd);
++         return 0;
++      }
++
++      rd->ready_for_data = 1;
++      rc = rsnd_start_thread(rd);
++      if ( !rc )
++      {
++         rsound_stop(rd);
++         return 0;
++      }
++   }
++	
 +   return 1;
 +}
 +
-+static inline int is_little_endian(void)
++int rsnd_send_chunk(int socket, char* buf, size_t size)
 +{
-+   uint16_t i = 1;
-+   return *((uint8_t*)&i);
++	int rc = 0;
++   size_t wrote = 0;
++   size_t send_size = 0;
++   struct pollfd fd;
++   fd.fd = socket;
++   fd.events = POLLOUT;
++
++   while ( wrote < size )
++   {
++      if ( poll(&fd, 1, 500) < 0 )
++         return 0;
++
++      if ( fd.revents & POLLHUP )
++         return 0;
++
++      send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
++	   rc = send(socket, buf + wrote, send_size, 0);
++      if ( rc <= 0 )
++         return 0;
++
++      wrote += rc;
++   }
++	return wrote;
 +}
 +
-+static inline void swap_endian_16 ( uint16_t* x )
++void rsnd_drain(rsound_t *rd)
 +{
-+   *x = (*x>>8) | (*x<<8);
++	if ( rd->has_written )
++	{
++		int64_t temp, temp2;
++
++		struct timespec now_tv;
++		clock_gettime(CLOCK_MONOTONIC, &now_tv);
++		
++		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv.tv_sec;
++		temp *= rd->rate * rd->bytes_per_frame;
++
++		temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv.tv_nsec;
++		temp2 *= rd->rate * rd->bytes_per_frame;
++		temp2 /= 1000000000;
++		temp += temp2;
++
++      rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)rd->buffer_pointer - temp);
++   }
++	else
++      rd->bytes_in_buffer = rd->buffer_pointer;
 +}
 +
-+static inline void swap_endian_32 ( uint32_t* x )
++int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 +{
-+   *x = (*x>>24) | 
-+      ((*x<<8) & 0x00FF0000) |
-+      ((*x>>8) & 0x0000FF00) |
-+      (*x<<24);
++   if ( !rd->thread_active )
++   {
++      return -1;
++   }
++
++   // Wait until we have a ready buffer
++   for (;;)
++   {
++      pthread_mutex_lock(&rd->thread.mutex);
++      if (rd->buffer_pointer + (int)size <= (int)rd->buffer_size  )
++      {
++         pthread_mutex_unlock(&rd->thread.mutex);
++         break;
++      }
++      pthread_mutex_unlock(&rd->thread.mutex);
++
++      // get signal from thread to check again
++      pthread_mutex_lock(&rd->thread.cond_mutex);
++      pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
++      pthread_mutex_unlock(&rd->thread.cond_mutex);
++   }
++
++   pthread_mutex_lock(&rd->thread.mutex);
++   memcpy(rd->buffer + rd->buffer_pointer, buf, size);
++   rd->buffer_pointer += (int)size;
++   pthread_mutex_unlock(&rd->thread.mutex);
++
++   // send signal to thread that buffer has been updated
++   pthread_cond_signal(&rd->thread.cond);
++
++   return size;
 +}
 +
++int rsnd_start_thread(rsound_t *rd)
++{
++   int rc;
++   if ( !rd->thread_active )
++   {
++      rc = pthread_create(&rd->thread.threadId, NULL, rsnd_thread, rd);
++      if ( rc != 0 )
++         return 0;
++      rd->thread_active = 1;
++      return 1;
++   }
++   else
++      return 1;
++}
 +
-Index: Makefile
-===================================================================
---- a/Makefile	(revision 30341)
-+++ b/Makefile	(working copy)
-@@ -672,6 +672,7 @@
-                libao2/ao_mpegpes.c \
-                libao2/ao_null.c \
-                libao2/ao_pcm.c \
-+               libao2/ao_rsound.c \
-                libao2/audio_out.c \
-                libvo/aspect.c \
-                libvo/geometry.c \
++int rsnd_stop_thread(rsound_t *rd)
++{
++   int rc;
++   if ( rd->thread_active )
++   {
++      rc = pthread_cancel(rd->thread.threadId);
++      pthread_join(rd->thread.threadId, NULL);
++      pthread_mutex_unlock(&rd->thread.mutex);
++      pthread_mutex_unlock(&rd->thread.cond_mutex);
++      if ( rc != 0 )
++         return 0;
++      rd->thread_active = 0;
++      return 1;
++   }
++   else
++      return 1;
++}
++
++int rsnd_get_delay(rsound_t *rd)
++{
++   pthread_mutex_lock(&rd->thread.mutex);
++   rsnd_drain(rd);
++   int ptr = rd->bytes_in_buffer;
++   pthread_mutex_unlock(&rd->thread.mutex);
++   return ptr;
++}
++
++int rsnd_get_ptr(rsound_t *rd)
++{
++
++   pthread_mutex_lock(&rd->thread.mutex);
++   int ptr = rd->buffer_pointer;
++   //rsnd_drain(rd);
++   //int server_ptr = rd->bytes_in_buffer;
++   pthread_mutex_unlock(&rd->thread.mutex);
++
++   //ptr = (server_ptr > ptr) ? server_ptr : ptr;
++   //if ( ptr > (int)rd->alsa_buffer_size )
++   //   ptr = rd->alsa_buffer_size;
++
++   return ptr;
++}
++
++void* rsnd_thread ( void * thread_data )
++{
++   rsound_t *rd = thread_data;
++   int rc;
++   struct timespec now;
++   int nsecs;
++
++// Plays back data as long as there is data in the buffer
++   for (;;)
++   {
++      while ( rd->buffer_pointer >= (int)rd->chunk_size )
++      {
++         rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->chunk_size);
++         if ( rc <= 0 )
++         {
++            rsound_stop(rd);
++            // Buffer has terminated, signal fill_buffer
++            pthread_exit(NULL);
++         }
++         
++         if ( !rd->has_written )
++         {
++            pthread_mutex_lock(&rd->thread.mutex);
++            clock_gettime(CLOCK_MONOTONIC, &rd->start_tv);
++            rd->has_written = 1;
++            pthread_mutex_unlock(&rd->thread.mutex);
++         }
++
++         pthread_mutex_lock(&rd->thread.mutex);
++         rd->total_written += rc;
++         pthread_mutex_unlock(&rd->thread.mutex);
++
++         pthread_mutex_lock(&rd->thread.mutex);
++         memmove(rd->buffer, rd->buffer + rd->chunk_size, rd->buffer_size - rd->chunk_size);
++         rd->buffer_pointer -= (int)rd->chunk_size;
++         pthread_mutex_unlock(&rd->thread.mutex);
++
++         // Buffer has decreased, signal fill_buffer
++         pthread_cond_signal(&rd->thread.cond);
++
++                          
++      }
++      // Wait for the buffer to be filled. Test at least every 5ms.
++      clock_gettime(CLOCK_REALTIME, &now);
++      nsecs = 5000;      
++      now.tv_nsec += nsecs;
++      if ( now.tv_nsec >= 1000000000 )
++      {
++         now.tv_sec++;
++         now.tv_nsec -= 1000000000;
++      }
++
++      pthread_mutex_lock(&rd->thread.cond_mutex);
++      pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &now);
++      pthread_mutex_unlock(&rd->thread.cond_mutex);
++   }
++}
+diff --git a/libao2/rsound.h b/libao2/rsound.h
+new file mode 100644
+index 0000000..0b5c463
+--- /dev/null
++++ b/libao2/rsound.h
+@@ -0,0 +1,95 @@
++#ifndef __RSOUND_H
++#define __RSOUND_H
++
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <netdb.h>
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <time.h>
++#include <unistd.h>
++#include <pthread.h>
++#include <poll.h>
++
++typedef struct connection
++{
++   int socket;
++   int ctl_socket;
++} connection_t;
++
++typedef struct rsound_thread
++{
++   pthread_t threadId;
++   pthread_mutex_t mutex;
++   pthread_mutex_t cond_mutex;
++   pthread_cond_t cond;
++
++} rsound_thread_t;
++
++typedef struct snd_pcm_rsound {
++   connection_t conn;
++   char *host;
++   char *port;
++   char *buffer;
++	int buffer_pointer;
++   size_t chunk_size;
++   size_t buffer_size;
++   int bytes_per_frame;
++
++   int thread_active;
++
++   uint64_t total_written;
++   struct timespec start_tv;
++   int has_written;
++   int bytes_in_buffer;
++
++   int ready_for_data;
++
++	uint32_t rate;
++	uint16_t channels;
++
++   rsound_thread_t thread;
++
++} rsound_t;
++
++// Thread
++void* rsnd_thread (void *thread_data);
++
++// Cool utils
++int rsnd_is_little_endian(void);
++void rsnd_swap_endian_16 ( uint16_t * x );
++void rsnd_swap_endian_32 ( uint32_t * x );
++
++// RSound related
++int rsnd_connect_server ( rsound_t *rd );
++int rsnd_create_connection ( rsound_t *rd );
++int rsnd_send_header_info ( rsound_t *rd );
++int rsnd_get_backend_info ( rsound_t *rd );
++
++// Cool stuff
++void rsnd_drain(rsound_t *rd);
++int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size);
++int rsnd_send_chunk (int socket, char* buf, size_t size);
++
++// ALSA callbacks
++int rsnd_get_ptr( rsound_t *rd );
++int rsnd_get_delay ( rsound_t *rd );
++
++// Dirty work inc.
++int rsnd_start_thread( rsound_t *rd );
++int rsnd_stop_thread( rsound_t *rd );
++
++// Higher-level API
++
++int rsound_start(rsound_t*);
++int rsound_stop(rsound_t*);
++int rsound_write(rsound_t*, const char *buf, size_t len);
++int rsound_pointer(rsound_t*);
++int rsound_close(rsound_t*);
++int rsound_delay(rsound_t*);
++int rsound_pause(rsound_t*, int enable);
++
++#endif
+-- 
+1.7.0
+
+
+From a35f51dbe75e13cd515a0c5b3a200d416be4a722 Mon Sep 17 00:00:00 2001
+From: Themaister <maister@archlinux.us>
+Date: Mon, 22 Feb 2010 22:20:22 +0100
+Subject: [PATCH 2/3] Fixed ... But dirty
+
+---
+ libao2/ao_rsound.c  |   13 +++++++------
+ libao2/pcm_rsound.c |   47 +++++++++++++++++++++++++----------------------
+ libao2/rsound.c     |   18 ++++++++++--------
+ libao2/rsound.h     |    1 +
+ 4 files changed, 43 insertions(+), 36 deletions(-)
+
+diff --git a/libao2/ao_rsound.c b/libao2/ao_rsound.c
+index 4a73abe..a86efbc 100644
+--- a/libao2/ao_rsound.c
++++ b/libao2/ao_rsound.c
+@@ -53,7 +53,7 @@ LIBAO_EXTERN(rsound)
+ 
+ static char *host = NULL;
+ static char *port = NULL;
+-static rsound_t* rsound;
++static rsound_t* rsound = NULL;
+ 
+ static int control(int cmd, void *arg)
+ {
+@@ -84,11 +84,12 @@ static int init(int rate, int channels, int format, int flags)
+    if ( !port )
+       port = strdup("12345");
+ 
+-   if ( rsound != NULL )
+-      rsound_init(rsound, host, port);
++   if ( rsound_init(&rsound, host, port) < 0)
++      return -1;
+ 
+    rsound->channels = channels;
+    rsound->rate = rate;
++   
+    ao_data.channels = channels;
+    ao_data.samplerate = rate;
+    ao_data.format = AF_FORMAT_S16_LE;
+@@ -112,18 +113,18 @@ static void reset(void)
+     The server might still be playing the remainding time of the buffer while the new sound is starting. This requires sound mixing.
+     MPlayer might otherwise crash. */
+ 
+-   uninit(0);
++   rsound_stop(rsound);
+    rsound_start(rsound);
+ }
+ 
+ static void audio_pause(void)
+ {
+-   rsound_pause(rsound, 1);
++   rsound_stop(rsound);
+ }
+ 
+ static void audio_resume(void)
+ {
+-   rsound_pause(rsound, 0);
++   rsound_start(rsound);
+ }
+ 
+ static int get_space(void)
+diff --git a/libao2/pcm_rsound.c b/libao2/pcm_rsound.c
+index b8f19cc..4eb51ca 100644
+--- a/libao2/pcm_rsound.c
++++ b/libao2/pcm_rsound.c
+@@ -97,53 +97,56 @@ int rsound_pause(rsound_t* rsound, int enable)
+    return 0;
+ }
+ 
+-int rsound_init(rsound_t* rsound, const char* host, const char* port)
++int rsound_init(rsound_t** rsound, const char* host, const char* port)
+ {
+    int err;
+-	rsound = calloc(1, sizeof(*rsound));
++	*rsound = malloc(sizeof(rsound_t));
+ 	if ( ! rsound )
+ 	{
+ 		return -1;
+ 	}
+ 
+-	rsound->host = strdup(host);
+-	if ( !rsound->host )
++	(*rsound)->host = strdup(host);
++	if ( !(*rsound)->host )
+ 	{
+ 		free(rsound);
+ 		return -1;
+ 	}
+ 	
+-	rsound->port = strdup(port);
+-	if ( !rsound->port )
++	(*rsound)->port = strdup(port);
++	if ( !(*rsound)->port )
+ 	{
+-		free(rsound);
++		free(*rsound);
+ 		return -1;
+ 	}
+ 
+-   rsound->conn.socket = -1;
+-   rsound->conn.socket = -1;
+-   err = rsnd_connect_server(rsound);
++   (*rsound)->conn.socket = -1;
++   (*rsound)->conn.ctl_socket = -1;
++   err = rsnd_connect_server(*rsound);
+    if ( err != 1 )
+    {
+-      err = -1;
+       goto error;
+    }
+ 
+-	rsound->has_written = 0;
+-	rsound->buffer_pointer = 0;
+-   rsound->ready_for_data = 0;
+-   rsound->thread_active = 0;
+-   rsound->buffer = NULL;
+-   pthread_mutex_init(&rsound->thread.mutex, NULL);
+-   pthread_mutex_init(&rsound->thread.cond_mutex, NULL);
+-   pthread_cond_init(&rsound->thread.cond, NULL);
++	(*rsound)->has_written = 0;
++	(*rsound)->buffer_pointer = 0;
++   (*rsound)->ready_for_data = 0;
++   (*rsound)->thread_active = 0;
++   (*rsound)->buffer = NULL;
++
++
++   pthread_mutex_init(&(*rsound)->thread.mutex, NULL);
++   pthread_mutex_init(&(*rsound)->thread.cond_mutex, NULL);
++   pthread_cond_init(&(*rsound)->thread.cond, NULL);
+ 
+    return 0;
+ 
++
+ error:
+-	free(rsound->host);
+-	free(rsound->port);
+-	free(rsound);
++	free((*rsound)->host);
++	free((*rsound)->port);
++	free(*rsound);
++   *rsound = NULL;
+ 	return err;
+ }
+ 
+diff --git a/libao2/rsound.c b/libao2/rsound.c
+index 5e5b102..7021238 100644
+--- a/libao2/rsound.c
++++ b/libao2/rsound.c
+@@ -2,6 +2,10 @@
+ 
+ #define DEBUG(x) fprintf(stderr, x);
+ 
++#include "audio_out.h"
++#include "audio_out_internal.h"
++
++
+ int rsnd_is_little_endian(void)
+ {
+ 	uint16_t i = 1;
+@@ -46,6 +50,7 @@ int rsnd_connect_server( rsound_t *rd )
+    }
+ 
+ 	freeaddrinfo(res);
++
+ 	return 1;
+ }
+ 
+@@ -138,6 +143,8 @@ int rsnd_get_backend_info ( rsound_t *rd )
+ 
+    rd->chunk_size = chunk_size_temp;
+    rd->buffer_size = chunk_size_temp * 32;
++   ao_data.outburst = rd->chunk_size;
++   ao_data.buffersize = rd->buffer_size;
+ 
+ 	rd->buffer = realloc ( rd->buffer, rd->buffer_size );
+ 	rd->buffer_pointer = 0;
+@@ -225,10 +232,10 @@ void rsnd_drain(rsound_t *rd)
+ 		clock_gettime(CLOCK_MONOTONIC, &now_tv);
+ 		
+ 		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv.tv_sec;
+-		temp *= rd->rate * rd->bytes_per_frame;
++		temp *= rd->rate * rd->channels * 2;
+ 
+ 		temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv.tv_nsec;
+-		temp2 *= rd->rate * rd->bytes_per_frame;
++		temp2 *= rd->rate * rd->channels * 2;
+ 		temp2 /= 1000000000;
+ 		temp += temp2;
+ 
+@@ -320,14 +327,8 @@ int rsnd_get_ptr(rsound_t *rd)
+ 
+    pthread_mutex_lock(&rd->thread.mutex);
+    int ptr = rd->buffer_pointer;
+-   //rsnd_drain(rd);
+-   //int server_ptr = rd->bytes_in_buffer;
+    pthread_mutex_unlock(&rd->thread.mutex);
+ 
+-   //ptr = (server_ptr > ptr) ? server_ptr : ptr;
+-   //if ( ptr > (int)rd->alsa_buffer_size )
+-   //   ptr = rd->alsa_buffer_size;
+-
+    return ptr;
+ }
+ 
+@@ -368,6 +369,7 @@ void* rsnd_thread ( void * thread_data )
+          rd->buffer_pointer -= (int)rd->chunk_size;
+          pthread_mutex_unlock(&rd->thread.mutex);
+ 
++
+          // Buffer has decreased, signal fill_buffer
+          pthread_cond_signal(&rd->thread.cond);
+ 
+diff --git a/libao2/rsound.h b/libao2/rsound.h
+index 0b5c463..fa92ae4 100644
+--- a/libao2/rsound.h
++++ b/libao2/rsound.h
+@@ -91,5 +91,6 @@ int rsound_pointer(rsound_t*);
+ int rsound_close(rsound_t*);
+ int rsound_delay(rsound_t*);
+ int rsound_pause(rsound_t*, int enable);
++int rsound_init(rsound_t** rsound, const char* host, const char* port);
+ 
+ #endif
+-- 
+1.7.0
+
+
+From 96511a40a52fbd250c3c9118e8d7d0e569743aa6 Mon Sep 17 00:00:00 2001
+From: Themaister <maister@archlinux.us>
+Date: Mon, 22 Feb 2010 22:48:09 +0100
+Subject: [PATCH 3/3] total_written needs to be initialized.
+
+---
+ libao2/ao_rsound.c |    2 --
+ libao2/rsound.c    |    5 ++++-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/libao2/ao_rsound.c b/libao2/ao_rsound.c
+index a86efbc..1d818e2 100644
+--- a/libao2/ao_rsound.c
++++ b/libao2/ao_rsound.c
+@@ -147,5 +147,3 @@ static float get_delay(void)
+ 
+ 
+ 
+-
+-
+diff --git a/libao2/rsound.c b/libao2/rsound.c
+index 7021238..98d2dc8 100644
+--- a/libao2/rsound.c
++++ b/libao2/rsound.c
+@@ -184,6 +184,7 @@ int rsnd_create_connection(rsound_t *rd)
+       }
+ 
+       rd->ready_for_data = 1;
++      rd->total_written = 0;
+       rc = rsnd_start_thread(rd);
+       if ( !rc )
+       {
+@@ -238,11 +239,13 @@ void rsnd_drain(rsound_t *rd)
+ 		temp2 *= rd->rate * rd->channels * 2;
+ 		temp2 /= 1000000000;
+ 		temp += temp2;
+-
++      
+       rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)rd->buffer_pointer - temp);
+    }
+ 	else
++   {
+       rd->bytes_in_buffer = rd->buffer_pointer;
++   }
+ }
+ 
+ int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
+-- 
+1.7.0
+
