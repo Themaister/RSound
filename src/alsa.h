@@ -29,6 +29,7 @@ typedef struct
    snd_pcm_uframes_t frames;
    char* buffer;
    size_t size;
+   int socket;
 } alsa_t;
 
 void* alsa_thread( void* socket );

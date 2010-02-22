@@ -40,11 +40,14 @@ static uint16_t bitsPerSample = 16;
 static char port[128] = "12345";
 static char host[128] = "localhost";
 
-static int send_header_info(int);
-static int get_backend_info(int, uint32_t*);
+static int send_header_info(int, uint16_t, uint32_t);
+static int get_backend_info(int, uint32_t*, uint32_t*);
+static int cancel_stream(int);
 static void print_help(char*);
 static void parse_input(int, char**);
 static struct pollfd fd;
+
+static uint32_t threadId;
 
 
 int main(int argc, char **argv)
@@ -81,14 +84,14 @@ int main(int argc, char **argv)
       exit(1);
    }
   
-   if ( send_header_info(s) == -1 )
+   if ( send_header_info(s, 0, 0) == -1 )
    {
       fprintf(stderr, "Couldn't send WAV-info\n");
       close(s);
       exit(1);
    }
 
-   if ( !get_backend_info(s, &chunk_size))
+   if ( !get_backend_info(s, &chunk_size, &threadId))
    {
       fprintf(stderr, "Server closed connection.\n");
       close(s);
@@ -102,6 +105,9 @@ int main(int argc, char **argv)
       close(s);
       exit(1);
    }
+
+   signal(SIGTERM, cancel_stream);
+   signal(SIGINT, cancel_stream);
 
    while(1)
    {
@@ -149,11 +155,13 @@ int main(int argc, char **argv)
    return 0;
 }
       
-static int send_header_info(int s)
+static int send_header_info(int s, uint16_t stream_type, uint32_t threadId)
 {
    /* If client is big endian, swaps over the data that the client sends if sending
     * premade WAV-header (--raw). 
     * Server expects little-endian, since WAV headers are of this format. */
+
+   int rc;
 
    if (!is_little_endian())
    {
@@ -162,15 +170,16 @@ static int send_header_info(int s)
       swap_endian_16 ( &bitsPerSample );
    }
 
-
+   char buffer[HEADER_SIZE] = {0};
+   
    if ( !raw_mode )
-   {
-      char buffer[HEADER_SIZE] = {0};
-      int rc = 0;
-      
+   {  
       rc = read( 0, buffer, HEADER_SIZE );
       if ( rc != HEADER_SIZE )
          return -1;
+
+      *((uint16_t)buffer) = htons(stream_type);
+      *((uint32_t)(buffer+2)) = htons(threadId);
 
       fd.events = POLLOUT;
       if ( poll(&fd, 1, 500) < 0 )
@@ -188,13 +197,13 @@ static int send_header_info(int s)
    }
    else
    {
-      char buffer[HEADER_SIZE] = {0};
-      int rc = 0;
 
 #define RATE 24
 #define CHANNEL 22
 #define BITRATE 34
 
+      *((uint16_t)buffer) = htons(stream_type);
+      *((uint32_t)(buffer+2)) = htons(threadId);
       *((uint32_t*)(buffer+RATE)) = raw_rate;
       *((uint16_t*)(buffer+CHANNEL)) = channel;
       *((uint16_t*)(buffer+BITRATE)) = 16;
@@ -214,9 +223,9 @@ static int send_header_info(int s)
    }
 }
 
-static int get_backend_info(int socket, uint32_t* chunk_size)
+static int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* threadId)
 {
-   uint32_t chunk_size_temp, buffer_size_temp;
+   uint32_t chunk_size_temp, threadId_temp;
    int rc;
    int socket_buffer_size;
    fd.events = POLLIN;
@@ -232,10 +241,19 @@ static int get_backend_info(int socket, uint32_t* chunk_size)
       return 0;
    }
 
-   chunk_size_temp = ntohl(chunk_size_temp);
-   buffer_size_temp = ntohl(buffer_size_temp);
+   if ( poll(&fd, 1, 500) < 0 )
+      return -1;
 
-   *chunk_size = chunk_size_temp;
+   if ( fd.revents == POLLHUP )
+      return -1;
+
+   rc = recv(socket, &threadId_temp, sizeof(uint32_t), 0);
+   if ( rc != sizeof(uint32_t))
+   {
+      return 0;
+   }
+   *chunk_size = ntohl(chunk_size_temp);
+   *threadId = ntohl(threadId_temp);
    
    return 1;
 
@@ -339,4 +357,36 @@ static void parse_input(int argc, char **argv)
    }
 }
 
+static int cancel_stream(int signal)
+{ 
+   memset(&hints, 0, sizeof( struct addrinfo ));
+   hints.ai_family = AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+   
+   getaddrinfo(host, port, &hints, &res);
+   
+   s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+   fd.fd = s;
+   
+   if ( connect(s, res->ai_addr, res->ai_addrlen) != 0 )
+   {
+      fprintf(stderr, "Error connecting to %s\n", host);
+      exit(1);
+   }
+   
+   freeaddrinfo(res);
 
+   if ( fcntl(s, F_SETFL, O_NONBLOCK) < 0)
+   {
+      fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
+      exit(1);
+   }
+  
+   if ( send_header_info(s, 1, threadId) == -1 )
+   {
+      fprintf(stderr, "Couldn't send WAV-info\n");
+      close(s);
+      exit(1);
+   }
+   exit(0);
+}

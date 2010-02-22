@@ -255,7 +255,7 @@ int get_wav_header(int socket, wav_header* head)
 {
 
 #define STREAM_CONNECTION 0
-#define CANCEL_CONNECTION 0xa1a1
+#define CANCEL_CONNECTION 1
    
    // Might recieve immediate termination request
    uint16_t action;
@@ -306,11 +306,11 @@ int get_wav_header(int socket, wav_header* head)
    head->bitsPerSample = temp16;
 
    action = ntohs(*((uint16_t*)header));
-   thread = ntohl(*((uint32_t*)thread));
+   thread = ntohl(*((uint32_t*)(header+2)));
 
    if ( action == CANCEL_CONNECTION )
    {
-      pthread_kill((pthread_t)thread, SIGTERM);
+      pthread_cancel((pthread_t)thread);
       return -2;
    }
 
@@ -326,12 +326,13 @@ int get_wav_header(int socket, wav_header* head)
    return 1;
 }
 
-int send_backend_info(int socket, uint32_t chunk_size )
+int send_backend_info(int socket, uint32_t chunk_size, uint32_t threadId )
 {
    int rc;
    struct pollfd fd;
 
    chunk_size = htonl(chunk_size);
+   threadId = htonl(threadId);
 
    fd.fd = socket;
    fd.events = POLLOUT;
@@ -341,6 +342,14 @@ int send_backend_info(int socket, uint32_t chunk_size )
    if ( fd.revents == POLLHUP )
       return 0;
    rc = send(socket, &chunk_size, sizeof(uint32_t), 0);
+   if ( rc != sizeof(uint32_t))
+      return 0;
+
+   if ( poll(&fd, 1, 10000) < 0 )
+      return 0;
+   if ( fd.revents == POLLHUP )
+      return 0;
+   rc = send(socket, &threadId, sizeof(uint32_t), 0);
    if ( rc != sizeof(uint32_t))
       return 0;
 
@@ -435,4 +444,12 @@ int recieve_data(int socket, char* buffer, size_t size)
    return read;
 }
 
+void cleanup_callback( void (*callback)(void*), void *arg )
+{
+   int oldstate = PTHREAD_CANCEL_ENABLE;
+   int oldtype = PTHREAD_CANCEL_DEFERRED;
+   pthread_cancelstate(PTHREAD_CANCEL_ENABLE, &oldstate);
+   pthread_canceltype(PTHREAD_CANCEL_DEFERRED, &oldtype);
 
+   pthread_cleanup_push(callback, arg);
+}

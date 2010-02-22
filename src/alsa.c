@@ -17,8 +17,11 @@
 #include "rsound.h"
 
 
-static void clean_alsa_interface(alsa_t* sound)
+static void clean_alsa_interface(void* data)
 {
+   alsa_t *sound = data;
+
+   close(sound->socket);
    if ( sound->handle )
    {
       snd_pcm_drop(sound->handle);
@@ -74,9 +77,6 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    interface->frames = (int)interface->frames;
    snd_pcm_hw_params_get_buffer_size(interface->params, &bufferSize);
 
-   interface->size = 128 * w->numChannels * 2;
-   interface->frames = 128;
-   
    chunk_size = (uint32_t)interface->size;
    buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
 
@@ -97,6 +97,9 @@ static int init_alsa(alsa_t* interface, wav_header* w)
 void* alsa_thread ( void* data )
 {
    alsa_t sound;
+
+   cleanup_callback(clean_alsa_interface, &sound);
+
    wav_header w;
    int rc;
    int active_connection;
@@ -104,6 +107,7 @@ void* alsa_thread ( void* data )
 
    int s_new = *((int*)data);
    free(data);
+   sound.socket = s_new;
 
    if ( verbose )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
@@ -133,7 +137,7 @@ void* alsa_thread ( void* data )
 
    }
 
-   if ( !send_backend_info(s_new, sound.size) )
+   if ( !send_backend_info(s_new, sound.size, (uint32_t)pthread_self()) )
    {
       fprintf(stderr, "Failed to send buffer info ...\n");
       goto alsa_exit;
@@ -181,9 +185,6 @@ void* alsa_thread ( void* data )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
 alsa_exit:
-   close(s_new);
-   clean_alsa_interface(&sound);
-
    pthread_exit(NULL);
    return NULL; /* GCC warning */
 
