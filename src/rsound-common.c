@@ -34,6 +34,9 @@
 
 #define _GNU_SOURCE
 #include <getopt.h>
+#include <poll.h>
+
+#define MAX_PACKET_SIZE 1024
 
 /* This file defines some backend independed operations */
 
@@ -42,9 +45,14 @@ void new_sound_thread ( int socket )
 
    pthread_t thread;
    
-   int *s = malloc ( sizeof(int));
+   int *s = malloc ( sizeof(int) );
    *s = socket;
-
+   if ( fcntl(*s, F_SETFL, O_NONBLOCK) < 0)
+   {
+      free(s);
+      fprintf(stderr, "Setting non-blocking socket failed.\n");
+      return;
+   }
 
    pthread_create(&thread, NULL, backend, (void*)s);     
 
@@ -224,7 +232,6 @@ void print_help(char *appname)
    printf("-h/--help: Prints this help\n\n");
 }
 
-
 void pheader(wav_header *w)
 {
    fprintf(stderr, "============================================\n");
@@ -247,6 +254,13 @@ void pheader(wav_header *w)
 int get_wav_header(int socket, wav_header* head)
 {
 
+#define STREAM_CONNECTION 0
+#define CANCEL_CONNECTION 0xa1a1
+   
+   // Might recieve immediate termination request
+   uint16_t action;
+   uint32_t thread;
+
    int i = is_little_endian();
    /* WAV files are little-endian. If server is big-endian, swaps over data to get sane results. */
    uint16_t temp16;
@@ -255,6 +269,16 @@ int get_wav_header(int socket, wav_header* head)
    int rc = 0;
    char header[HEADER_SIZE] = {0};
 
+   struct pollfd fd;
+   fd.fd = socket;
+   fd.events = POLLIN;
+
+   if ( poll(&fd, 1, 500) < 0 )
+      return 0;
+
+   if ( fd.revents == POLLHUP )
+      return 0;
+
    rc = recv(socket, header, HEADER_SIZE, 0);
    if ( rc != HEADER_SIZE )
    {
@@ -262,43 +286,33 @@ int get_wav_header(int socket, wav_header* head)
       return -1;
    }
 
+#define CHANNELS 22
+#define RATE 24
+#define BITS_PER_SAMPLE 34
 
-   temp16 = *((uint16_t*)(header+22));
+   temp16 = *((uint16_t*)(header+CHANNELS));
    if (!i)
       swap_endian_16 ( &temp16 );
    head->numChannels = temp16;
 
-   temp32 = *((uint32_t*)(header+24));
+   temp32 = *((uint32_t*)(header+RATE));
    if (!i)
       swap_endian_32 ( &temp32 );
    head->sampleRate = temp32;
 
-   temp16 = *((uint16_t*)(header+34));
+   temp16 = *((uint16_t*)(header+BITS_PER_SAMPLE));
    if (!i)
       swap_endian_16 ( &temp16 );
    head->bitsPerSample = temp16;
 
-   /* Useless stuff (so far)
-      memcpy(head->chunkId, header, 4);
+   action = ntohs(*((uint16_t*)header));
+   thread = ntohl(*((uint32_t*)thread));
 
-      memcpy(&head->chunkSize, header+4, 4);
-
-      memcpy(head->format, header+8, 4);
-
-      memcpy(head->subChunkId, header+12, 4);
-
-      memcpy(&head->subChunkSize, header+16, 4);
-
-      memcpy(&head->audioFormat, header+20, 2);
-
-      memcpy(&head->byteRate, header+28,  4);
-
-      memcpy(&head->blockAlign, header+32, 2);
-
-      memcpy(head->subChunkId, header+36, 4);
-
-      memcpy(&head->subChunkSize2, header+40, 4);
-    */
+   if ( action == CANCEL_CONNECTION )
+   {
+      pthread_kill((pthread_t)thread, SIGTERM);
+      return -2;
+   }
 
    /* Checks some basic sanity of header file */
    if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 || head->bitsPerSample == 0 )
@@ -312,43 +326,26 @@ int get_wav_header(int socket, wav_header* head)
    return 1;
 }
 
-int send_backend_info(int socket, uint32_t *chunk_size, uint32_t buffer_size, int channels)
+int send_backend_info(int socket, uint32_t chunk_size )
 {
-   #define IDEAL_PACKAGE_SIZE 1024
-
    int rc;
-   int socket_buffer_size = (int)buffer_size;
+   struct pollfd fd;
 
-   uint32_t temp_chunk_size = *chunk_size;
-   
-   /* Tries to split package size in 2 until the package size reaches the ideal size. It also needs to be divisble by samplesize (channels * 2) (16 bits) */
-   while ( ((temp_chunk_size / (channels*2*2)) * channels*2*2 == temp_chunk_size ) && temp_chunk_size > IDEAL_PACKAGE_SIZE ) 
-      temp_chunk_size >>= 1;
+   chunk_size = htonl(chunk_size);
 
-   *chunk_size = temp_chunk_size;
-   
-   if ( setsockopt(socket, SOL_SOCKET, SO_RCVBUF, &socket_buffer_size, sizeof(int)) == -1 )
-   {
-         fprintf(stderr, "Couldn't set socket buffer size.\n");
-         return 0;
-   }
+   fd.fd = socket;
+   fd.events = POLLOUT;
 
-   if ( verbose )
-      fprintf(stderr, "TCP Packet size = %u\n", temp_chunk_size);
-
-   temp_chunk_size = htonl(*chunk_size);
-   buffer_size = htonl(buffer_size);
-
-   rc = send(socket, &temp_chunk_size, sizeof(uint32_t), 0);
-   if ( rc != sizeof(uint32_t))
+   if ( poll(&fd, 1, 10000) < 0 )
       return 0;
-   rc = send(socket, &buffer_size, sizeof(uint32_t), 0);
+   if ( fd.revents == POLLHUP )
+      return 0;
+   rc = send(socket, &chunk_size, sizeof(uint32_t), 0);
    if ( rc != sizeof(uint32_t))
       return 0;
 
    return 1;
 }
-
 
 /* Sets up listening socket for further use */
 int set_up_socket()
@@ -407,20 +404,35 @@ error:
 
 }
 
-int recieve_data(int socket, char* buffer, size_t chunk_size, size_t full_size)
+int recieve_data(int socket, char* buffer, size_t size)
 {
    int rc;
-   int written = 0;
-   int count;
-
-   for ( count = 0; count < (int)full_size; count += (int)chunk_size )
+   size_t read = 0;
+   struct pollfd fd;
+   size_t read_size;
+   fd.fd = socket;
+   fd.events = POLLIN;
+   
+   while ( read < size )
    {
-      rc = recv(socket, buffer + count, chunk_size, 0);
-      if ( rc <= 0 )
+      if ( poll(&fd, 1, 500) < 0)
          return 0;
-      written += rc;
+
+      if ( fd.revents == POLLHUP )
+         return 0;
+      else if ( fd.revents == POLLIN )
+      {
+         read_size = size - read > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - read;
+         rc = recv(socket, buffer + read, read_size, 0);
+         if ( rc <= 0 )
+         return 0;
+         
+         read += rc;
+      }
+
    }
-   return written;
+   
+   return read;
 }
 
 

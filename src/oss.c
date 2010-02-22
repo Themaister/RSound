@@ -152,11 +152,12 @@ void* oss_thread( void* socket )
 
    buffer_size = (uint32_t)zz.bytes;
    sound.fragsize = (uint32_t)zz.fragsize;
+   sound.fragsize = 1024;
    
    if ( verbose )
       fprintf(stderr, "Fragsize %d, Buffer size %d\n", sound.fragsize, (int)buffer_size);
    
-   if ( !send_backend_info(s_new, &sound.fragsize, buffer_size, (int)w.numChannels ))
+   if ( !send_backend_info(s_new, sound.fragsize ))
    {
       fprintf(stderr, "Error sending backend info.\n");
       goto oss_exit;
@@ -177,7 +178,7 @@ void* oss_thread( void* socket )
    /* While connection is active, read data and reroutes it to OSS_DEVICE */
    while(active_connection)
    {
-      rc = recieve_data(s_new, sound.buffer, sound.fragsize, sound.fragsize);
+      rc = recieve_data(s_new, sound.buffer, sound.fragsize);
       if ( rc == 0 )
       {
          active_connection = 0;

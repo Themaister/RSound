@@ -88,7 +88,7 @@ void* ao_thread ( void* data )
    }
 
    /* Dirty, and should be avoided, but I need to study the API better. */
-   if ( !send_backend_info(s_new, &chunk_size, 16*chunk_size, (int)w.numChannels) )
+   if ( !send_backend_info(s_new, chunk_size ))
    {
       fprintf(stderr, "Couldn't send backend info.\n");
       goto ao_exit;
@@ -107,7 +107,7 @@ void* ao_thread ( void* data )
    active_connection = 1;
    while(active_connection)
    {
-      rc = recieve_data(s_new, sound.buffer, chunk_size, chunk_size );
+      rc = recieve_data(s_new, sound.buffer, chunk_size );
       if ( rc == 0 )
       {
          active_connection = 0;

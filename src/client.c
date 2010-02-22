@@ -18,6 +18,8 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <poll.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +30,7 @@
 #include <getopt.h>
 
 #define HEADER_SIZE 44
+#define MAX_PACKET_SIZE 1024
 
 static int raw_mode = 0;
 static uint32_t raw_rate = 44100;
@@ -38,17 +41,20 @@ static char port[128] = "12345";
 static char host[128] = "localhost";
 
 static int send_header_info(int);
-static int get_backend_info(int, uint32_t*, uint32_t*);
+static int get_backend_info(int, uint32_t*);
 static void print_help(char*);
 static void parse_input(int, char**);
+static struct pollfd fd;
 
 
 int main(int argc, char **argv)
 {
    int s, rc;
    struct addrinfo hints, *res;
-   uint32_t chunk_size, buffer_size;
+   uint32_t chunk_size = 0;
    char *buffer;
+   size_t sent;
+   size_t send_size;
    
    parse_input(argc, argv);
    
@@ -59,6 +65,7 @@ int main(int argc, char **argv)
    getaddrinfo(host, port, &hints, &res);
    
    s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+   fd.fd = s;
    
    if ( connect(s, res->ai_addr, res->ai_addrlen) != 0 )
    {
@@ -67,8 +74,13 @@ int main(int argc, char **argv)
    }
    
    freeaddrinfo(res);
+
+   if ( fcntl(s, F_SETFL, O_NONBLOCK) < 0)
+   {
+      fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
+      exit(1);
+   }
   
-      
    if ( send_header_info(s) == -1 )
    {
       fprintf(stderr, "Couldn't send WAV-info\n");
@@ -76,8 +88,7 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   /* buffer_size isn't in this program, since we don't care about blocking. */
-   if ( !get_backend_info(s, &chunk_size, &buffer_size))
+   if ( !get_backend_info(s, &chunk_size))
    {
       fprintf(stderr, "Server closed connection.\n");
       close(s);
@@ -103,16 +114,34 @@ int main(int argc, char **argv)
          exit(0);
       }
 
-      rc = send(s, buffer, chunk_size, 0);
-      if ( rc != (int)chunk_size && rc > 0 )
+      sent = 0;
+      fd.events = POLLOUT;
+      while ( sent < chunk_size )
       {
-         fprintf(stderr, "Sent not enough data ...\n");
-      }
-      else if ( rc == 0 )
-      {
-         fprintf(stderr, "Server closed connection ...\n");
-         close(s);
-         exit(0);
+         if ( poll(&fd, 1, 500) < 0 )
+         {
+            free(buffer);
+            exit(1);
+         }
+
+         if ( fd.revents == POLLHUP )
+         {
+            fprintf(stderr, "Server closed connection.\n");
+            free(buffer);
+            exit(1);
+         }
+
+         send_size = (chunk_size - sent > MAX_PACKET_SIZE) ? MAX_PACKET_SIZE : chunk_size - sent;
+         rc = send(s, buffer + sent, send_size, 0);
+
+         if ( rc <= 0 )
+         {
+            fprintf(stderr, "Server closed connection.\n");
+            free(buffer);
+            exit(1);
+         }
+
+         sent += rc;
       }
       
    }
@@ -143,6 +172,13 @@ static int send_header_info(int s)
       if ( rc != HEADER_SIZE )
          return -1;
 
+      fd.events = POLLOUT;
+      if ( poll(&fd, 1, 500) < 0 )
+         return -1;
+
+      if ( fd.revents == POLLHUP )
+         return -1;
+      
       rc = send ( s, buffer, HEADER_SIZE, 0 );
       
       if ( rc == HEADER_SIZE )
@@ -162,6 +198,14 @@ static int send_header_info(int s)
       *((uint32_t*)(buffer+RATE)) = raw_rate;
       *((uint16_t*)(buffer+CHANNEL)) = channel;
       *((uint16_t*)(buffer+BITRATE)) = 16;
+
+      fd.events = POLLOUT;
+      if ( poll(&fd, 1, 500) < 0 )
+         return -1;
+
+      if ( fd.revents == POLLHUP )
+         return -1;
+
       rc = send ( s, buffer, HEADER_SIZE, 0 );
       if ( rc == HEADER_SIZE )
          return 1;
@@ -170,18 +214,19 @@ static int send_header_info(int s)
    }
 }
 
-static int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_size)
+static int get_backend_info(int socket, uint32_t* chunk_size)
 {
    uint32_t chunk_size_temp, buffer_size_temp;
    int rc;
    int socket_buffer_size;
+   fd.events = POLLIN;
+   if ( poll(&fd, 1, 500) < 0 )
+      return -1;
+
+   if ( fd.revents == POLLHUP )
+      return -1;
 
    rc = recv(socket, &chunk_size_temp, sizeof(uint32_t), 0);
-   if ( rc != sizeof(uint32_t))
-   {
-      return 0;
-   }
-   rc = recv(socket, &buffer_size_temp, sizeof(uint32_t), 0);
    if ( rc != sizeof(uint32_t))
    {
       return 0;
@@ -191,16 +236,7 @@ static int get_backend_info(int socket, uint32_t* chunk_size, uint32_t* buffer_s
    buffer_size_temp = ntohl(buffer_size_temp);
 
    *chunk_size = chunk_size_temp;
-   *buffer_size = buffer_size_temp;
    
-   socket_buffer_size = (int)chunk_size_temp * 4;
-   if ( setsockopt(socket,SOL_SOCKET,SO_SNDBUF,&socket_buffer_size,sizeof(int)) == -1 )
-   {
-      perror("setsockopt");
-      close(socket);
-      exit(1);
-   }
-
    return 1;
 
 }

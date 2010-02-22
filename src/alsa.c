@@ -16,8 +16,6 @@
 #include "alsa.h"
 #include "rsound.h"
 
-static uint32_t chunk_size = 0;
-static uint32_t buffer_size = 0;
 
 static void clean_alsa_interface(alsa_t* sound)
 {
@@ -33,6 +31,9 @@ static void clean_alsa_interface(alsa_t* sound)
 /* ALSA is just wonderful, isn't it? ... */
 static int init_alsa(alsa_t* interface, wav_header* w)
 {
+   uint32_t chunk_size = 0;
+   uint32_t buffer_size = 0;
+   
    int rc;
    unsigned int buffer_time = BUFFER_TIME;
    snd_pcm_uframes_t frames = 256;
@@ -70,20 +71,17 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    snd_pcm_hw_params_get_period_size(interface->params, &interface->frames,
          NULL);
    interface->size = (int)interface->frames * w->numChannels * 2;
-   chunk_size = (uint32_t)interface->size;
+   interface->frames = (int)interface->frames;
    snd_pcm_hw_params_get_buffer_size(interface->params, &bufferSize);
-   buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
+
+   interface->size = 128 * w->numChannels * 2;
+   interface->frames = 128;
    
+   chunk_size = (uint32_t)interface->size;
+   buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
+
    snd_pcm_hw_params_free(interface->params);
    
-   if ((rc = snd_pcm_prepare (interface->handle)) < 0) 
-   {
-      fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
-            snd_strerror (rc));
-      return 0;
-   }
-   
-
    if ( verbose )
       fprintf(stderr, "Buffer size: %u, Fragment size: %u.\n", buffer_size, chunk_size);
 
@@ -135,14 +133,11 @@ void* alsa_thread ( void* data )
 
    }
 
-   if ( !send_backend_info(s_new, &chunk_size, buffer_size, (int)w.numChannels) )
+   if ( !send_backend_info(s_new, sound.size) )
    {
       fprintf(stderr, "Failed to send buffer info ...\n");
       goto alsa_exit;
    }
-
-   sound.size = chunk_size;
-   sound.frames = chunk_size/(w.numChannels*2);
 
    if ( verbose )
       fprintf(stderr, "Initializing of ALSA successful... Party time!\n");
@@ -154,7 +149,7 @@ void* alsa_thread ( void* data )
       memset(sound.buffer, 0, sound.size);
 
       /* Reads complete buffer */
-      rc = recieve_data(s_new, sound.buffer, sound.size, sound.size);
+      rc = recieve_data(s_new, sound.buffer, sound.size);
       if ( rc == 0 )
       {
          active_connection = 0;
