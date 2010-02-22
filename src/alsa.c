@@ -19,6 +19,7 @@
 
 static void clean_alsa_interface(void* data)
 {
+   fprintf(stderr, "Calling :D\n");
    alsa_t *sound = data;
 
    close(sound->socket);
@@ -29,6 +30,7 @@ static void clean_alsa_interface(void* data)
    }
    if ( sound->buffer )
       free(sound->buffer);
+   fprintf(stderr, "Quitted.\n");
 }
 
 /* ALSA is just wonderful, isn't it? ... */
@@ -98,8 +100,6 @@ void* alsa_thread ( void* data )
 {
    alsa_t sound;
 
-   cleanup_callback(clean_alsa_interface, &sound);
-
    wav_header w;
    int rc;
    int active_connection;
@@ -113,13 +113,15 @@ void* alsa_thread ( void* data )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
    rc = get_wav_header(s_new, &w);
-
-   if ( rc != 1 )
+   if ( rc == -2 )
+      pthread_exit(NULL);
+   if ( rc == -1 )
    {
       close(s_new);
       fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
       pthread_exit(NULL);
    }
+   
 
    if ( verbose )
    {
@@ -130,17 +132,17 @@ void* alsa_thread ( void* data )
    if ( verbose )
       fprintf(stderr, "Initializing ALSA ...\n");
 
+
    if ( !init_alsa(&sound, &w) )
    {
       fprintf(stderr, "Failed to initialize ALSA ...\n");
-      goto alsa_exit;
-
+      pthread_exit(NULL);
    }
 
    if ( !send_backend_info(s_new, sound.size, (uint32_t)pthread_self()) )
    {
       fprintf(stderr, "Failed to send buffer info ...\n");
-      goto alsa_exit;
+      pthread_exit(NULL);
    }
 
    if ( verbose )
@@ -148,6 +150,9 @@ void* alsa_thread ( void* data )
 
 
    active_connection = 1;
+
+
+   pthread_cleanup_push(clean_alsa_interface, &sound);
    while(active_connection)
    {
       memset(sound.buffer, 0, sound.size);
@@ -159,6 +164,8 @@ void* alsa_thread ( void* data )
          active_connection = 0;
          break;
       }
+
+      pthread_testcancel();
 
       /* Plays it back :D */
       rc = snd_pcm_writei(sound.handle, sound.buffer, sound.frames);
@@ -180,12 +187,10 @@ void* alsa_thread ( void* data )
       }
 
    }
+   pthread_cleanup_pop(1);
 
    if ( verbose )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
-alsa_exit:
-   pthread_exit(NULL);
    return NULL; /* GCC warning */
-
 }

@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <signal.h>
 
 #define HEADER_SIZE 44
 #define MAX_PACKET_SIZE 1024
@@ -42,7 +43,7 @@ static char host[128] = "localhost";
 
 static int send_header_info(int, uint16_t, uint32_t);
 static int get_backend_info(int, uint32_t*, uint32_t*);
-static int cancel_stream(int);
+static void cancel_stream(int);
 static void print_help(char*);
 static void parse_input(int, char**);
 static struct pollfd fd;
@@ -162,6 +163,7 @@ static int send_header_info(int s, uint16_t stream_type, uint32_t threadId)
     * Server expects little-endian, since WAV headers are of this format. */
 
    int rc;
+   char buffer[HEADER_SIZE] = {0};
 
    if (!is_little_endian())
    {
@@ -170,7 +172,6 @@ static int send_header_info(int s, uint16_t stream_type, uint32_t threadId)
       swap_endian_16 ( &bitsPerSample );
    }
 
-   char buffer[HEADER_SIZE] = {0};
    
    if ( !raw_mode )
    {  
@@ -178,8 +179,8 @@ static int send_header_info(int s, uint16_t stream_type, uint32_t threadId)
       if ( rc != HEADER_SIZE )
          return -1;
 
-      *((uint16_t)buffer) = htons(stream_type);
-      *((uint32_t)(buffer+2)) = htons(threadId);
+      *((uint16_t*)buffer) = htons(stream_type);
+      *((uint32_t*)(buffer+4)) = htons(threadId);
 
       fd.events = POLLOUT;
       if ( poll(&fd, 1, 500) < 0 )
@@ -202,8 +203,8 @@ static int send_header_info(int s, uint16_t stream_type, uint32_t threadId)
 #define CHANNEL 22
 #define BITRATE 34
 
-      *((uint16_t)buffer) = htons(stream_type);
-      *((uint32_t)(buffer+2)) = htons(threadId);
+      *((uint16_t*)buffer) = htons(stream_type);
+      *((uint32_t*)(buffer+4)) = htons(threadId);
       *((uint32_t*)(buffer+RATE)) = raw_rate;
       *((uint16_t*)(buffer+CHANNEL)) = channel;
       *((uint16_t*)(buffer+BITRATE)) = 16;
@@ -357,8 +358,11 @@ static void parse_input(int argc, char **argv)
    }
 }
 
-static int cancel_stream(int signal)
-{ 
+static void cancel_stream(int signal)
+{
+   int s, rc;
+   struct addrinfo hints, *res;
+ 
    memset(&hints, 0, sizeof( struct addrinfo ));
    hints.ai_family = AF_UNSPEC;
    hints.ai_socktype = SOCK_STREAM;

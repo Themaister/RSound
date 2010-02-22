@@ -257,9 +257,9 @@ int get_wav_header(int socket, wav_header* head)
 #define STREAM_CONNECTION 0
 #define CANCEL_CONNECTION 1
    
-   // Might recieve immediate termination request
-   uint16_t action;
-   uint32_t thread;
+   /* Might recieve immediate termination request */
+   uint16_t stream_type;
+   uint32_t threadId;
 
    int i = is_little_endian();
    /* WAV files are little-endian. If server is big-endian, swaps over data to get sane results. */
@@ -305,12 +305,13 @@ int get_wav_header(int socket, wav_header* head)
       swap_endian_16 ( &temp16 );
    head->bitsPerSample = temp16;
 
-   action = ntohs(*((uint16_t*)header));
-   thread = ntohl(*((uint32_t*)(header+2)));
+   stream_type = ntohs(*((uint16_t*)header));
+   threadId = ntohl(*((uint32_t*)(header+4)));
 
-   if ( action == CANCEL_CONNECTION )
+   if ( stream_type == CANCEL_CONNECTION )
    {
-      pthread_cancel((pthread_t)thread);
+      pthread_cancel((pthread_t)threadId);
+      pthread_join((pthread_t)threadId, NULL);
       return -2;
    }
 
@@ -444,12 +445,3 @@ int recieve_data(int socket, char* buffer, size_t size)
    return read;
 }
 
-void cleanup_callback( void (*callback)(void*), void *arg )
-{
-   int oldstate = PTHREAD_CANCEL_ENABLE;
-   int oldtype = PTHREAD_CANCEL_DEFERRED;
-   pthread_cancelstate(PTHREAD_CANCEL_ENABLE, &oldstate);
-   pthread_canceltype(PTHREAD_CANCEL_DEFERRED, &oldtype);
-
-   pthread_cleanup_push(callback, arg);
-}
