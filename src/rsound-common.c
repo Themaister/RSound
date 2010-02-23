@@ -372,19 +372,21 @@ int set_up_socket()
       fprintf(stderr, "Error getting socket\n");
       goto error;
    }
-
+   
    if ( setsockopt(s,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) 
    {
       perror("setsockopt");
       goto error;
    }
-
+   
    rc = bind(s, servinfo->ai_addr, servinfo->ai_addrlen);
    if ( rc == -1 )
    {
       fprintf(stderr, "Error binding on port %s.\n", port);
       goto error;
    }
+
+   
 
    freeaddrinfo(servinfo);
    return s;

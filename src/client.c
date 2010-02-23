@@ -79,7 +79,7 @@ int main(int argc, char **argv)
       fprintf(stderr, "Error connecting to %s\n", host);
       exit(1);
    }
-   
+
    if ( connect(conn.ctl_socket, res->ai_addr, res->ai_addrlen) != 0 )
    {
       fprintf(stderr, "Error connecting to %s\n", host);

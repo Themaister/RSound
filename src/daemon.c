@@ -14,6 +14,8 @@
  */
 
 #include "rsound.h"
+#include <arpa/inet.h>
+#include <poll.h>
 
 /* Default values */
 char device[128] = "default";
@@ -23,10 +25,17 @@ void* (*backend) ( void * ) = NULL;
 int daemonize = 1;
 int no_threading = 0;
 
+static void* get_addr(struct sockaddr*);
+
 int main(int argc, char ** argv)
 {
    int s, s_new, s_ctl, i;
    connection_t conn;
+   struct sockaddr_storage their_addr[2];
+   socklen_t addr_size;
+   struct pollfd fd;
+   char remoteIP[2][INET6_ADDRSTRLEN] = { "", "" };
+   char *valid_addr[2];
    
    parse_input(argc, argv);
    
@@ -51,16 +60,21 @@ int main(int argc, char ** argv)
    if ( verbose )
       fprintf(stderr, "Listening for connection ...\n");
 
+
+   fd.fd = s;
+   fd.events = POLLIN;
+
    while(1)
    {
       /* Listens, accepts, and creates new sound thread */
       if ( listen(s, 1) == -1 )
       {
-         fprintf(stderr, "Couldn't listen for connection ...\n");
-         exit(10);
+         fprintf(stderr, "Couldn't listen for connection \"%s\"...\n", strerror(errno));
+         exit(1);
       }
-
-      s_new = accept(s, NULL, NULL);
+     
+      addr_size = sizeof (their_addr[0]);
+      s_new = accept(s, (struct sockaddr*)&their_addr[0], &addr_size);
 
       if ( s_new == -1 )
       {
@@ -72,19 +86,57 @@ int main(int argc, char ** argv)
       if ( listen(s, 1) == -1 )
       {
          fprintf(stderr, "Couldn't listen for connection ...\n");
-         exit(10);
+         exit(1);
       }
       
-      /* Accepts a ctl socket */
-      s_ctl = accept(s, NULL, NULL);
+      /* Accepts a ctl socket. They have to come from same source. 
+       * Times out very quickly (in case the server is being queried from an unknown source. */
 
-      if ( s_new == -1 )
+      if (poll(&fd, 1, 50) < 0)
       {
-         fprintf(stderr, "Accepting ctl socket failed... Errno: %d\n", errno);
+         perror("poll");
+         exit(1);
+      }
+
+      if (fd.revents & POLLIN)
+      {
+         addr_size = sizeof (their_addr[0]);
+         s_ctl = accept(s, (struct sockaddr*)&their_addr[1], &addr_size);
+      }
+      else
+      {
+         fprintf(stderr, "CTL-socket timed out.\n");
+         close(s_new);
+         continue;
+      }
+
+      if ( s_ctl == -1 )
+      {
          fprintf(stderr, "%s\n", strerror( errno ) ); 
          continue;
       }
 
+      /* Checks if they are from same source */
+      valid_addr[0] = (char*)inet_ntop(their_addr[0].ss_family, 
+         get_addr((struct sockaddr*)&their_addr[0]),
+            remoteIP[0], INET6_ADDRSTRLEN);
+      valid_addr[1] = (char*)inet_ntop(their_addr[1].ss_family, 
+         get_addr((struct sockaddr*)&their_addr[1]),
+            remoteIP[1], INET6_ADDRSTRLEN);
+
+      if ( strcmp( remoteIP[0], remoteIP[1] ) && valid_addr[0] && valid_addr[1] )
+      {
+         fprintf(stderr, "Warning: Got two connections from different sources.\n");
+         fprintf(stderr, "%s :: %s\n", remoteIP[0], remoteIP[1]);
+         close(s_new);
+         close(s_ctl);
+         continue;
+      }
+      else if ( valid_addr[0] && valid_addr[1] )
+      {
+         if ( verbose )
+            fprintf(stderr, ":: Got connection from %s ::\n", remoteIP[1]);
+      }
       conn.socket = s_new;
       conn.ctl_socket = s_ctl;
       new_sound_thread(conn);
@@ -93,8 +145,16 @@ int main(int argc, char ** argv)
    return 0;
 }
    
-   
-   
-
-
+static void* get_addr(struct sockaddr *sa)
+{
+      if ( sa->sa_family == AF_INET ) 
+      {
+         return &(((struct sockaddr_in*)sa)->sin_addr);
+      }
+      else if ( sa->sa_family == AF_INET6 )
+      {
+         return &(((struct sockaddr_in6*)sa)->sin6_addr);
+      }
+      return NULL;
+}
 
