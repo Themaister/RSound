@@ -67,7 +67,7 @@ int main(int argc, char ** argv)
    while(1)
    {
       /* Listens, accepts, and creates new sound thread */
-      if ( listen(s, 1) == -1 )
+      if ( listen(s, 2) == -1 )
       {
          fprintf(stderr, "Couldn't listen for connection \"%s\"...\n", strerror(errno));
          exit(1);
@@ -83,7 +83,7 @@ int main(int argc, char ** argv)
          continue;
       }
 
-      if ( listen(s, 1) == -1 )
+      if ( listen(s, 2) == -1 )
       {
          fprintf(stderr, "Couldn't listen for connection ...\n");
          exit(1);
