@@ -64,15 +64,17 @@ int main(int argc, char ** argv)
    fd.fd = s;
    fd.events = POLLIN;
 
+   /* Set up listening socket */
+   if ( listen(s, 2) == -1 )
+   {
+      fprintf(stderr, "Couldn't listen for connections \"%s\"...\n", strerror(errno));
+      exit(1);
+   }
+
    while(1)
    {
-      /* Listens, accepts, and creates new sound thread */
-      if ( listen(s, 2) == -1 )
-      {
-         fprintf(stderr, "Couldn't listen for connection \"%s\"...\n", strerror(errno));
-         exit(1);
-      }
-     
+      /* Accepts, and creates new sound thread */
+           
       addr_size = sizeof (their_addr[0]);
       s_new = accept(s, (struct sockaddr*)&their_addr[0], &addr_size);
 
@@ -82,17 +84,11 @@ int main(int argc, char ** argv)
          fprintf(stderr, "%s\n", strerror( errno ) ); 
          continue;
       }
-
-      if ( listen(s, 2) == -1 )
-      {
-         fprintf(stderr, "Couldn't listen for connection ...\n");
-         exit(1);
-      }
-      
+            
       /* Accepts a ctl socket. They have to come from same source. 
        * Times out very quickly (in case the server is being queried from an unknown source. */
 
-      if (poll(&fd, 1, 50) < 0)
+      if (poll(&fd, 1, 200) < 0)
       {
          perror("poll");
          exit(1);
