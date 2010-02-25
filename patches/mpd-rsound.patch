@@ -1,23 +1,673 @@
+From dbc0eaf9e837c05782a996f7ed35a52c2709a8ff Mon Sep 17 00:00:00 2001
+From: Themaister <maister@archlinux.us>
+Date: Thu, 25 Feb 2010 18:20:15 +0100
+Subject: [PATCH] New RSound support.
+
+---
+ Makefile.am                |    4 +-
+ src/output/librsound.c     |  553 ++++++++++++++++++++++++++++++++++++++++++++
+ src/output/rsound.h        |   68 ++++++
+ src/output/rsound_plugin.c |  152 ++++++++++++
+ src/output_list.c          |    2 +
+ 5 files changed, 778 insertions(+), 1 deletions(-)
+ create mode 100644 src/output/librsound.c
+ create mode 100644 src/output/rsound.h
+ create mode 100644 src/output/rsound_plugin.c
+
 diff --git a/Makefile.am b/Makefile.am
-index c84362c..5df866e 100644
+index ddb27a6..18909c2 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -627,7 +627,8 @@ OUTPUT_API_SRC = \
+@@ -633,7 +633,9 @@ OUTPUT_API_SRC = \
  	src/output_init.c
  
  OUTPUT_SRC = \
 -	src/output/null_plugin.c
 +	src/output/null_plugin.c \
-+   src/output/rsound_plugin.c
++   src/output/rsound_plugin.c \
++   src/output/librsound.c
  
  MIXER_API_SRC = \
  	src/mixer_control.c \
+diff --git a/src/output/librsound.c b/src/output/librsound.c
+new file mode 100644
+index 0000000..497556d
+--- /dev/null
++++ b/src/output/librsound.c
+@@ -0,0 +1,553 @@
++#include "rsound.h"
++
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <netdb.h>
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <poll.h>
++
++static inline int rsnd_is_little_endian(void);
++static inline void rsnd_swap_endian_16 ( uint16_t * x );
++static inline void rsnd_swap_endian_32 ( uint32_t * x );
++static int rsnd_connect_server( rsound_t *rd );
++static int rsnd_send_header_info(rsound_t *rd);
++static int rsnd_get_backend_info ( rsound_t *rd );
++static int rsnd_create_connection(rsound_t *rd);
++static int rsnd_send_chunk(int socket, char* buf, size_t size);
++static int rsnd_start_thread(rsound_t *rd);
++static int rsnd_stop_thread(rsound_t *rd);
++static int rsnd_get_delay(rsound_t *rd);
++static int rsnd_get_ptr(rsound_t *rd);
++static void* rsnd_thread ( void * thread_data );
++
++static inline int rsnd_is_little_endian(void)
++{
++	uint16_t i = 1;
++	return *((uint8_t*)&i);
++}
++
++static inline void rsnd_swap_endian_16 ( uint16_t * x )
++{
++	*x = (*x>>8) | (*x<<8);
++}
++
++static inline void rsnd_swap_endian_32 ( uint32_t * x )
++{
++	*x = 	(*x >> 24 ) |
++			((*x<<8) & 0x00FF0000) |
++			((*x>>8) & 0x0000FF00) |
++			(*x << 24);
++}
++
++static int rsnd_connect_server( rsound_t *rd )
++{
++	struct addrinfo hints, *res;
++	memset(&hints, 0, sizeof( hints ));
++	hints.ai_family = AF_UNSPEC;
++	hints.ai_socktype = SOCK_STREAM;
++   
++   getaddrinfo(rd->host, rd->port, &hints, &res);
++
++	rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
++   rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
++
++	if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) != 0 )
++		return 0;
++
++	if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) != 0 )
++		return 0;
++
++   if ( fcntl(rd->conn.socket, F_SETFL, O_NONBLOCK) < 0)
++   {
++      fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
++      return 0;
++   }
++
++	freeaddrinfo(res);
++	return 1;
++}
++
++static int rsnd_send_header_info(rsound_t *rd)
++{
++#define HEADER_SIZE 44
++	char buffer[HEADER_SIZE] = {0};
++	int rc = 0;
++
++#define RATE 24
++#define CHANNEL 22
++#define FRAMESIZE 34
++
++	uint32_t sample_rate_temp = rd->rate;
++	uint16_t channels_temp = rd->channels;
++	uint16_t framesize_temp = 16;
++
++	if ( !rsnd_is_little_endian() )
++	{
++		rsnd_swap_endian_32(&sample_rate_temp);
++		rsnd_swap_endian_16(&channels_temp);
++		rsnd_swap_endian_16(&framesize_temp);
++	}
++
++	*((uint32_t*)(buffer+RATE)) = sample_rate_temp;
++	*((uint16_t*)(buffer+CHANNEL)) = channels_temp;
++	*((uint16_t*)(buffer+FRAMESIZE)) = framesize_temp;
++
++   struct pollfd fd;
++   fd.fd = rd->conn.socket;
++   fd.events = POLLOUT;
++
++   if ( poll(&fd, 1, 500) < 0 )
++   {
++		close(rd->conn.socket);
++		close(rd->conn.ctl_socket);
++      return -1;
++   }
++
++   if (fd.revents & POLLHUP )
++   {
++		close(rd->conn.socket);
++		close(rd->conn.ctl_socket);
++      return -1;
++   }
++
++	rc = send ( rd->conn.socket, buffer, HEADER_SIZE, 0);
++	if ( rc != HEADER_SIZE )
++	{
++		close(rd->conn.socket);
++		close(rd->conn.ctl_socket);
++		return -1;
++	}
++
++	return 0;
++}
++
++static int rsnd_get_backend_info ( rsound_t *rd )
++{
++	uint32_t chunk_size_temp;
++	int rc;
++
++   struct pollfd fd;
++   fd.fd = rd->conn.socket;
++   fd.events = POLLIN;
++
++   if ( poll(&fd, 1, 500) < 0 )
++   {
++      close(rd->conn.socket);
++      close(rd->conn.ctl_socket);
++      return -1;
++   }
++
++   if ( fd.revents & POLLHUP )
++   {
++      close(rd->conn.socket);
++      close(rd->conn.ctl_socket);
++      return -1;
++   }
++
++	rc = recv(rd->conn.socket, &chunk_size_temp, sizeof(uint32_t), 0);
++	if ( rc != sizeof(uint32_t))
++	{
++		close(rd->conn.socket);
++      close(rd->conn.ctl_socket);
++		return -1;
++	}
++
++	chunk_size_temp = ntohl(chunk_size_temp);
++
++   rd->chunk_size = chunk_size_temp;
++   rd->buffer_size = chunk_size_temp * 32;
++
++	rd->buffer = realloc ( rd->buffer, rd->buffer_size );
++	rd->buffer_pointer = 0;
++
++	return 0;
++}
++static int rsnd_create_connection(rsound_t *rd)
++{
++	int rc;
++
++   if ( rd->conn.socket < 0 && rd->conn.ctl_socket < 0 )
++   {
++      rc = rsnd_connect_server(rd);
++      if (rc < 0)
++      {
++         close(rd->conn.socket);
++         close(rd->conn.ctl_socket);
++         rd->conn.socket = -1;
++         rd->conn.ctl_socket = -1;
++         return -1;
++      }
++   }
++   if ( !rd->ready_for_data )
++   {
++      rc = rsnd_send_header_info(rd);
++      if (rc < 0)
++      {
++         rsd_stop(rd);
++         return -1;
++      }
++
++      rc = rsnd_get_backend_info(rd);
++      if (rc < 0)
++      {
++         rsd_stop(rd);
++         return -1;
++      }
++
++      rd->ready_for_data = 1;
++      rc = rsnd_start_thread(rd);
++      if (rc < 0)
++      {
++         rsd_stop(rd);
++         return -1;
++      }
++   }
++	
++   return 0;
++}
++
++static int rsnd_send_chunk(int socket, char* buf, size_t size)
++{
++	int rc = 0;
++   size_t wrote = 0;
++   size_t send_size = 0;
++   struct pollfd fd;
++   fd.fd = socket;
++   fd.events = POLLOUT;
++
++   while ( wrote < size )
++   {
++      if ( poll(&fd, 1, 500) < 0 )
++         return 0;
++
++      if ( fd.revents & POLLHUP )
++         return 0;
++
++      send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
++	   rc = send(socket, buf + wrote, send_size, 0);
++      if ( rc <= 0 )
++         return 0;
++
++      wrote += rc;
++   }
++	return wrote;
++}
++
++static void rsnd_drain(rsound_t *rd)
++{
++	if ( rd->has_written )
++	{
++		int64_t temp, temp2;
++
++		struct timespec now_tv;
++#ifdef _POSIX_MONOTONIC_CLOCK
++		clock_gettime(CLOCK_MONOTONIC, &now_tv);
++#else
++      clock_gettime(CLOCK_REALTIME, &now_tv);
++#endif
++		
++		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv.tv_sec;
++		temp *= rd->rate * rd->channels * 2;
++
++		temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv.tv_nsec;
++		temp2 *= rd->rate * rd->channels * 2;
++		temp2 /= 1000000000;
++		temp += temp2;
++
++      rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)rd->buffer_pointer - temp);
++   }
++	else
++      rd->bytes_in_buffer = rd->buffer_pointer;
++}
++
++static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
++{
++   if ( !rd->thread_active )
++   {
++      return -1;
++   }
++
++   /* Wait until we have a ready buffer */
++   for (;;)
++   {
++      pthread_mutex_lock(&rd->thread.mutex);
++      if (rd->buffer_pointer + (int)size <= (int)rd->buffer_size  )
++      {
++         pthread_mutex_unlock(&rd->thread.mutex);
++         break;
++      }
++      pthread_mutex_unlock(&rd->thread.mutex);
++
++      /* get signal from thread to check again */
++      pthread_mutex_lock(&rd->thread.cond_mutex);
++      pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
++      pthread_mutex_unlock(&rd->thread.cond_mutex);
++   }
++
++   pthread_mutex_lock(&rd->thread.mutex);
++   memcpy(rd->buffer + rd->buffer_pointer, buf, size);
++   rd->buffer_pointer += (int)size;
++   pthread_mutex_unlock(&rd->thread.mutex);
++
++   /* send signal to thread that buffer has been updated */
++   pthread_cond_signal(&rd->thread.cond);
++
++   return size;
++}
++
++static int rsnd_start_thread(rsound_t *rd)
++{
++   int rc;
++   if ( !rd->thread_active )
++   {
++      rc = pthread_create(&rd->thread.threadId, NULL, rsnd_thread, rd);
++      if ( rc != 0 )
++         return -1;
++      rd->thread_active = 1;
++      return 0;
++   }
++   else
++      return 0;
++}
++
++static int rsnd_stop_thread(rsound_t *rd)
++{
++   int rc;
++   if ( rd->thread_active )
++   {
++      rc = pthread_cancel(rd->thread.threadId);
++      pthread_join(rd->thread.threadId, NULL);
++      pthread_mutex_unlock(&rd->thread.mutex);
++      pthread_mutex_unlock(&rd->thread.cond_mutex);
++      if ( rc != 0 )
++         return -1;
++      rd->thread_active = 0;
++      return 0;
++   }
++   else
++      return 0;
++}
++
++static int rsnd_get_delay(rsound_t *rd)
++{
++   pthread_mutex_lock(&rd->thread.mutex);
++   rsnd_drain(rd);
++   int ptr = rd->bytes_in_buffer;
++   pthread_mutex_unlock(&rd->thread.mutex);
++   return ptr;
++}
++
++static int rsnd_get_ptr(rsound_t *rd)
++{
++   pthread_mutex_lock(&rd->thread.mutex);
++   int ptr = rd->buffer_pointer;
++   pthread_mutex_unlock(&rd->thread.mutex);
++
++   return ptr;
++}
++
++static void* rsnd_thread ( void * thread_data )
++{
++   rsound_t *rd = thread_data;
++   int rc;
++   struct timespec now;
++   int nsecs;
++
++   /* Plays back data as long as there is data in the buffer */
++   for (;;)
++   {
++      while ( rd->buffer_pointer >= (int)rd->chunk_size )
++      {
++         rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->chunk_size);
++         if ( rc <= 0 )
++         {
++            rsd_stop(rd);
++            /* Buffer has terminated, signal fill_buffer */
++            pthread_exit(NULL);
++         }
++         
++         if ( !rd->has_written )
++         {
++            pthread_mutex_lock(&rd->thread.mutex);
++#ifdef _POSIX_MONOTONIC_CLOCK
++            clock_gettime(CLOCK_MONOTONIC, &rd->start_tv);
++#else
++            clock_gettime(CLOCK_REALTIME, &rd->start_tv);
++#endif
++            rd->has_written = 1;
++            pthread_mutex_unlock(&rd->thread.mutex);
++         }
++
++         pthread_mutex_lock(&rd->thread.mutex);
++         rd->total_written += rc;
++         pthread_mutex_unlock(&rd->thread.mutex);
++
++         pthread_mutex_lock(&rd->thread.mutex);
++         memmove(rd->buffer, rd->buffer + rd->chunk_size, rd->buffer_size - rd->chunk_size);
++         rd->buffer_pointer -= (int)rd->chunk_size;
++         pthread_mutex_unlock(&rd->thread.mutex);
++
++         /* Buffer has decreased, signal fill_buffer */
++         pthread_cond_signal(&rd->thread.cond);
++
++                          
++      }
++      /* Wait for the buffer to be filled. Test at least every 5ms. */
++      clock_gettime(CLOCK_REALTIME, &now);
++      nsecs = 5000;      
++      now.tv_nsec += nsecs;
++      if ( now.tv_nsec >= 1000000000 )
++      {
++         now.tv_sec++;
++         now.tv_nsec -= 1000000000;
++      }
++
++      pthread_mutex_lock(&rd->thread.cond_mutex);
++      pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &now);
++      pthread_mutex_unlock(&rd->thread.cond_mutex);
++   }
++}
++
++int rsd_stop(rsound_t *rd)
++{
++   rsnd_stop_thread(rd);
++
++   const char buf[] = "CLOSE";
++
++   send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
++   close(rd->conn.ctl_socket);
++   close(rd->conn.socket);
++   
++   rd->conn.socket = -1;
++   rd->conn.ctl_socket = -1;
++   rd->has_written = 0;
++   rd->ready_for_data = 0;
++   rd->buffer_pointer = 0;
++   rd->has_written = 0;
++   rd->total_written = 0;
++
++   return 0;
++}
++
++int rsd_write( rsound_t *rsound, const char* buf, size_t size)
++{
++   int result;
++   
++   result = rsnd_fill_buffer(rsound, buf, size);
++
++   if ( result <= 0 )
++   {
++      rsd_stop(rsound);
++      return -1;
++   }
++   return result;
++}
++
++int rsd_start(rsound_t *rsound)
++{
++   if ( rsound->rate == 0 || rsound->channels == 0 || rsound->host == NULL || rsound->port == NULL )
++      return -1;
++   return ( rsnd_create_connection(rsound) );
++}
++
++int rsd_set_param(rsound_t *rd, int option, void* param)
++{
++   switch(option)
++   {
++      case RSD_SAMPLERATE:
++         rd->rate = *((int*)param);
++         break;
++      case RSD_CHANNELS:
++         rd->channels = *((int*)param);
++         break;
++      case RSD_HOST:
++         if ( rd->host )
++            free(rd->host);
++         rd->host = strdup((char*)param);
++         break;
++      case RSD_PORT:
++         if ( rd->port )
++            free(rd->port);
++         rd->port = strdup((char*)param);
++         break;
++      default:
++         return -1;
++   }
++   return 0;
++         
++}
++
++int rsd_pointer(rsound_t *rsound)
++{
++   int ptr;
++
++   ptr = rsnd_get_ptr(rsound);	
++
++   return ptr;
++}
++
++int rsd_get_avail(rsound_t *rd)
++{
++   int ptr;
++   ptr = rsnd_get_ptr(rd);
++   return rd->buffer_size - ptr;
++}
++
++int rsd_delay(rsound_t *rd)
++{
++   int ptr = rsnd_get_delay(rd);
++   if ( ptr < 0 )
++      ptr = 0;
++   
++   return ptr;
++}
++
++int rsd_pause(rsound_t* rsound, int enable)
++{
++   if ( enable )
++      rsd_stop(rsound);
++   else
++      rsd_start(rsound);
++   return 0;
++}
++
++int rsd_init(rsound_t** rsound)
++{
++	*rsound = calloc(1, sizeof(rsound_t));
++	if ( *rsound == NULL )
++	{
++		return -1;
++	}
++   
++   (*rsound)->conn.socket = -1;
++   (*rsound)->conn.ctl_socket = -1;
++
++   pthread_mutex_init(&(*rsound)->thread.mutex, NULL);
++   pthread_mutex_init(&(*rsound)->thread.cond_mutex, NULL);
++   pthread_cond_init(&(*rsound)->thread.cond, NULL);
++
++   return 0;
++}
++
++int rsd_free(rsound_t *rsound)
++{
++   if (rsound)
++   {
++      if (rsound->buffer)
++         free(rsound->buffer);
++      if (rsound->host)
++         free(rsound->host);
++      if (rsound->port)
++         free(rsound->port);
++      free(rsound);
++      return 0;
++   }
++   else
++      return -1;
++}
++
+diff --git a/src/output/rsound.h b/src/output/rsound.h
+new file mode 100644
+index 0000000..be4ab5b
+--- /dev/null
++++ b/src/output/rsound.h
+@@ -0,0 +1,68 @@
++#ifndef __RSOUND_H
++#define __RSOUND_H
++
++#include <pthread.h>
++#include <time.h>
++#include <stdint.h>
++
++enum {
++   RSD_SAMPLERATE = 0,
++   RSD_CHANNELS,
++   RSD_HOST,
++   RSD_PORT
++};
++
++typedef struct connection
++{
++   int socket;
++   int ctl_socket;
++} connection_t;
++
++typedef struct rsound_thread
++{
++   pthread_t threadId;
++   pthread_mutex_t mutex;
++   pthread_mutex_t cond_mutex;
++   pthread_cond_t cond;
++} rsound_thread_t;
++
++typedef struct rsound
++{
++   connection_t conn;
++   char *host;
++   char *port;
++   char *buffer;
++
++   int buffer_pointer;
++   size_t chunk_size;
++   size_t buffer_size;
++   int thread_active;
++
++   int64_t total_written;
++   struct timespec start_tv;
++   int has_written;
++   int bytes_in_buffer;
++
++   int ready_for_data;
++
++   uint32_t rate;
++   uint32_t channels;
++
++   rsound_thread_t thread;
++} rsound_t;
++
++int rsd_init (rsound_t **rd);
++int rsd_free (rsound_t *rd);
++int rsd_start (rsound_t *rd);
++int rsd_set_param (rsound_t *rd, int option, void* param);
++int rsd_stop (rsound_t *rd);
++int rsd_write (rsound_t *rd, const char* buf, size_t size);
++int rsd_pointer (rsound_t *rd);
++int rsd_get_avail (rsound_t *rd);
++int rsd_delay (rsound_t *rd);
++int rsd_pause (rsound_t *rd, int enable);
++
++#endif
++
++
++
 diff --git a/src/output/rsound_plugin.c b/src/output/rsound_plugin.c
 new file mode 100644
-index 0000000..faf5842
+index 0000000..8234ab1
 --- /dev/null
 +++ b/src/output/rsound_plugin.c
-@@ -0,0 +1,311 @@
+@@ -0,0 +1,152 @@
 +/*
 + * Copyright (C) 2003-2010 The Music Player Daemon Project
 + * http://www.musicpd.org
@@ -40,6 +690,7 @@ index 0000000..faf5842
 +#include "config.h"
 +#include "output_api.h"
 +#include "mixer_list.h"
++#include "rsound.h"
 +
 +#include <glib.h>
 +#include <sys/types.h>
@@ -51,6 +702,7 @@ index 0000000..faf5842
 +#include <unistd.h>
 +#include <stdlib.h>
 +#include <string.h>
++#include <stdint.h>
 +
 +
 +#undef G_LOG_DOMAIN
@@ -60,56 +712,17 @@ index 0000000..faf5842
 +static const char *default_host = "localhost";
 +static const char *default_port = "12345";
 +
-+
-+static inline int 
-+is_little_endian(void)
-+{
-+   uint16_t i = 1;
-+   return *((uint8_t*)&i);
-+}
-+
-+static inline void 
-+swap_endian_16 ( uint16_t* x )
-+{
-+   *x = (*x>>8) | (*x<<8);
-+}
-+
-+static inline void 
-+swap_endian_32 ( uint32_t* x )
-+{
-+   *x = (*x>>24) | 
-+        ((*x<<8) & 0x00FF0000) |
-+        ((*x>>8) & 0x0000FF00) |
-+        (*x<<24);
-+}
-+
 +static inline GQuark
 +rsound_output_quark(void)
 +{
 +   return g_quark_from_static_string("rsound_output");
 +}
 +
-+
-+struct rsound_data {
-+
-+   char *host;
-+   char *port; 
-+
-+   uint32_t buffer_size;
-+   uint32_t chunk_size;
-+
-+   char* buffer;
-+   int buffer_pointer;
-+
-+   int socket;
-+
-+};
-+
 +static void
-+rsound_configure(struct rsound_data *rd, const struct config_param *param)
++rsound_configure(rsound_t *rd, const struct config_param *param)
 +{
-+   rd->host = config_dup_block_string(param, "host", default_host);
-+   rd->port = config_dup_block_string(param, "port", default_port);
++   rsd_set_param(rd, RSD_HOST, config_dup_block_string(param, "host", default_host));
++   rsd_set_param(rd, RSD_PORT, config_dup_block_string(param, "port", default_port));
 +}
 +
 +static void *
@@ -117,9 +730,12 @@ index 0000000..faf5842
 +     const struct config_param *param,
 +     G_GNUC_UNUSED GError **error)
 +{
-+   struct rsound_data *rd = g_new ( struct rsound_data, 1 );
-+   rd->chunk_size = 0;
-+   rd->buffer_size = 0;
++   rsound_t *rd;
++   if ( rsd_init(&rd) < 0 )
++   {
++      g_set_error(error, rsound_output_quark(), 0, "Failed to initialize");
++      return NULL;
++   }
 +
 +   rsound_configure(rd, param);
 +
@@ -129,196 +745,68 @@ index 0000000..faf5842
 +static void
 +rsound_finish(void *data)
 +{
-+   struct rsound_data *rd = data;
-+   
-+   close(rd->socket);
-+
-+   g_free(rd->host);
-+   g_free(rd->port);
-+   g_free(rd->buffer);
-+   g_free(rd);
-+}
-+
-+static bool
-+connect_server(struct rsound_data *rd, GError **error)
-+{
-+   struct addrinfo hints, *res;
-+   memset(&hints, 0, sizeof( struct addrinfo ));
-+   hints.ai_family = AF_UNSPEC;
-+   hints.ai_socktype = SOCK_STREAM;
-+   getaddrinfo(rd->host, rd->port, &hints, &res);
-+
-+   rd->socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-+
-+   if ( connect(rd->socket, res->ai_addr, res->ai_addrlen) != 0 )
-+   {
-+      g_set_error(error, rsound_output_quark(), 0, "Couldn't connect to server");
-+      return false;
-+   }
-+
-+   freeaddrinfo(res);
-+
-+   return true;
-+}
-+
-+static bool
-+send_header_info(struct rsound_data *rd, struct audio_format *audio_format, GError **error)
-+{
-+
-+#define HEADER_SIZE 44
-+   char buffer[HEADER_SIZE] = {0};
-+   int rc = 0;
-+
-+#define RATE 24
-+#define CHANNEL 22
-+#define FRAMESIZE 34
-+
-+   audio_format->format = SAMPLE_FORMAT_S16;
-+   if ( !is_little_endian() && !audio_format->reverse_endian )
-+      audio_format->reverse_endian = 1;
-+
-+   uint32_t sample_rate_temp = audio_format->sample_rate;
-+   uint16_t channels_temp = audio_format->channels;
-+   uint16_t framesize_temp = 16;
-+
-+   if ( !is_little_endian() )
-+   {
-+      swap_endian_32(&sample_rate_temp);
-+      swap_endian_16(&channels_temp);
-+      swap_endian_16(&framesize_temp);
-+   }
-+
-+   *((uint32_t*)(buffer+RATE)) = sample_rate_temp;
-+   *((uint16_t*)(buffer+CHANNEL)) = channels_temp;
-+   *((uint16_t*)(buffer+FRAMESIZE)) = framesize_temp;
-+   rc = send ( rd->socket, buffer, HEADER_SIZE, 0 );
-+   if ( rc != HEADER_SIZE )
-+   {
-+      close(rd->socket);
-+      g_set_error(error, rsound_output_quark(), 0, "Couldn't send header info");
-+      return false;
-+   }
-+
-+   return true;
-+}
-+
-+static bool
-+get_backend_info(struct rsound_data *rd, GError **error)
-+{
-+   uint32_t chunk_size_temp, buffer_size_temp;
-+   int rc;
-+
-+   rc = recv(rd->socket, &chunk_size_temp, sizeof(uint32_t), 0);
-+   if ( rc != sizeof(uint32_t))
-+   {
-+      close(rd->socket);
-+      g_set_error(error, rsound_output_quark(), 0, "Couldn't send backend info");
-+      return false;
-+   }
-+   rc = recv(rd->socket, &buffer_size_temp, sizeof(uint32_t), 0);
-+   if ( rc != sizeof(uint32_t))
-+   {
-+      close(rd->socket);
-+      g_set_error(error, rsound_output_quark(), 0, "Couldn't get backend info");
-+      return false;
-+   }
-+
-+   chunk_size_temp = ntohl(chunk_size_temp);
-+   buffer_size_temp = ntohl(buffer_size_temp);
-+
-+   int socket_buffer_size = (int)chunk_size_temp * 4;
-+   if ( setsockopt(rd->socket, SOL_SOCKET, SO_SNDBUF, &socket_buffer_size, sizeof(int)) == -1 )
-+   {
-+      g_set_error(error, rsound_output_quark(), 0, "Couldn't set socket buffer size");
-+      return false;
-+   }
-+
-+   rd->chunk_size = chunk_size_temp;
-+   rd->buffer_size = buffer_size_temp;
-+
-+   rd->buffer = g_malloc0 ( rd->buffer_size );
-+   rd->buffer_pointer = 0;
-+
-+   return true;
-+}
-+
-+
-+static bool
-+rsound_setup(struct rsound_data *rd, struct audio_format *audio_format, GError **error)
-+{
-+   bool rc;
-+
-+   rc = connect_server(rd, error);
-+   if ( !rc )
-+      return false;
-+
-+   rc = send_header_info(rd, audio_format, error);
-+   if ( !rc )
-+      return false;
-+
-+   rc = get_backend_info(rd, error);
-+   if ( !rc )
-+      return false;
-+
-+   return true;
++   rsound_t *rd = data;
++   rsd_free(rd);
 +}
 +
 +static bool
 +rsound_open(void *data, struct audio_format *audio_format, GError **error)
 +{
-+   struct rsound_data *rd = data;
-+   bool rc;
++   uint16_t temp16;
 +
-+   rc = rsound_setup(rd, audio_format, error);
-+   if ( !rc )
++   rsound_t *rd = data;
++   
++   rsd_set_param(rd, RSD_SAMPLERATE, &audio_format->sample_rate);
++   rsd_set_param(rd, RSD_CHANNELS, &audio_format->channels);
++   audio_format->format = SAMPLE_FORMAT_S16;
++   
++/* Hacky hack :') */
++   temp16 = 1;
++   if ( *((uint8_t*)&temp16) )
++      audio_format->reverse_endian = 0;
++   else
++      audio_format->reverse_endian = 1;
++/* End hacky hack */
++
++
++   if ( rsd_start(rd) < 0)
++   {
++      g_set_error(error, rsound_output_quark(), 0, "Failed to connect to server");
 +      return false;
-+
++   }
 +   return true;
 +}
 +
 +static void
 +rsound_cancel(void *data)
 +{
-+   (void) data;
++   rsound_t *rd = data;
++   rsd_stop(rd);
++   rsd_start(rd);
 +}
 +
 +static void
 +rsound_close(void *data)
 +{
-+   struct rsound_data *rd = data;
++   rsound_t *rd = data;
 +
-+   close(rd->socket);
-+   rd->socket = -1;
++   rsd_stop(rd);
 +}
 +
 +static size_t
 +rsound_play(void *data, const void *chunk, size_t size, GError **error)
 +{
 +   int rc;
-+   
 +   struct rsound_data *rd = data;
-+   // Plays back data until there's room for size bytes in the buffer
-+   while ( (int)rd->buffer_pointer + (int)size > (int)rd->buffer_size && (int)rd->buffer_pointer > (int)rd->chunk_size )
++   
++   rc = rsd_write(rd, chunk, size);
++   if ( rc <= 0 )
 +   {
-+      rc = send(rd->socket, rd->buffer, rd->chunk_size, 0);
-+      memmove(rd->buffer, rd->buffer + rd->chunk_size, (int)rd->buffer_size - (int)rd->chunk_size);
-+      if ( rc <= 0 )
-+         break;
-+      rd->buffer_pointer -= rc;
-+   }
-+
-+   if ( rd->buffer_pointer + size <= rd->buffer_size )
-+   {
-+      memcpy(rd->buffer + rd->buffer_pointer, chunk, size);
-+      rd->buffer_pointer += size;
-+   }
-+   else
-+   {
-+      g_set_error(error, rsound_output_quark(), 0, "Failed to play chunk");
++      g_set_error(error, rsound_output_quark(), 0, "Failed to play data");
 +      return 0;
 +   }
-+   return size;
 +
++   return rc;
 +}
 +
 +const struct audio_output_plugin rsound_output_plugin = {
@@ -330,6 +818,8 @@ index 0000000..faf5842
 +   .cancel = rsound_cancel,
 +   .close = rsound_close,
 +};
++
++
 diff --git a/src/output_list.c b/src/output_list.c
 index d94749e..b98ea6f 100644
 --- a/src/output_list.c
@@ -350,3 +840,6 @@ index d94749e..b98ea6f 100644
  	NULL
  };
  
+-- 
+1.7.0
+
