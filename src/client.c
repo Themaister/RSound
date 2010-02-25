@@ -34,6 +34,8 @@
 #define HEADER_SIZE 44
 #define MAX_PACKET_SIZE 1024
 
+/* Obsolete. Should use new API :D */
+
 static int raw_mode = 0;
 static uint32_t raw_rate = 44100;
 static uint16_t channel = 2;
