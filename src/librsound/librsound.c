@@ -245,7 +245,11 @@ static void rsnd_drain(rsound_t *rd)
 		int64_t temp, temp2;
 
 		struct timespec now_tv;
+#ifdef _POSIX_MONOTONIC_CLOCK
 		clock_gettime(CLOCK_MONOTONIC, &now_tv);
+#elif
+      clock_gettime(CLOCK_REALTIME, &now_tv);
+#endif
 		
 		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv.tv_sec;
 		temp *= rd->rate * rd->channels * 2;
@@ -370,7 +374,11 @@ static void* rsnd_thread ( void * thread_data )
          if ( !rd->has_written )
          {
             pthread_mutex_lock(&rd->thread.mutex);
+#ifdef _POSIX_MONOTONIC_CLOCK
             clock_gettime(CLOCK_MONOTONIC, &rd->start_tv);
+#elif
+            clock_gettime(CLOCK_REALTIME, &rd->start_tv);
+#endif
             rd->has_written = 1;
             pthread_mutex_unlock(&rd->thread.mutex);
          }
