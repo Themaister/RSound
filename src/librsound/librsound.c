@@ -175,7 +175,11 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 	chunk_size_temp = ntohl(chunk_size_temp);
 
    rd->chunk_size = chunk_size_temp;
-   rd->buffer_size = chunk_size_temp * 32;
+   
+   if ( rd->buffer_size <= 0 )
+      rd->buffer_size = rd->chunk_size * 32;
+   if ( rd->buffer_size < rd->chunk_size )
+      rd->buffer_size = rd->chunk_size;
 
 	rd->buffer = realloc ( rd->buffer, rd->buffer_size );
 	rd->buffer_pointer = 0;
@@ -489,6 +493,8 @@ int rsd_set_param(rsound_t *rd, int option, void* param)
          if ( rd->port )
             free(rd->port);
          rd->port = strdup((char*)param);
+      case RSD_BUFSIZE:
+         rd->buffer_size = *((int*)param);
          break;
       default:
          return -1;

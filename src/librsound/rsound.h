@@ -9,7 +9,8 @@ enum {
    RSD_SAMPLERATE = 0,
    RSD_CHANNELS,
    RSD_HOST,
-   RSD_PORT
+   RSD_PORT,
+   RSD_BUFSIZE
 };
 
 typedef struct connection
