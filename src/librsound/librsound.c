@@ -123,7 +123,7 @@ static int rsnd_send_header_info(rsound_t *rd)
       return -1;
    }
 
-   if (fd.revents & POLLHUP )
+   if ( fd.revents & POLLHUP )
    {
 		close(rd->conn.socket);
 		close(rd->conn.ctl_socket);
@@ -176,10 +176,8 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
    rd->chunk_size = chunk_size_temp;
    
-   if ( rd->buffer_size <= 0 )
+   if ( rd->buffer_size <= 0 || rd->buffer_size < rd->chunk_size)
       rd->buffer_size = rd->chunk_size * 32;
-   if ( rd->buffer_size < rd->chunk_size )
-      rd->buffer_size = rd->chunk_size;
 
 	rd->buffer = realloc ( rd->buffer, rd->buffer_size );
 	rd->buffer_pointer = 0;
@@ -219,6 +217,13 @@ static int rsnd_create_connection(rsound_t *rd)
       }
 
       rd->ready_for_data = 1;
+      rd->total_written = 0;
+      rd->buffer_pointer = 0;
+      rd->has_written = 0;
+      rd->ready_for_data = 0;
+      rd->buffer_pointer = 0;
+      rd->has_written = 0;
+      rd->total_written = 0;
       rc = rsnd_start_thread(rd);
       if (rc < 0)
       {
@@ -247,9 +252,14 @@ static int rsnd_send_chunk(int socket, char* buf, size_t size)
       if ( fd.revents & POLLHUP )
          return 0;
 
-      send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
-	   rc = send(socket, buf + wrote, send_size, 0);
-      if ( rc <= 0 )
+      if ( fd.revents & POLLOUT )
+      {
+         send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
+         rc = send(socket, buf + wrote, send_size, 0);
+         if ( rc <= 0 )
+            return 0;
+      }
+      else
          return 0;
 
       wrote += rc;
@@ -288,12 +298,16 @@ static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 {
    struct timespec now;
    int nsecs;
+   int active;
 
    /* Wait until we have a ready buffer */
    for (;;)
    {
+      pthread_mutex_lock(&rd->thread.mutex);
+      active = rd->thread_active;
+      pthread_mutex_unlock(&rd->thread.mutex);
       /* Thread has been shut down and, someone still tried to play back. Race conditions? */
-      if ( !rd->thread_active )
+      if ( !active )
       {
          return -1;
       }
@@ -307,7 +321,7 @@ static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       pthread_mutex_unlock(&rd->thread.mutex);
       
       clock_gettime(CLOCK_REALTIME, &now);
-      nsecs = 5000000;      
+      nsecs = 500000000;      
       now.tv_nsec += nsecs;
       if ( now.tv_nsec >= 1000000000 )
       {
@@ -350,15 +364,22 @@ static int rsnd_start_thread(rsound_t *rd)
 static int rsnd_stop_thread(rsound_t *rd)
 {
    int rc;
-   if ( rd->thread_active )
+   int active;
+
+   pthread_mutex_lock(&rd->thread.mutex);
+   active = rd->thread_active;
+   pthread_mutex_unlock(&rd->thread.mutex);
+   if ( active )
    {
-      rc = pthread_cancel(rd->thread.threadId);
+      /*rc = pthread_cancel(rd->thread.threadId);*/
       pthread_join(rd->thread.threadId, NULL);
+
+      rd->thread_active = 0;
+      pthread_cond_signal(&rd->thread.cond);
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
       if ( rc != 0 )
          return -1;
-      rd->thread_active = 0;
       return 0;
    }
    else
@@ -399,7 +420,6 @@ static void* rsnd_thread ( void * thread_data )
          if ( rc <= 0 )
          {
             rsd_stop(rd);
-            /* Buffer has terminated, signal fill_buffer */
             pthread_exit(NULL);
          }
          
@@ -431,7 +451,7 @@ static void* rsnd_thread ( void * thread_data )
       }
       /* Wait for the buffer to be filled. Test at least every 5ms. */
       clock_gettime(CLOCK_REALTIME, &now);
-      nsecs = 5000000;      
+      nsecs = 500000000;      
       now.tv_nsec += nsecs;
       if ( now.tv_nsec >= 1000000000 )
       {
@@ -457,11 +477,6 @@ int rsd_stop(rsound_t *rd)
    
    rd->conn.socket = -1;
    rd->conn.ctl_socket = -1;
-   rd->has_written = 0;
-   rd->ready_for_data = 0;
-   rd->buffer_pointer = 0;
-   rd->has_written = 0;
-   rd->total_written = 0;
 
    return 0;
 }
@@ -506,6 +521,7 @@ int rsd_set_param(rsound_t *rd, int option, void* param)
          if ( rd->port )
             free(rd->port);
          rd->port = strdup((char*)param);
+         break;
       case RSD_BUFSIZE:
          rd->buffer_size = *((int*)param);
          break;
