@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <poll.h>
+#include <errno.h>
 
 static inline int rsnd_is_little_endian(void);
 static inline void rsnd_swap_endian_16 ( uint16_t * x );
@@ -341,7 +342,10 @@ static int rsnd_start_thread(rsound_t *rd)
    if ( !rd->thread_active )
    {
       rc = pthread_create(&rd->thread.threadId, NULL, rsnd_thread, rd);
-      if ( rc != 0 )
+      if ( rc < 0 )
+         return -1;
+      rc = pthread_detach(rd->thread.threadId);
+      if ( rc < 0 )
          return -1;
       rd->thread_active = 1;
       return 0;
@@ -354,13 +358,12 @@ static int rsnd_stop_thread(rsound_t *rd)
 {
    if ( rd->thread_active )
    {
-      pthread_cancel(rd->thread.threadId);
-      pthread_join(rd->thread.threadId, NULL);
 
       rd->thread_active = 0;
       pthread_cond_signal(&rd->thread.cond);
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
+      pthread_cancel(rd->thread.threadId);
       return 0;
    }
    else
