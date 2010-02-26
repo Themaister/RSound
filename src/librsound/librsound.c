@@ -444,7 +444,7 @@ static void* rsnd_thread ( void * thread_data )
       }
       /* Wait for the buffer to be filled. Test at least every 5ms. */
       clock_gettime(CLOCK_REALTIME, &now);
-      nsecs = 500000000;      
+      nsecs = 5000000;      
       now.tv_nsec += nsecs;
       if ( now.tv_nsec >= 1000000000 )
       {
