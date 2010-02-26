@@ -217,13 +217,6 @@ static int rsnd_create_connection(rsound_t *rd)
       }
 
       rd->ready_for_data = 1;
-      rd->total_written = 0;
-      rd->buffer_pointer = 0;
-      rd->has_written = 0;
-      rd->ready_for_data = 0;
-      rd->buffer_pointer = 0;
-      rd->has_written = 0;
-      rd->total_written = 0;
       rc = rsnd_start_thread(rd);
       if (rc < 0)
       {
@@ -321,7 +314,7 @@ static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       pthread_mutex_unlock(&rd->thread.mutex);
       
       clock_gettime(CLOCK_REALTIME, &now);
-      nsecs = 500000000;      
+      nsecs = 5000000;      
       now.tv_nsec += nsecs;
       if ( now.tv_nsec >= 1000000000 )
       {
@@ -477,6 +470,13 @@ int rsd_stop(rsound_t *rd)
    
    rd->conn.socket = -1;
    rd->conn.ctl_socket = -1;
+   rd->total_written = 0;
+   rd->buffer_pointer = 0;
+   rd->has_written = 0;
+   rd->ready_for_data = 0;
+   rd->buffer_pointer = 0;
+   rd->has_written = 0;
+   rd->total_written = 0;
 
    return 0;
 }
