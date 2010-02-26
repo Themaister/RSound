@@ -286,14 +286,18 @@ static void rsnd_drain(rsound_t *rd)
 
 static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 {
-   if ( !rd->thread_active )
-   {
-      return -1;
-   }
+   struct timespec now;
+   int nsecs;
 
    /* Wait until we have a ready buffer */
    for (;;)
    {
+      /* Thread has been shut down and, someone still tried to play back. Race conditions? */
+      if ( !rd->thread_active )
+      {
+         return -1;
+      }
+
       pthread_mutex_lock(&rd->thread.mutex);
       if (rd->buffer_pointer + (int)size <= (int)rd->buffer_size  )
       {
@@ -301,10 +305,19 @@ static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
          break;
       }
       pthread_mutex_unlock(&rd->thread.mutex);
+      
+      clock_gettime(CLOCK_REALTIME, &now);
+      nsecs = 5000000;      
+      now.tv_nsec += nsecs;
+      if ( now.tv_nsec >= 1000000000 )
+      {
+         now.tv_sec++;
+         now.tv_nsec -= 1000000000;
+      }
 
       /* get signal from thread to check again */
       pthread_mutex_lock(&rd->thread.cond_mutex);
-      pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
+      pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &now);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
    }
 
