@@ -185,6 +185,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
 	return 0;
 }
+
 static int rsnd_create_connection(rsound_t *rd)
 {
 	int rc;
@@ -453,7 +454,6 @@ static void* rsnd_thread ( void * thread_data )
 
 int rsd_stop(rsound_t *rd)
 {
-   rsnd_stop_thread(rd);
 
    const char buf[] = "CLOSE";
 
@@ -468,6 +468,7 @@ int rsd_stop(rsound_t *rd)
    rd->has_written = 0;
    rd->bytes_in_buffer = 0;
 
+   rsnd_stop_thread(rd);
    return 0;
 }
 
