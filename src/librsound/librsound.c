@@ -291,16 +291,12 @@ static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 {
    struct timespec now;
    int nsecs;
-   int active;
 
    /* Wait until we have a ready buffer */
    for (;;)
    {
-      pthread_mutex_lock(&rd->thread.mutex);
-      active = rd->thread_active;
-      pthread_mutex_unlock(&rd->thread.mutex);
       /* Thread has been shut down and, someone still tried to play back. Race conditions? */
-      if ( !active )
+      if ( !rd->thread_active )
       {
          return -1;
       }
@@ -356,23 +352,15 @@ static int rsnd_start_thread(rsound_t *rd)
 
 static int rsnd_stop_thread(rsound_t *rd)
 {
-   int rc;
-   int active;
-
-   pthread_mutex_lock(&rd->thread.mutex);
-   active = rd->thread_active;
-   pthread_mutex_unlock(&rd->thread.mutex);
-   if ( active )
+   if ( rd->thread_active )
    {
-      /*rc = pthread_cancel(rd->thread.threadId);*/
+      pthread_cancel(rd->thread.threadId);
       pthread_join(rd->thread.threadId, NULL);
 
       rd->thread_active = 0;
       pthread_cond_signal(&rd->thread.cond);
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
-      if ( rc != 0 )
-         return -1;
       return 0;
    }
    else
@@ -385,6 +373,8 @@ static int rsnd_get_delay(rsound_t *rd)
    rsnd_drain(rd);
    int ptr = rd->bytes_in_buffer;
    pthread_mutex_unlock(&rd->thread.mutex);
+   if ( ptr < 0 )
+      ptr = 0;
    return ptr;
 }
 
@@ -471,12 +461,9 @@ int rsd_stop(rsound_t *rd)
    rd->conn.socket = -1;
    rd->conn.ctl_socket = -1;
    rd->total_written = 0;
-   rd->buffer_pointer = 0;
-   rd->has_written = 0;
    rd->ready_for_data = 0;
-   rd->buffer_pointer = 0;
    rd->has_written = 0;
-   rd->total_written = 0;
+   rd->bytes_in_buffer = 0;
 
    return 0;
 }
