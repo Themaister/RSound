@@ -39,6 +39,7 @@ static int rsnd_start_thread(rsound_t *rd);
 static int rsnd_stop_thread(rsound_t *rd);
 static int rsnd_get_delay(rsound_t *rd);
 static int rsnd_get_ptr(rsound_t *rd);
+static int rsnd_reset(rsound_t *rd);
 static void* rsnd_thread ( void * thread_data );
 
 static inline int rsnd_is_little_endian(void)
@@ -344,10 +345,10 @@ static int rsnd_start_thread(rsound_t *rd)
    {
       rc = pthread_create(&rd->thread.threadId, NULL, rsnd_thread, rd);
       if ( rc < 0 )
+      {
+         fprintf(stderr, "Failed to create thread.\n");
          return -1;
-      rc = pthread_detach(rd->thread.threadId);
-      if ( rc < 0 )
-         return -1;
+      }
       rd->thread_active = 1;
       return 0;
    }
@@ -359,12 +360,14 @@ static int rsnd_stop_thread(rsound_t *rd)
 {
    if ( rd->thread_active )
    {
+      if ( pthread_cancel(rd->thread.threadId) < 0 )
+         fprintf(stderr, "Failed to cancel playback thread.\n");
 
-      rd->thread_active = 0;
+      pthread_join(rd->thread.threadId, NULL);
       pthread_cond_signal(&rd->thread.cond);
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
-      pthread_cancel(rd->thread.threadId);
+      rd->thread_active = 0;
       return 0;
    }
    else
@@ -406,7 +409,7 @@ static void* rsnd_thread ( void * thread_data )
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->chunk_size);
          if ( rc <= 0 )
          {
-            rsd_stop(rd);
+            rsnd_reset(rd);
             pthread_exit(NULL);
          }
          
@@ -452,23 +455,29 @@ static void* rsnd_thread ( void * thread_data )
    }
 }
 
-int rsd_stop(rsound_t *rd)
+static int rsnd_reset(rsound_t *rd)
 {
-
-   const char buf[] = "CLOSE";
-
-   send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
-   close(rd->conn.ctl_socket);
-   close(rd->conn.socket);
-   
    rd->conn.socket = -1;
    rd->conn.ctl_socket = -1;
    rd->total_written = 0;
    rd->ready_for_data = 0;
    rd->has_written = 0;
    rd->bytes_in_buffer = 0;
+   rd->thread_active = 0;
+   return 0;
+}
 
+
+int rsd_stop(rsound_t *rd)
+{
    rsnd_stop_thread(rd);
+   
+   const char buf[] = "CLOSE";
+   send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
+   close(rd->conn.ctl_socket);
+   close(rd->conn.socket);
+   
+   rsnd_reset(rd);
    return 0;
 }
 
