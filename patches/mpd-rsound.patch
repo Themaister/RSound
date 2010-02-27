@@ -1,19 +1,3 @@
-From dbc0eaf9e837c05782a996f7ed35a52c2709a8ff Mon Sep 17 00:00:00 2001
-From: Themaister <maister@archlinux.us>
-Date: Thu, 25 Feb 2010 18:20:15 +0100
-Subject: [PATCH] New RSound support.
-
----
- Makefile.am                |    4 +-
- src/output/librsound.c     |  553 ++++++++++++++++++++++++++++++++++++++++++++
- src/output/rsound.h        |   68 ++++++
- src/output/rsound_plugin.c |  152 ++++++++++++
- src/output_list.c          |    2 +
- 5 files changed, 778 insertions(+), 1 deletions(-)
- create mode 100644 src/output/librsound.c
- create mode 100644 src/output/rsound.h
- create mode 100644 src/output/rsound_plugin.c
-
 diff --git a/Makefile.am b/Makefile.am
 index ddb27a6..18909c2 100644
 --- a/Makefile.am
@@ -31,10 +15,25 @@ index ddb27a6..18909c2 100644
  	src/mixer_control.c \
 diff --git a/src/output/librsound.c b/src/output/librsound.c
 new file mode 100644
-index 0000000..497556d
+index 0000000..d52f022
 --- /dev/null
 +++ b/src/output/librsound.c
-@@ -0,0 +1,553 @@
+@@ -0,0 +1,603 @@
++/*  RSound - A PCM audio client/server
++ *  Copyright (C) 2010 - Hans-Kristian Arntzen
++ * 
++ *  RSound is free software: you can redistribute it and/or modify it under the terms
++ *  of the GNU General Public License as published by the Free Software Found-
++ *  ation, either version 3 of the License, or (at your option) any later version.
++ *
++ *  RSound is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
++ *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++ *  PURPOSE.  See the GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License along with RSound.
++ *  If not, see <http://www.gnu.org/licenses/>.
++ */
++
 +#include "rsound.h"
 +
 +#include <sys/types.h>
@@ -47,6 +46,7 @@ index 0000000..497556d
 +#include <stdlib.h>
 +#include <unistd.h>
 +#include <poll.h>
++#include <errno.h>
 +
 +static inline int rsnd_is_little_endian(void);
 +static inline void rsnd_swap_endian_16 ( uint16_t * x );
@@ -60,6 +60,7 @@ index 0000000..497556d
 +static int rsnd_stop_thread(rsound_t *rd);
 +static int rsnd_get_delay(rsound_t *rd);
 +static int rsnd_get_ptr(rsound_t *rd);
++static int rsnd_reset(rsound_t *rd);
 +static void* rsnd_thread ( void * thread_data );
 +
 +static inline int rsnd_is_little_endian(void)
@@ -145,7 +146,7 @@ index 0000000..497556d
 +      return -1;
 +   }
 +
-+   if (fd.revents & POLLHUP )
++   if ( fd.revents & POLLHUP )
 +   {
 +		close(rd->conn.socket);
 +		close(rd->conn.ctl_socket);
@@ -197,13 +198,16 @@ index 0000000..497556d
 +	chunk_size_temp = ntohl(chunk_size_temp);
 +
 +   rd->chunk_size = chunk_size_temp;
-+   rd->buffer_size = chunk_size_temp * 32;
++   
++   if ( rd->buffer_size <= 0 || rd->buffer_size < rd->chunk_size)
++      rd->buffer_size = rd->chunk_size * 32;
 +
 +	rd->buffer = realloc ( rd->buffer, rd->buffer_size );
 +	rd->buffer_pointer = 0;
 +
 +	return 0;
 +}
++
 +static int rsnd_create_connection(rsound_t *rd)
 +{
 +	int rc;
@@ -265,9 +269,14 @@ index 0000000..497556d
 +      if ( fd.revents & POLLHUP )
 +         return 0;
 +
-+      send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
-+	   rc = send(socket, buf + wrote, send_size, 0);
-+      if ( rc <= 0 )
++      if ( fd.revents & POLLOUT )
++      {
++         send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
++         rc = send(socket, buf + wrote, send_size, 0);
++         if ( rc <= 0 )
++            return 0;
++      }
++      else
 +         return 0;
 +
 +      wrote += rc;
@@ -304,14 +313,18 @@ index 0000000..497556d
 +
 +static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 +{
-+   if ( !rd->thread_active )
-+   {
-+      return -1;
-+   }
++   struct timespec now;
++   int nsecs;
 +
 +   /* Wait until we have a ready buffer */
 +   for (;;)
 +   {
++      /* Thread has been shut down and, someone still tried to play back. Race conditions? */
++      if ( !rd->thread_active )
++      {
++         return -1;
++      }
++
 +      pthread_mutex_lock(&rd->thread.mutex);
 +      if (rd->buffer_pointer + (int)size <= (int)rd->buffer_size  )
 +      {
@@ -319,10 +332,19 @@ index 0000000..497556d
 +         break;
 +      }
 +      pthread_mutex_unlock(&rd->thread.mutex);
++      
++      clock_gettime(CLOCK_REALTIME, &now);
++      nsecs = 5000000;      
++      now.tv_nsec += nsecs;
++      if ( now.tv_nsec >= 1000000000 )
++      {
++         now.tv_sec++;
++         now.tv_nsec -= 1000000000;
++      }
 +
 +      /* get signal from thread to check again */
 +      pthread_mutex_lock(&rd->thread.cond_mutex);
-+      pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
++      pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &now);
 +      pthread_mutex_unlock(&rd->thread.cond_mutex);
 +   }
 +
@@ -343,8 +365,11 @@ index 0000000..497556d
 +   if ( !rd->thread_active )
 +   {
 +      rc = pthread_create(&rd->thread.threadId, NULL, rsnd_thread, rd);
-+      if ( rc != 0 )
++      if ( rc < 0 )
++      {
++         fprintf(stderr, "Failed to create thread.\n");
 +         return -1;
++      }
 +      rd->thread_active = 1;
 +      return 0;
 +   }
@@ -354,15 +379,15 @@ index 0000000..497556d
 +
 +static int rsnd_stop_thread(rsound_t *rd)
 +{
-+   int rc;
 +   if ( rd->thread_active )
 +   {
-+      rc = pthread_cancel(rd->thread.threadId);
++      if ( pthread_cancel(rd->thread.threadId) < 0 )
++         fprintf(stderr, "Failed to cancel playback thread.\n");
++
 +      pthread_join(rd->thread.threadId, NULL);
++      pthread_cond_signal(&rd->thread.cond);
 +      pthread_mutex_unlock(&rd->thread.mutex);
 +      pthread_mutex_unlock(&rd->thread.cond_mutex);
-+      if ( rc != 0 )
-+         return -1;
 +      rd->thread_active = 0;
 +      return 0;
 +   }
@@ -376,6 +401,8 @@ index 0000000..497556d
 +   rsnd_drain(rd);
 +   int ptr = rd->bytes_in_buffer;
 +   pthread_mutex_unlock(&rd->thread.mutex);
++   if ( ptr < 0 )
++      ptr = 0;
 +   return ptr;
 +}
 +
@@ -403,8 +430,7 @@ index 0000000..497556d
 +         rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->chunk_size);
 +         if ( rc <= 0 )
 +         {
-+            rsd_stop(rd);
-+            /* Buffer has terminated, signal fill_buffer */
++            rsnd_reset(rd);
 +            pthread_exit(NULL);
 +         }
 +         
@@ -450,24 +476,29 @@ index 0000000..497556d
 +   }
 +}
 +
++static int rsnd_reset(rsound_t *rd)
++{
++   rd->conn.socket = -1;
++   rd->conn.ctl_socket = -1;
++   rd->total_written = 0;
++   rd->ready_for_data = 0;
++   rd->has_written = 0;
++   rd->bytes_in_buffer = 0;
++   rd->thread_active = 0;
++   return 0;
++}
++
++
 +int rsd_stop(rsound_t *rd)
 +{
 +   rsnd_stop_thread(rd);
-+
++   
 +   const char buf[] = "CLOSE";
-+
 +   send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
 +   close(rd->conn.ctl_socket);
 +   close(rd->conn.socket);
 +   
-+   rd->conn.socket = -1;
-+   rd->conn.ctl_socket = -1;
-+   rd->has_written = 0;
-+   rd->ready_for_data = 0;
-+   rd->buffer_pointer = 0;
-+   rd->has_written = 0;
-+   rd->total_written = 0;
-+
++   rsnd_reset(rd);
 +   return 0;
 +}
 +
@@ -511,6 +542,9 @@ index 0000000..497556d
 +         if ( rd->port )
 +            free(rd->port);
 +         rd->port = strdup((char*)param);
++         break;
++      case RSD_BUFSIZE:
++         rd->buffer_size = *((int*)param);
 +         break;
 +      default:
 +         return -1;
@@ -590,10 +624,10 @@ index 0000000..497556d
 +
 diff --git a/src/output/rsound.h b/src/output/rsound.h
 new file mode 100644
-index 0000000..be4ab5b
+index 0000000..b8eefc6
 --- /dev/null
 +++ b/src/output/rsound.h
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,69 @@
 +#ifndef __RSOUND_H
 +#define __RSOUND_H
 +
@@ -605,7 +639,8 @@ index 0000000..be4ab5b
 +   RSD_SAMPLERATE = 0,
 +   RSD_CHANNELS,
 +   RSD_HOST,
-+   RSD_PORT
++   RSD_PORT,
++   RSD_BUFSIZE
 +};
 +
 +typedef struct connection
@@ -840,6 +875,3 @@ index d94749e..b98ea6f 100644
  	NULL
  };
  
--- 
-1.7.0
-
