@@ -10,7 +10,8 @@ enum {
    RSD_CHANNELS,
    RSD_HOST,
    RSD_PORT,
-   RSD_BUFSIZE
+   RSD_BUFSIZE,
+   RSD_LATENCY
 };
 
 typedef struct connection
@@ -43,6 +44,7 @@ typedef struct rsound
    struct timespec start_tv;
    int has_written;
    int bytes_in_buffer;
+   int min_latency;
 
    int ready_for_data;
 

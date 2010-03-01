@@ -313,7 +313,7 @@ static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       pthread_mutex_unlock(&rd->thread.mutex);
       
       clock_gettime(CLOCK_REALTIME, &now);
-      nsecs = 5000000;      
+      nsecs = 50000000;      
       now.tv_nsec += nsecs;
       if ( now.tv_nsec >= 1000000000 )
       {
@@ -400,16 +400,24 @@ static void* rsnd_thread ( void * thread_data )
    int rc;
    struct timespec now;
    int nsecs;
+   int delay, max_delay;
+   if ( rd->min_latency > 0 )
+      max_delay = ((int)rd->buffer_size + (int)rd->chunk_size > rd->min_latency) ? (int)rd->buffer_size + (int)rd->chunk_size : rd->min_latency;
+   else
+      max_delay = 0;
 
    /* Plays back data as long as there is data in the buffer */
    for (;;)
    {
-      while ( rd->buffer_pointer >= (int)rd->chunk_size )
+      delay = rsd_delay(rd);
+      /* Trying to compensate for latency */
+      while ( (rd->buffer_pointer >= (int)rd->chunk_size) && ( !max_delay || (delay + ((int)rd->buffer_size - rd->buffer_pointer)/2 <= max_delay) ) )
       {
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->chunk_size);
          if ( rc <= 0 )
          {
             rsnd_reset(rd);
+            pthread_cond_signal(&rd->thread.cond);
             pthread_exit(NULL);
          }
          
@@ -439,7 +447,7 @@ static void* rsnd_thread ( void * thread_data )
 
                           
       }
-      /* Wait for the buffer to be filled. Test at least every 5ms. */
+      /* Wait for the buffer to be filled. Wakeup at least every 5ms. */
       clock_gettime(CLOCK_REALTIME, &now);
       nsecs = 5000000;      
       now.tv_nsec += nsecs;
@@ -524,6 +532,9 @@ int rsd_set_param(rsound_t *rd, int option, void* param)
          break;
       case RSD_BUFSIZE:
          rd->buffer_size = *((int*)param);
+         break;
+      case RSD_LATENCY:
+         rd->min_latency = *((int*)param);
          break;
       default:
          return -1;
