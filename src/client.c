@@ -107,6 +107,7 @@ static int set_other_params(void)
    int rate, channels;
 
    int rc;
+   int read_in = 0;
    char buf[HEADER_SIZE] = {0};
 
 #define RATE 24
@@ -114,10 +115,12 @@ static int set_other_params(void)
    
    if ( !raw_mode )
    {  
-      rc = read( 0, buf, HEADER_SIZE );
-      if ( rc != HEADER_SIZE )
+      while ( read_in < HEADER_SIZE )
       {
-         return -1;
+         rc = read( 0, buf + read_in, HEADER_SIZE - read_in );
+         if ( rc <= 0 )
+            return -1;
+         read_in += rc;
       }
 
       channels = (int)(*((uint16_t*)(buf+CHANNEL)));

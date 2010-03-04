@@ -43,4 +43,5 @@ src_rsoundserv_SOURCES =   src/daemon.c \
                            src/audio.h $(sources_serv)
 
 src_rsoundserv_LDADD = $(SERV_LIBS)
+src_rsound_LDADD = -lpthread -lrt
 

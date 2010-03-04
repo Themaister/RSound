@@ -42,7 +42,6 @@ static int rsnd_get_delay(rsound_t *rd);
 static int rsnd_get_ptr(rsound_t *rd);
 static int rsnd_reset(rsound_t *rd);
 static void* rsnd_thread ( void * thread_data );
-char *strdup(const char*);
 
 static int rsnd_is_little_endian(void)
 {

@@ -29,6 +29,8 @@ AC_CHECK_HEADER(portaudio.h, ,enable_porta=no,)
 AC_CHECK_LIB(asound, snd_pcm_open, ,enable_alsa=no)
 AC_CHECK_LIB(ao, ao_open_live, ,enable_ao=no)
 AC_CHECK_LIB(portaudio, Pa_OpenStream, ,enable_porta=no)
+AC_CHECK_LIB(pthread, pthread_create, , ,)
+AC_CHECK_LIB(rt, clock_gettime, , ,)
 
 AC_SUBST(SERV_LIBS)
 
