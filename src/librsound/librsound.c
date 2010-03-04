@@ -400,7 +400,6 @@ static void* rsnd_thread ( void * thread_data )
    int rc;
    struct timespec now;
    int nsecs;
-   int delay;
    /* Convert from msecs to bytes */
    int max_delay = (rd->min_latency * rd->rate * rd->channels * 2) / 1000;
    if ( max_delay > 0 )
@@ -411,9 +410,8 @@ static void* rsnd_thread ( void * thread_data )
    /* Plays back data as long as there is data in the buffer */
    for (;;)
    {
-      delay = rsd_delay(rd);
       /* Trying to compensate for latency. Makes sure that the delay never goes over a certain amount */
-      while ( (rd->buffer_pointer >= (int)rd->chunk_size) && ( !max_delay || (delay <= max_delay) ) )
+      while ( (rd->buffer_pointer >= (int)rd->chunk_size) && ( !max_delay || (rsd_delay(rd) <= max_delay) ) )
       {
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->chunk_size);
          if ( rc <= 0 )
