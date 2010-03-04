@@ -26,10 +26,11 @@
 #include <unistd.h>
 #include <poll.h>
 #include <errno.h>
+#include <time.h>
 
-static inline int rsnd_is_little_endian(void);
-static inline void rsnd_swap_endian_16 ( uint16_t * x );
-static inline void rsnd_swap_endian_32 ( uint32_t * x );
+static int rsnd_is_little_endian(void);
+static void rsnd_swap_endian_16 ( uint16_t * x );
+static void rsnd_swap_endian_32 ( uint32_t * x );
 static int rsnd_connect_server( rsound_t *rd );
 static int rsnd_send_header_info(rsound_t *rd);
 static int rsnd_get_backend_info ( rsound_t *rd );
@@ -41,19 +42,20 @@ static int rsnd_get_delay(rsound_t *rd);
 static int rsnd_get_ptr(rsound_t *rd);
 static int rsnd_reset(rsound_t *rd);
 static void* rsnd_thread ( void * thread_data );
+char *strdup(const char*);
 
-static inline int rsnd_is_little_endian(void)
+static int rsnd_is_little_endian(void)
 {
 	uint16_t i = 1;
 	return *((uint8_t*)&i);
 }
 
-static inline void rsnd_swap_endian_16 ( uint16_t * x )
+static void rsnd_swap_endian_16 ( uint16_t * x )
 {
 	*x = (*x>>8) | (*x<<8);
 }
 
-static inline void rsnd_swap_endian_32 ( uint32_t * x )
+static void rsnd_swap_endian_32 ( uint32_t * x )
 {
 	*x = 	(*x >> 24 ) |
 			((*x<<8) & 0x00FF0000) |
@@ -94,6 +96,7 @@ static int rsnd_send_header_info(rsound_t *rd)
 #define HEADER_SIZE 44
 	char buffer[HEADER_SIZE] = {0};
 	int rc = 0;
+   struct pollfd fd;
 
 #define RATE 24
 #define CHANNEL 22
@@ -114,7 +117,6 @@ static int rsnd_send_header_info(rsound_t *rd)
 	*((uint16_t*)(buffer+CHANNEL)) = channels_temp;
 	*((uint16_t*)(buffer+FRAMESIZE)) = framesize_temp;
 
-   struct pollfd fd;
    fd.fd = rd->conn.socket;
    fd.events = POLLOUT;
 
@@ -376,9 +378,10 @@ static int rsnd_stop_thread(rsound_t *rd)
 
 static int rsnd_get_delay(rsound_t *rd)
 {
+   int ptr;
    pthread_mutex_lock(&rd->thread.mutex);
    rsnd_drain(rd);
-   int ptr = rd->bytes_in_buffer;
+   ptr = rd->bytes_in_buffer;
    pthread_mutex_unlock(&rd->thread.mutex);
    if ( ptr < 0 )
       ptr = 0;
@@ -387,8 +390,9 @@ static int rsnd_get_delay(rsound_t *rd)
 
 static int rsnd_get_ptr(rsound_t *rd)
 {
+   int ptr;
    pthread_mutex_lock(&rd->thread.mutex);
-   int ptr = rd->buffer_pointer;
+   ptr = rd->buffer_pointer;
    pthread_mutex_unlock(&rd->thread.mutex);
 
    return ptr;
@@ -480,9 +484,9 @@ static int rsnd_reset(rsound_t *rd)
 
 int rsd_stop(rsound_t *rd)
 {
+   const char buf[] = "CLOSE";
    rsnd_stop_thread(rd);
    
-   const char buf[] = "CLOSE";
    send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
    close(rd->conn.ctl_socket);
    close(rd->conn.socket);
@@ -523,12 +527,12 @@ int rsd_set_param(rsound_t *rd, int option, void* param)
          rd->channels = *((int*)param);
          break;
       case RSD_HOST:
-         if ( rd->host )
+         if ( rd->host != NULL )
             free(rd->host);
          rd->host = strdup((char*)param);
          break;
       case RSD_PORT:
-         if ( rd->port )
+         if ( rd->port != NULL )
             free(rd->port);
          rd->port = strdup((char*)param);
          break;

@@ -2,7 +2,7 @@ bin_PROGRAMS = src/rsound src/rsoundserv
 AUTOMAKE_OPTIONS = subdir-objects
 
 sources_serv = 
-AM_CFLAGS = -Wall -Wextra -Wpointer-arith -Wredundant-decls -Wuninitialized -Wreturn-type -Wimplicit -O2 -pedantic -ansi
+AM_CFLAGS = -Wall -Wextra -Wpointer-arith -Wredundant-decls -Wuninitialized -Wreturn-type -Wimplicit -O2 -pedantic -std=c99
 
 if HAVE_ALSA
    sources_serv += src/alsa.c
@@ -32,8 +32,8 @@ if HAVE_OSS
 endif
 
 src_rsound_SOURCES = src/client.c \
-                     src/endian.c \
-                     src/endian.h
+                     src/librsound/librsound.c \
+                     src/librsound/rsound.h
 
 src_rsoundserv_SOURCES =   src/daemon.c \
                            src/endian.c \
