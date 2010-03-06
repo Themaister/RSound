@@ -1,8 +1,8 @@
 diff --git a/Makefile b/Makefile
-index 82f6331..f60d610 100644
+index b66562b..ecf3c50 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -681,6 +681,8 @@ SRCS_MPLAYER = command.c \
+@@ -682,6 +682,8 @@ SRCS_MPLAYER = command.c \
                 libao2/ao_mpegpes.c \
                 libao2/ao_null.c \
                 libao2/ao_pcm.c \
@@ -11,6 +11,156 @@ index 82f6331..f60d610 100644
                 libao2/audio_out.c \
                 libvo/aspect.c \
                 libvo/geometry.c \
+diff --git a/libao2/ao_rsound.c b/libao2/ao_rsound.c
+new file mode 100644
+index 0000000..037f640
+--- /dev/null
++++ b/libao2/ao_rsound.c
+@@ -0,0 +1,144 @@
++/*
++ * RSound audio output driver
++ *
++ * This file is part of MPlayer.
++ *
++ * MPlayer is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * MPlayer is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with MPlayer; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include "config.h"
++
++#include <stdlib.h>
++#include <string.h>
++
++#include "libavutil/common.h"
++#include "mpbswap.h"
++#include "subopt-helper.h"
++#include "libaf/af_format.h"
++#include "libaf/reorder_ch.h"
++#include "audio_out.h"
++#include "audio_out_internal.h"
++#include "mp_msg.h"
++#include "help_mp.h"
++
++#include "rsound.h"
++
++static const ao_info_t info =
++{
++   "RSound output driver",
++   "rsound",
++   "Hans-Kristian Arntzen",
++   ""
++};
++
++LIBAO_EXTERN(rsound)
++
++static char *host = NULL;
++static char *port = NULL;
++static rsound_t* rd = NULL;
++
++static int control(int cmd, void *arg)
++{
++   return -1;
++}
++
++static int init(int rate, int channels, int format, int flags)
++{
++   if ( host )
++      free(host);
++   if ( port )
++      free(port);
++
++   // Parses commandline
++   const opt_t subopts[] = {
++      {"host", OPT_ARG_MSTRZ, &host, NULL},
++      {"port", OPT_ARG_MSTRZ, &port, NULL},
++      {NULL}
++   };
++
++   if (subopt_parse(ao_subdevice, subopts) != 0) {
++      return 0;
++   }
++
++   // Defaults
++   if ( !host )
++      host = strdup("localhost");
++   if ( !port )
++      port = strdup("12345");
++
++   if ( rsd_init(&rd) < 0 )
++      return 0;
++
++   rsd_set_param(rd, RSD_SAMPLERATE, &rate);
++   rsd_set_param(rd, RSD_CHANNELS, &channels);
++   rsd_set_param(rd, RSD_HOST, host);
++   rsd_set_param(rd, RSD_PORT, port);
++   ao_data.channels = channels;
++   ao_data.samplerate = rate;
++   ao_data.format = AF_FORMAT_S16_LE;
++   ao_data.bps = channels*rate*2;
++
++   if ( rsd_start(rd) < 0 )
++      return 0;
++   ao_data.outburst = rd->chunk_size;
++   ao_data.buffersize = rd->buffer_size;
++   
++   return 1;
++}
++
++static void uninit(int n)
++{
++   rsd_free(rd);
++}
++
++static void reset(void)
++{
++   rsd_stop(rd);
++   rsd_start(rd);
++}
++
++static void audio_pause(void)
++{
++   rsd_pause(rd, 1);
++}
++
++static void audio_resume(void)
++{
++   rsd_pause(rd, 0);
++}
++
++static int get_space(void)
++{
++   int ptr = rsd_get_avail(rd);
++   return ptr;
++}
++
++static int play(void* data, int len, int flags)
++{
++	(void) flags;
++   int rc = rsd_write(rd, data, len);
++   return rc;
++}
++
++static float get_delay(void)
++{
++   int ptr = rsd_delay(rd);
++   return (float)ptr / (float)ao_data.bps;
++}
++
++
++
++
++
 diff --git a/libao2/audio_out.c b/libao2/audio_out.c
 index 4ac5489..02d399d 100644
 --- a/libao2/audio_out.c
