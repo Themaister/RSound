@@ -1,8 +1,12 @@
 #ifndef __RSOUND_H
 #define __RSOUND_H
 
+#ifndef _POSIX_SOURCE
 #define _POSIX_SOURCE
+#endif
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <pthread.h>
 #include <time.h>
