@@ -163,7 +163,12 @@ void* oss_thread( void* data )
    if ( verbose )
       fprintf(stderr, "Fragsize %d, Buffer size %d\n", sound.fragsize, (int)buffer_size);
    
-   if ( !send_backend_info(sound.conn, sound.fragsize ))
+   backend_info_t backend = {
+      .latency = (uint32_t)zz.fragsize,
+      .chunk_size = sound.fragsize
+   };
+
+   if ( !send_backend_info(sound.conn, backend ))
    {
       fprintf(stderr, "Error sending backend info.\n");
       goto oss_exit;

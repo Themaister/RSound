@@ -20,12 +20,18 @@
 
 #include "audio.h"
 
+typedef struct
+{
+   uint32_t latency;
+   uint32_t chunk_size;
+} backend_info_t;
+
 void parse_input(int, char**);
 void new_sound_thread(connection_t);
 void pheader(wav_header*);
 void print_help(char*);
 int get_wav_header(connection_t, wav_header*);
-int send_backend_info(connection_t, uint32_t);
+int send_backend_info(connection_t, backend_info_t);
 int set_up_socket();
 int recieve_data(connection_t, char*, size_t);
 

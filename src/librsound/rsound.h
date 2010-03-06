@@ -31,6 +31,13 @@ typedef struct rsound_thread
    pthread_cond_t cond;
 } rsound_thread_t;
 
+typedef struct backend_info
+{
+   // Inherit latency from backend that must be added to the calculated latency . 
+   uint32_t latency;
+   uint32_t chunk_size;
+} backend_info_t;
+
 typedef struct rsound
 {
    connection_t conn;
@@ -39,7 +46,6 @@ typedef struct rsound
    char *buffer;
 
    int buffer_pointer;
-   size_t chunk_size;
    size_t buffer_size;
    int thread_active;
 
@@ -48,6 +54,7 @@ typedef struct rsound
    int has_written;
    int bytes_in_buffer;
    int min_latency;
+   backend_info_t backend_info;
 
    int ready_for_data;
 

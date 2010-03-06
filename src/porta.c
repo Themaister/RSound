@@ -125,7 +125,14 @@ void* porta_thread( void* data )
    }
 
    /* Just have to set something for buffer_size */
-   if ( !send_backend_info(sound.conn, sound.size ) )
+   backend_info_t backend = {
+      .latency = (uint32_t)(w.numChannels * 2 * w.sampleRate * Pa_GetStreamInfo( sound.stream )->outputLatency),
+      .chunk_size = sound.size
+   };
+
+
+
+   if ( !send_backend_info(sound.conn, backend ) )
    {
       fprintf(stderr, "Couldn't send backend info.\n");
       goto porta_quit;

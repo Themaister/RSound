@@ -94,7 +94,11 @@ void* ao_thread ( void* data )
    }
 
    /* Dirty, and should be avoided, but I need to study the API better. */
-   if ( !send_backend_info(sound.conn, chunk_size ))
+   backend_info_t backend = {
+      .latency = chunk_size,
+      .chunk_size = chunk_size
+   };
+   if ( !send_backend_info(sound.conn, backend ))
    {
       fprintf(stderr, "Couldn't send backend info.\n");
       goto ao_exit;

@@ -78,10 +78,10 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    snd_pcm_hw_params_get_buffer_size(interface->params, &bufferSize);
 
 
-   /* :D :D :D Force small packet sizes */
+   /* Force small packet sizes */
    interface->frames = 128;
    interface->size = 128 * w->numChannels * 2;
-   /* :D:D:D:D */
+   /* */
 
    chunk_size = (uint32_t)interface->size;
    buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
@@ -142,7 +142,15 @@ void* alsa_thread ( void* data )
       goto alsa_exit;
    }
 
-   if ( !send_backend_info(sound.conn, sound.size) )
+   snd_pcm_uframes_t latency;
+   snd_pcm_hw_params_get_period_size(interface->params, &latency,
+         NULL);
+
+   backend_info_t backend = { 
+      .latency = (uint32_t)latency * w.numChannels * 2,
+      .chunk_size = sound.size
+   };
+   if ( !send_backend_info(sound.conn, backend) )
    {
       fprintf(stderr, "Failed to send buffer info ...\n");
       goto alsa_exit;

@@ -1,4 +1,4 @@
-AC_INIT(RSound, 0.3, maister@archlinux.us)
+AC_INIT(RSound, 0.5, maister@archlinux.us)
 
 AM_INIT_AUTOMAKE
 

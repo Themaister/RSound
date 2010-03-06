@@ -146,7 +146,9 @@ static int rsnd_send_header_info(rsound_t *rd)
 
 static int rsnd_get_backend_info ( rsound_t *rd )
 {
-	uint32_t chunk_size_temp;
+   #define RSND_HEADER_SIZE 8
+
+   char rsnd_header[RSND_HEADER_SIZE] = {0};
 	int rc;
 
    struct pollfd fd;
@@ -167,20 +169,19 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       return -1;
    }
 
-	rc = recv(rd->conn.socket, &chunk_size_temp, sizeof(uint32_t), 0);
-	if ( rc != sizeof(uint32_t))
+	rc = recv(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 0);
+	if ( rc != RSND_HEADER_SIZE)
 	{
 		close(rd->conn.socket);
       close(rd->conn.ctl_socket);
 		return -1;
 	}
 
-	chunk_size_temp = ntohl(chunk_size_temp);
+	rd->backend_info.latency = ntohl(*((uint32_t*)(rsnd_header)));
+	rd->backend_info.chunk_size = ntohl(*((uint32_t*)(rsnd_header+4)));
 
-   rd->chunk_size = chunk_size_temp;
-   
-   if ( rd->buffer_size <= 0 || rd->buffer_size < rd->chunk_size)
-      rd->buffer_size = rd->chunk_size * 32;
+   if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size)
+      rd->buffer_size = rd->backend_info.chunk_size * 32;
 
 	rd->buffer = realloc ( rd->buffer, rd->buffer_size );
 	rd->buffer_pointer = 0;
@@ -382,8 +383,12 @@ static int rsnd_get_delay(rsound_t *rd)
    rsnd_drain(rd);
    ptr = rd->bytes_in_buffer;
    pthread_mutex_unlock(&rd->thread.mutex);
+   ptr += (int)rd->backend_info.latency;
    if ( ptr < 0 )
       ptr = 0;
+
+// Adds the backend latency
+
    return ptr;
 }
 
@@ -414,9 +419,9 @@ static void* rsnd_thread ( void * thread_data )
    for (;;)
    {
       /* Trying to compensate for latency. Makes sure that the delay never goes over a certain amount */
-      while ( (rd->buffer_pointer >= (int)rd->chunk_size) && ( !max_delay || (rsd_delay(rd) <= max_delay) ) )
+      while ( (rd->buffer_pointer >= (int)rd->backend_info.chunk_size) && ( !max_delay || (rsd_delay(rd) <= max_delay) ) )
       {
-         rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->chunk_size);
+         rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size);
          if ( rc <= 0 )
          {
             rsnd_reset(rd);
@@ -441,8 +446,8 @@ static void* rsnd_thread ( void * thread_data )
          pthread_mutex_unlock(&rd->thread.mutex);
 
          pthread_mutex_lock(&rd->thread.mutex);
-         memmove(rd->buffer, rd->buffer + rd->chunk_size, rd->buffer_size - rd->chunk_size);
-         rd->buffer_pointer -= (int)rd->chunk_size;
+         memmove(rd->buffer, rd->buffer + rd->backend_info.chunk_size, rd->buffer_size - rd->backend_info.chunk_size);
+         rd->buffer_pointer -= (int)rd->backend_info.chunk_size;
          pthread_mutex_unlock(&rd->thread.mutex);
 
          /* Buffer has decreased, signal fill_buffer */

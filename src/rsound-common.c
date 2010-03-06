@@ -317,12 +317,17 @@ int get_wav_header(connection_t conn, wav_header* head)
    return 1;
 }
 
-int send_backend_info(connection_t conn, uint32_t chunk_size )
+int send_backend_info(connection_t conn, backend_info_t backend )
 {
+#define RSND_HEADER_SIZE 8
+   
    int rc;
    struct pollfd fd;
 
-   chunk_size = htonl(chunk_size);
+   char header[RSND_HEADER_SIZE];
+
+   *((uint32_t*)header) = htonl(backend.latency);
+   *((uint32_t*)(header+4)) = htonl(backend.chunk_size);
 
    fd.fd = conn.socket;
    fd.events = POLLOUT;
@@ -331,8 +336,8 @@ int send_backend_info(connection_t conn, uint32_t chunk_size )
       return 0;
    if ( fd.revents == POLLHUP )
       return 0;
-   rc = send(conn.socket, &chunk_size, sizeof(uint32_t), 0);
-   if ( rc != sizeof(uint32_t))
+   rc = send(conn.socket, header, RSND_HEADER_SIZE, 0);
+   if ( rc != RSND_HEADER_SIZE)
       return 0;
 
    return 1;
