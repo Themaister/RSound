@@ -74,20 +74,24 @@ static int rsnd_connect_server( rsound_t *rd )
 	rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
-	if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) != 0 )
-		return 0;
+   if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0)
+      goto error;
 
-	if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) != 0 )
-		return 0;
+	if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0 )
+      goto error;
 
+   
    if ( fcntl(rd->conn.socket, F_SETFL, O_NONBLOCK) < 0)
    {
       fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
-      return 0;
+      goto error;
    }
 
 	freeaddrinfo(res);
-	return 1;
+   return 0;
+error:
+   freeaddrinfo(res);
+	return -1;
 }
 
 static int rsnd_send_header_info(rsound_t *rd)
@@ -119,7 +123,7 @@ static int rsnd_send_header_info(rsound_t *rd)
    fd.fd = rd->conn.socket;
    fd.events = POLLOUT;
 
-   if ( poll(&fd, 1, 500) < 0 )
+   if ( poll(&fd, 1, 10000) < 0 )
    {
 		close(rd->conn.socket);
 		close(rd->conn.ctl_socket);
@@ -155,7 +159,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    fd.fd = rd->conn.socket;
    fd.events = POLLIN;
 
-   if ( poll(&fd, 1, 500) < 0 )
+   if ( poll(&fd, 1, 10000) < 0 )
    {
       close(rd->conn.socket);
       close(rd->conn.ctl_socket);

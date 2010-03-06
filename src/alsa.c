@@ -86,7 +86,6 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    chunk_size = (uint32_t)interface->size;
    buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
 
-   snd_pcm_hw_params_free(interface->params);
    
    if ( verbose )
       fprintf(stderr, "Buffer size: %u, Fragment size: %u.\n", buffer_size, chunk_size);
@@ -143,8 +142,9 @@ void* alsa_thread ( void* data )
    }
 
    snd_pcm_uframes_t latency;
-   snd_pcm_hw_params_get_period_size(interface->params, &latency,
+   snd_pcm_hw_params_get_period_size(sound.params, &latency,
          NULL);
+   snd_pcm_hw_params_free(sound.params);
 
    backend_info_t backend = { 
       .latency = (uint32_t)latency * w.numChannels * 2,

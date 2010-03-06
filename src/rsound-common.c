@@ -42,6 +42,7 @@
 
 void new_sound_thread ( connection_t connection )
 {
+   static pthread_t last_thread = 0;
    pthread_t thread;
    
    connection_t *conn = malloc(sizeof(*conn));
@@ -61,10 +62,10 @@ void new_sound_thread ( connection_t connection )
       fprintf(stderr, "Setting non-blocking socket failed.\n");
       return;
    }
+   if ( no_threading && (int)last_thread != 0 )
+      pthread_join(last_thread, NULL);
    pthread_create(&thread, NULL, backend, (void*)conn);     
-
-   if ( no_threading )
-      pthread_join(thread, NULL);
+   last_thread = thread;
 }
 
 void parse_input(int argc, char **argv)
@@ -273,7 +274,7 @@ int get_wav_header(connection_t conn, wav_header* head)
    fd.fd = conn.socket;
    fd.events = POLLIN;
 
-   if ( poll(&fd, 1, 500) < 0 )
+   if ( poll(&fd, 1, 10000) < 0 )
       return 0;
 
    if ( fd.revents == POLLHUP )
@@ -415,7 +416,7 @@ int recieve_data(connection_t conn, char* buffer, size_t size)
    
    while ( read < size )
    {
-      if ( poll(fd, 2, 500) < 0)
+      if ( poll(fd, 2, 50) < 0)
          return 0;
 
       if ( fd[1].revents & POLLIN )
