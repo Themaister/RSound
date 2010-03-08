@@ -298,8 +298,8 @@ static void rsnd_drain(rsound_t *rd)
 
 static int rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 {
-   struct timespec now;
-   int nsecs;
+//   struct timespec now;
+//   int nsecs;
 
    /* Wait until we have a ready buffer */
    for (;;)
@@ -411,8 +411,8 @@ static void* rsnd_thread ( void * thread_data )
 {
    rsound_t *rd = thread_data;
    int rc;
-   struct timespec now;
-   int nsecs;
+//   struct timespec now;
+//   int nsecs;
    /* Convert from msecs to bytes */
    int max_delay = (rd->min_latency * rd->rate * rd->channels * 2) / 1000;
    if ( max_delay > 0 )
