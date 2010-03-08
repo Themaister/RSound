@@ -274,10 +274,10 @@ int get_wav_header(connection_t conn, wav_header* head)
    fd.fd = conn.socket;
    fd.events = POLLIN;
 
-   if ( poll(&fd, 1, 10000) < 0 )
+   if ( poll(&fd, 1, -1) < 0 )
       return 0;
 
-   if ( fd.revents == POLLHUP )
+   if ( fd.revents & POLLHUP )
       return 0;
 
    rc = recv(conn.socket, header, HEADER_SIZE, 0);
@@ -335,7 +335,7 @@ int send_backend_info(connection_t conn, backend_info_t backend )
 
    if ( poll(&fd, 1, 10000) < 0 )
       return 0;
-   if ( fd.revents == POLLHUP )
+   if ( fd.revents & POLLHUP )
       return 0;
    rc = send(conn.socket, header, RSND_HEADER_SIZE, 0);
    if ( rc != RSND_HEADER_SIZE)
