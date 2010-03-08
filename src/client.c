@@ -13,9 +13,6 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define _POSIX_SOURCE
-#define _GNU_SOURCE
-
 #include "librsound/rsound.h"
 #include <signal.h>
 #include <stdlib.h>
@@ -27,8 +24,6 @@
 #define READ_SIZE 1024
 #define HEADER_SIZE 44
 
-/* Obsolete. Should use new API :D */
-
 static int raw_mode = 0;
 static uint32_t raw_rate = 44100;
 static uint16_t channel = 2;
@@ -36,15 +31,14 @@ static uint16_t channel = 2;
 static char port[128] = "12345";
 static char host[128] = "localhost";
 
-static char* buffer;
-static rsound_t *rd;
-
-static int set_other_params(void);
+static int set_other_params(rsound_t *rd);
 static void parse_input(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
    int rc;
+	rsound_t *rd;
+	char *buffer;
    
    parse_input(argc, argv);
    if ( rsd_init(&rd) < 0 )
@@ -55,7 +49,7 @@ int main(int argc, char **argv)
 
    rsd_set_param(rd, RSD_HOST, (void*)host);
    rsd_set_param(rd, RSD_PORT, (void*)port);
-   if ( set_other_params() < 0 )
+   if ( set_other_params(rd) < 0 )
    {
       fprintf(stderr, "Couldn't read data from stdin.\n");
       rsd_free(rd);
@@ -102,7 +96,7 @@ int main(int argc, char **argv)
    return 0;
 }
       
-static int set_other_params(void)
+static int set_other_params(rsound_t *rd)
 {
    int rate, channels;
 

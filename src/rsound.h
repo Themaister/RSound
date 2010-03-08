@@ -16,10 +16,6 @@
 #ifndef RSOUND_H
 #define RSOUND_H
 
-#ifndef _POSIX_SOURCE
-#define _POSIX_SOURCE
-#endif
-
 #include "audio.h"
 
 typedef struct
