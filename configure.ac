@@ -44,7 +44,5 @@ AM_CONDITIONAL(HAVE_PORTA, test x$enable_porta = xyes)
 AM_CONDITIONAL(HAVE_AO, test x$enable_ao = xyes)
 
 AM_PROG_LIBTOOL
-RSOUNDDIR="$libdir"
-AC_SUBST(RSOUNDDIR)
 
 AC_OUTPUT(Makefile)
