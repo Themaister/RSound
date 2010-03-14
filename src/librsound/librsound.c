@@ -510,15 +510,13 @@ int rsd_write( rsound_t *rsound, const char* buf, size_t size)
 {
    int result;
    int max_write = rsound->buffer_size - rsound->backend_info.chunk_size;
-   if ( rsd_get_avail(rsound) > max_write )
-      max_write = rsd_get_avail(rsound);
 
-   int written;
+   int written = 0;
    int write_size;
 
 // Makes sure that we can handle arbitrary large write sizes
-
-   for ( written = 0; written < (int)size; )
+   
+   while ( written < (int)size )
    {
       write_size = (size - written) > max_write ? max_write : (size - written); 
       result = rsnd_fill_buffer(rsound, buf + written, write_size);
@@ -530,7 +528,7 @@ int rsd_write( rsound_t *rsound, const char* buf, size_t size)
       }
       written += result;
    }
-   return result;
+   return written;
 }
 
 int rsd_start(rsound_t *rsound)
