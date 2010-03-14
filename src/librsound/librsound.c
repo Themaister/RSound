@@ -510,6 +510,8 @@ int rsd_write( rsound_t *rsound, const char* buf, size_t size)
 {
    int result;
    int max_write = rsound->buffer_size - rsound->backend_info.chunk_size;
+   if ( rsd_get_avail(rsound) > max_write )
+      max_write = rsd_get_avail(rsound);
 
    int written;
    int write_size;
