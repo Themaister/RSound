@@ -1,16 +1,12 @@
 #ifndef __RSOUND_H
 #define __RSOUND_H
 
-#ifndef _POSIX_SOURCE
-#define _POSIX_SOURCE
-#endif
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
 #include <pthread.h>
 #include <time.h>
 #include <stdint.h>
+
+#define RSD_DEFAULT_HOST "localhost"
+#define RSD_DEFAULT_PORT "12345"
 
 enum {
    RSD_SAMPLERATE = 0,
@@ -37,7 +33,7 @@ typedef struct rsound_thread
 
 typedef struct backend_info
 {
-   // Inherit latency from backend that must be added to the calculated latency . 
+   // Inherit latency from backend that must be added to the calculated latency. 
    uint32_t latency;
    uint32_t chunk_size;
 } backend_info_t;
@@ -68,16 +64,55 @@ typedef struct rsound
    rsound_thread_t thread;
 } rsound_t;
 
+/* -- API --
+   All functions (except for rsd_write() return 0 for success, and -1 for error */
+
+/* Initializes an rsound_t structure. To make sure no memory leaks occur, you need to rsd_free() it after use.
+   e.g.
+      rsound_t *rd;
+      rsd_init(&rd);
+*/
 int rsd_init (rsound_t **rd);
-int rsd_free (rsound_t *rd);
-int rsd_start (rsound_t *rd);
+
+/* Sets params associated with an rsound_t. These options (int options) include:
+   RSD_HOST: Server to connect to. Expects (char *) in param. Mandatory. Might use RSD_DEFAULT_HOST
+   RSD_PORT: Set port. Expects (char *) in param. Mandatory. Might use RSD_DEFAULT_PORT
+   RSD_CHANNELS: Set number of audio channels. Expects (int *) in param. Mandatory.
+   RSD_SAMPLERATE: Set samplerate of audio stream. Expects (int *) in param. Mandatory.
+   RSD_BUFSIZE: Sets internal buffersize for the stream. Might be overridden if too small. 
+   Expects (int *) in param. Optional.
+   RSD_LATENCY: (!NOT PROPERLY IMPLEMENTED YET!) Sets maximum audio latency in milliseconds. 
+   Might be overridden if too small. Expects (int *) in param. Optional.
+*/
 int rsd_set_param (rsound_t *rd, int option, void* param);
+
+/* Establishes connection to server. Might fail if connection can't be established or that one of 
+   the mandatory options isn't set in rsd_set_param() */ 
+int rsd_start (rsound_t *rd);
+
+/* Disconnects from server. To continue playing, you will need to rsd_start() again. */
 int rsd_stop (rsound_t *rd);
+
+/* Writes from buf to the internal buffer. Might fail if no connection is established, 
+   or there was an unexpected error. This function will block until all data has
+   been written to the buffer. */
 int rsd_write (rsound_t *rd, const char* buf, size_t size);
+
+/* Gets the position of the buffer pointer. 
+   Not really interesting for normal applications. */
 int rsd_pointer (rsound_t *rd);
+
+/* Aquires how much data can be written to the buffer without blocking */
 int rsd_get_avail (rsound_t *rd);
+
+/* Aquires the latency at the moment for the audio stream. Useful for syncing video and audio. */
 int rsd_delay (rsound_t *rd);
+
+/* Pauses or unpauses a stream. pause -> enable = 1 */
 int rsd_pause (rsound_t *rd, int enable);
+
+/* Frees an rsound_t struct. */
+int rsd_free (rsound_t *rd);
 
 #endif
 

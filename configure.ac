@@ -1,6 +1,7 @@
 AC_INIT(RSound, 0.5, maister@archlinux.us)
 
 AM_INIT_AUTOMAKE
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_ARG_ENABLE( alsa,       [  --disable-alsa          Disables alsa support], enable_alsa=no, enable_alsa=yes)
 AC_ARG_ENABLE( oss,        [  --disable-oss           Disables oss support], enable_oss=no, enable_oss=yes)
@@ -41,5 +42,7 @@ AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
 AM_CONDITIONAL(HAVE_OSS, test x$enable_oss = xyes)
 AM_CONDITIONAL(HAVE_PORTA, test x$enable_porta = xyes)
 AM_CONDITIONAL(HAVE_AO, test x$enable_ao = xyes)
+
+AM_PROG_LIBTOOL
 
 AC_OUTPUT(Makefile)

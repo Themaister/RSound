@@ -486,6 +486,7 @@ static int rsnd_reset(rsound_t *rd)
    rd->has_written = 0;
    rd->bytes_in_buffer = 0;
    rd->thread_active = 0;
+   pthread_cond_signal(&rd->thread.cond);
    pthread_mutex_unlock(&rd->thread.mutex);
    pthread_mutex_unlock(&rd->thread.cond_mutex);
    return 0;
@@ -508,15 +509,26 @@ int rsd_stop(rsound_t *rd)
 int rsd_write( rsound_t *rsound, const char* buf, size_t size)
 {
    int result;
-   
-   result = rsnd_fill_buffer(rsound, buf, size);
+   int max_write = rsound->buffer_size - rsound->backend_info.chunk_size;
 
-   if ( result <= 0 )
+   int written = 0;
+   int write_size;
+
+// Makes sure that we can handle arbitrary large write sizes
+   
+   while ( written < (int)size )
    {
-      rsd_stop(rsound);
-      return -1;
+      write_size = (size - written) > max_write ? max_write : (size - written); 
+      result = rsnd_fill_buffer(rsound, buf + written, write_size);
+
+      if ( result <= 0 )
+      {
+         rsd_stop(rsound);
+         return -1;
+      }
+      written += result;
    }
-   return result;
+   return written;
 }
 
 int rsd_start(rsound_t *rsound)
