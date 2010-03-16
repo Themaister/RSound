@@ -95,18 +95,19 @@ int rsd_stop (rsound_t *rd);
 
 /* Writes from buf to the internal buffer. Might fail if no connection is established, 
    or there was an unexpected error. This function will block until all data has
-   been written to the buffer. */
-int rsd_write (rsound_t *rd, const char* buf, size_t size);
+   been written to the buffer. This function will return the number of bytes written to the buffer,
+   or 0 should it fail (disconnection from server). You will have to restart the stream again should this occur. */
+size_t rsd_write (rsound_t *rd, const char* buf, size_t size);
 
 /* Gets the position of the buffer pointer. 
    Not really interesting for normal applications. */
-int rsd_pointer (rsound_t *rd);
+size_t rsd_pointer (rsound_t *rd);
 
 /* Aquires how much data can be written to the buffer without blocking */
-int rsd_get_avail (rsound_t *rd);
+size_t rsd_get_avail (rsound_t *rd);
 
-/* Aquires the latency at the moment for the audio stream. Useful for syncing video and audio. */
-int rsd_delay (rsound_t *rd);
+/* Aquires the latency at the moment for the audio stream. It is measured in bytes. Useful for syncing video and audio. */
+size_t rsd_delay (rsound_t *rd);
 
 /* Pauses or unpauses a stream. pause -> enable = 1 */
 int rsd_pause (rsound_t *rd, int enable);
