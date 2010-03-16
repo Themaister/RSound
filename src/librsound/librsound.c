@@ -306,9 +306,6 @@ static void rsnd_drain(rsound_t *rd)
    it will treat this as an error */ 
 static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 {
-//   struct timespec now;
-//   int nsecs;
-
    /* Wait until we have a ready buffer */
    for (;;)
    {
@@ -326,19 +323,8 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       }
       pthread_mutex_unlock(&rd->thread.mutex);
       
-      /*clock_gettime(CLOCK_REALTIME, &now);
-      nsecs = 50000000;      
-      now.tv_nsec += nsecs;
-      if ( now.tv_nsec >= 1000000000 )
-      {
-         now.tv_sec++;
-         now.tv_nsec -= 1000000000;
-      }*/
-
       /* get signal from thread to check again */
       pthread_mutex_lock(&rd->thread.cond_mutex);
-//      pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &now);
-/* WARNING: This _might_ lead to deadlocks in extreme cases, but has not been confirmed */
 		pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
    }
@@ -357,14 +343,16 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 static int rsnd_start_thread(rsound_t *rd)
 {
    int rc;
+	pthread_t thread;
    if ( !rd->thread_active )
    {
-      rc = pthread_create(&rd->thread.threadId, NULL, rsnd_thread, rd);
+      rc = pthread_create(&thread, NULL, rsnd_thread, rd);
       if ( rc < 0 )
       {
          fprintf(stderr, "Failed to create thread.\n");
          return -1;
       }
+		rd->thread.threadId = thread;
       rd->thread_active = 1;
       return 0;
    }
@@ -423,20 +411,11 @@ static void* rsnd_thread ( void * thread_data )
 {
    rsound_t *rd = thread_data;
    int rc;
-//   struct timespec now;
-//   int nsecs;
-   /* Convert from msecs to bytes */
-   int max_delay = (rd->min_latency * rd->rate * rd->channels * 2) / 1000;
-   if ( max_delay > 0 )
-      max_delay = ((int)rd->buffer_size > max_delay) ? (int)rd->buffer_size : max_delay;
-   else
-      max_delay = 0;
 
    /* Plays back data as long as there is data in the buffer */
    for (;;)
    {
-      /* Trying to compensate for latency. Makes sure that the delay never goes over a certain amount */
-      while ( (rd->buffer_pointer >= (int)rd->backend_info.chunk_size) && ( !max_delay || (rsd_delay(rd) <= max_delay) ) )
+      while ( rd->buffer_pointer >= (int)rd->backend_info.chunk_size )
       {
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size);
          if ( rc <= 0 )
@@ -472,18 +451,7 @@ static void* rsnd_thread ( void * thread_data )
 
                           
       }
-      /* Wait for the buffer to be filled. Wakeup at least every 5ms. */
-      /*clock_gettime(CLOCK_REALTIME, &now);
-      nsecs = 5000000;      
-      now.tv_nsec += nsecs;
-      if ( now.tv_nsec >= 1000000000 )
-      {
-         now.tv_sec++;
-         now.tv_nsec -= 1000000000;
-      }*/
-
       pthread_mutex_lock(&rd->thread.cond_mutex);
-//      pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &now);
 		pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
    }
@@ -498,7 +466,6 @@ static int rsnd_reset(rsound_t *rd)
    rd->has_written = 0;
    rd->bytes_in_buffer = 0;
    rd->thread_active = 0;
-   pthread_cond_signal(&rd->thread.cond);
    pthread_mutex_unlock(&rd->thread.mutex);
    pthread_mutex_unlock(&rd->thread.cond_mutex);
    return 0;
