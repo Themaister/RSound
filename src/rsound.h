@@ -33,6 +33,7 @@ int send_backend_info(connection_t, backend_info_t);
 int set_up_socket();
 int recieve_data(connection_t, char*, size_t);
 void write_pid_file(void);
+void cleanup(int);
 
 extern char device[];
 extern char port[];

@@ -32,7 +32,6 @@
 #include "porta.h"
 #endif
 
-#define _GNU_SOURCE
 #include <getopt.h>
 #include <poll.h>
 #include <signal.h>
@@ -42,7 +41,7 @@
 
 /* This file defines some backend independed operations */
 
-void write_pid_file()
+void write_pid_file(void)
 {
 	FILE *pidfile = fopen(PIDFILE, "w");
 	if ( pidfile )
@@ -50,6 +49,21 @@ void write_pid_file()
 		fprintf(pidfile, "%d\n", (int)getpid());
 		fclose(pidfile);
 	}
+}
+
+void cleanup( int signal )
+{
+   fprintf(stderr, "\n --- Recieved signal, cleaning up ---\n");
+   unlink(PIDFILE);
+#ifdef _PORTA
+   if ( backend == porta_thread )
+      Pa_Terminate();
+#endif
+#ifdef _AO
+   if ( backend == ao_thread )
+      ao_shutdown();
+#endif
+   exit(0);
 }
 
 void new_sound_thread ( connection_t connection )
