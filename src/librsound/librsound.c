@@ -82,11 +82,13 @@ static int rsnd_connect_server( rsound_t *rd )
       goto error;
 
 /* Uses non-blocking IO since it performed more deterministic with poll()/send() */   
+#ifndef __CYGWIN__
    if ( fcntl(rd->conn.socket, F_SETFL, O_NONBLOCK) < 0)
    {
       fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
       goto error;
    }
+#endif /* Cygwin doesn't seem to like non-blocking I/O ... */
 
 	freeaddrinfo(res);
    return 0;
