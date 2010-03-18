@@ -32,6 +32,7 @@ int get_wav_header(connection_t, wav_header*);
 int send_backend_info(connection_t, backend_info_t);
 int set_up_socket();
 int recieve_data(connection_t, char*, size_t);
+void write_pid_file(void);
 
 extern char device[];
 extern char port[];

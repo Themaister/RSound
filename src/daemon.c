@@ -47,6 +47,7 @@ int main(int argc, char ** argv)
       if ( i > 0 ) exit(0);
       /* Forking into background */
    }
+	write_pid_file();
 
    /* Sets up listening socket */
    s = set_up_socket();
