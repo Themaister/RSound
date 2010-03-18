@@ -270,20 +270,10 @@ int get_wav_header(connection_t conn, wav_header* head)
    int rc = 0;
    char header[HEADER_SIZE] = {0};
 
-   struct pollfd fd;
-   fd.fd = conn.socket;
-   fd.events = POLLIN;
-
-   if ( poll(&fd, 1, -1) < 0 )
-      return 0;
-
-   if ( fd.revents & POLLHUP )
-      return 0;
-
-   rc = recv(conn.socket, header, HEADER_SIZE, 0);
+   rc = recieve_data(conn, header, HEADER_SIZE);
    if ( rc != HEADER_SIZE )
    {
-      fprintf(stderr, "Didn't read enough data for WAV header. recv() returned %d. \n", rc);
+      fprintf(stderr, "Didn't read enough data for WAV header.");
       return -1;
    }
 

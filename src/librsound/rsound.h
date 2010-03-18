@@ -1,6 +1,10 @@
 #ifndef __RSOUND_H
 #define __RSOUND_H
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+
 #include <pthread.h>
 #include <time.h>
 #include <stdint.h>
@@ -114,6 +118,10 @@ int rsd_pause (rsound_t *rd, int enable);
 
 /* Frees an rsound_t struct. */
 int rsd_free (rsound_t *rd);
+
+#ifdef _cplusplus
+}
+#endif
 
 #endif
 
