@@ -6,8 +6,10 @@ extern "C" {
 #endif
 
 #include <pthread.h>
+#include <sys/time.h>
 #include <time.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #define RSD_DEFAULT_HOST "localhost"
 #define RSD_DEFAULT_PORT "12345"
@@ -54,7 +56,11 @@ typedef struct rsound
    int thread_active;
 
    int64_t total_written;
-   struct timespec start_tv;
+#ifdef _POSIX_MONOTONIC_CLOCK
+	struct timespec start_tv;
+#else
+   struct timeval start_tv;
+#endif
    int has_written;
    int bytes_in_buffer;
    int min_latency;
