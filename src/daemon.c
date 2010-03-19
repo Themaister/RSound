@@ -17,6 +17,7 @@
 #include <arpa/inet.h>
 #include <poll.h>
 #include <signal.h>
+#include <time.h>
 
 /* Default values */
 char device[128] = "default";
@@ -38,6 +39,7 @@ int main(int argc, char ** argv)
    struct pollfd fd;
    char remoteIP[2][INET6_ADDRSTRLEN] = { "", "" };
    char *valid_addr[2];
+   char timestring[64] = {0};
    
    parse_input(argc, argv);
    
@@ -141,7 +143,12 @@ int main(int argc, char ** argv)
       else if ( valid_addr[0] && valid_addr[1] )
       {
          if ( verbose )
-            fprintf(stderr, ":: Got connection from %s ::\n", remoteIP[1]);
+         {
+            time_t cur_time;
+            time(&cur_time);
+            strftime(timestring, 63, "%F - %H:%M:%S", localtime(&cur_time)); 
+            fprintf(stderr, "Connection :: [ %s ] [ %s ] ::\n", timestring, remoteIP[1]);
+         }
       }
       conn.socket = s_new;
       conn.ctl_socket = s_ctl;
