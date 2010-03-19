@@ -254,6 +254,7 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
 
    while ( wrote < size )
    {
+      pthread_testcancel();
       if ( poll(&fd, 1, 500) < 0 )
          return 0;
 
@@ -426,8 +427,10 @@ static void* rsnd_thread ( void * thread_data )
    /* Plays back data as long as there is data in the buffer */
    for (;;)
    {
+      pthread_testcancel();
       while ( rd->buffer_pointer >= (int)rd->backend_info.chunk_size )
       {
+         pthread_testcancel();
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size);
          if ( rc <= 0 )
          {
@@ -462,6 +465,7 @@ static void* rsnd_thread ( void * thread_data )
 
                           
       }
+
       pthread_mutex_lock(&rd->thread.cond_mutex);
 		pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
