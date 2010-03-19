@@ -56,11 +56,8 @@ typedef struct rsound
    int thread_active;
 
    int64_t total_written;
-#ifdef _POSIX_MONOTONIC_CLOCK
-	struct timespec start_tv;
-#else
-   struct timeval start_tv;
-#endif
+	struct timespec start_tv_nsec;
+   struct timeval start_tv_usec;
    int has_written;
    int bytes_in_buffer;
    int min_latency;
