@@ -363,6 +363,7 @@ static int rsnd_start_thread(rsound_t *rd)
          fprintf(stderr, "Failed to create thread.\n");
          return -1;
       }
+		pthread_detach(thread);
 		rd->thread.threadId = thread;
       rd->thread_active = 1;
       return 0;
@@ -378,7 +379,6 @@ static int rsnd_stop_thread(rsound_t *rd)
       if ( pthread_cancel(rd->thread.threadId) < 0 )
          fprintf(stderr, "Failed to cancel playback thread.\n");
 
-      pthread_join(rd->thread.threadId, NULL);
       rd->thread_active = 0;
       pthread_cond_signal(&rd->thread.cond);
       pthread_mutex_unlock(&rd->thread.mutex);
