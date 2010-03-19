@@ -32,13 +32,39 @@
 #include "porta.h"
 #endif
 
-#define _GNU_SOURCE
 #include <getopt.h>
 #include <poll.h>
+#include <signal.h>
 
 #define MAX_PACKET_SIZE 1024
+#define PIDFILE "/tmp/.rsound.pid"
 
 /* This file defines some backend independed operations */
+
+void write_pid_file(void)
+{
+	FILE *pidfile = fopen(PIDFILE, "w");
+	if ( pidfile )
+	{
+		fprintf(pidfile, "%d\n", (int)getpid());
+		fclose(pidfile);
+	}
+}
+
+void cleanup( int signal )
+{
+   fprintf(stderr, "\n --- Recieved signal, cleaning up ---\n");
+   unlink(PIDFILE);
+#ifdef _PORTA
+   if ( backend == porta_thread )
+      Pa_Terminate();
+#endif
+#ifdef _AO
+   if ( backend == ao_thread )
+      ao_shutdown();
+#endif
+   exit(0);
+}
 
 void new_sound_thread ( connection_t connection )
 {
@@ -70,8 +96,9 @@ void new_sound_thread ( connection_t connection )
 
 void parse_input(int argc, char **argv)
 {
-
    char *program_name;
+	FILE *pidfile;
+	int pid;
 
    int c, option_index = 0;
 
@@ -83,6 +110,7 @@ void parse_input(int argc, char **argv)
       { "no-daemon", 0, NULL, 'n' },
       { "verbose", 0, NULL, 'v' },
       { "no-threading", 0, NULL, 'T' },
+		{ "kill", 0, NULL, 'K' },
       { NULL, 0, NULL, 0 }
    };
 
@@ -127,7 +155,25 @@ void parse_input(int argc, char **argv)
          case 'T':
             no_threading = 1;
             break;
+			case 'K':
+				pidfile = fopen(PIDFILE, "r");
+				if ( pidfile )
+				{
+					if ( fscanf(pidfile, "%d", &pid) )
+					{
+						kill(pid, SIGTERM);
+						fclose(pidfile);
+						unlink(PIDFILE);
+						exit(0);
+					}
+				}
+				else
+				{
+					fprintf(stderr, "Couldn't open PID file.\n");
+					exit(1);
+				}
 
+				break;
          case 'b':
 #ifdef _ALSA
             if ( !strcmp( "alsa", optarg ) )
@@ -211,7 +257,7 @@ void parse_input(int argc, char **argv)
 void print_help(char *appname)
 {
    putchar('\n');
-   printf("Usage: %s [ -d/--device | -b/--backend | -p/--port | -n/--no-daemon | -v/--verbose | -h/--help | --no-threading ]\n", appname);
+   printf("Usage: %s [ -d/--device | -b/--backend | -p/--port | -n/--no-daemon | -v/--verbose | -h/--help | --no-threading | --kill ]\n", appname);
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
    printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
 

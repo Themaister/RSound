@@ -16,6 +16,7 @@
 #include "rsound.h"
 #include <arpa/inet.h>
 #include <poll.h>
+#include <signal.h>
 
 /* Default values */
 char device[128] = "default";
@@ -47,6 +48,10 @@ int main(int argc, char ** argv)
       if ( i > 0 ) exit(0);
       /* Forking into background */
    }
+   /* Sets up interface for cleanly shutting down the server */
+	write_pid_file();
+   signal(SIGINT, cleanup);
+   signal(SIGTERM, cleanup);
 
    /* Sets up listening socket */
    s = set_up_socket();
