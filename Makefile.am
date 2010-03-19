@@ -1,16 +1,15 @@
-bin_PROGRAMS = src/rsound src/rsoundserv
+bin_PROGRAMS = src/rsdplay src/rsd
 AUTOMAKE_OPTIONS = subdir-objects
 ACLOCAL_AMFLAGS = -I m4
 
 lib_LTLIBRARIES = src/librsound/librsound.la
 src_librsound_librsound_la_SOURCES = src/librsound/librsound.c 
-src_librsound_librsound_la_CFLAGS = -fPIC
 src_librsound_librsound_la_LDFLAGS = -version-info 0:1 -lpthread -lrt
 src_librsound_librsound_includedir = $(includedir)
 src_librsound_librsound_include_HEADERS = src/librsound/rsound.h
 
 sources_serv = 
-AM_CFLAGS = -Wall -O2
+AM_CFLAGS = -Wall -O2 -fno-strict-aliasing
 
 if HAVE_ALSA
    sources_serv += src/alsa.c
@@ -39,16 +38,16 @@ if HAVE_OSS
    AM_CFLAGS += -D_OSS
 endif
 
-src_rsound_SOURCES = src/client.c \
+src_rsdplay_SOURCES = src/client.c \
                      src/librsound/rsound.h
 
-src_rsoundserv_SOURCES =   src/daemon.c \
+src_rsd_SOURCES =   src/daemon.c \
                            src/endian.c \
                            src/endian.h \
                            src/rsound-common.c \
                            src/rsound.h \
                            src/audio.h $(sources_serv)
 
-src_rsoundserv_LDADD = $(SERV_LIBS)
-src_rsound_LDADD = -lpthread -lrt src/librsound/librsound.la
+src_rsd_LDADD = $(SERV_LIBS)
+src_rsdplay_LDADD = -lpthread -lrt src/librsound/librsound.la
 
