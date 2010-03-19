@@ -93,6 +93,8 @@ void new_sound_thread ( connection_t connection )
    if ( no_threading && (int)last_thread != 0 )
       pthread_join(last_thread, NULL);
    pthread_create(&thread, NULL, backend, (void*)conn);     
+	if ( !no_threading )
+		pthread_detach(thread);
    last_thread = thread;
 }
 
