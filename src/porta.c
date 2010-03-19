@@ -99,7 +99,7 @@ void* porta_thread( void* data )
    sound.buffer = NULL;
    sound.stream = NULL;
    
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
    rc = get_wav_header(sound.conn, &w);
@@ -110,13 +110,13 @@ void* porta_thread( void* data )
       goto porta_quit;
    }
 
-   if ( verbose )
+   if ( debug )
    {
       fprintf(stderr, "Successfully got WAV header ...\n");
       pheader(&w);
    }  
 
-   if ( verbose )
+   if ( debug )
       printf("Initializing PortAudio ...\n");
    if ( !init_porta(&sound, &w) )
    {
@@ -138,8 +138,8 @@ void* porta_thread( void* data )
       goto porta_quit;
    }
 
-   if ( verbose )
-      printf("Initializing of PortAudio successful... Party time!\n");
+   if ( debug )
+      printf("Initializing of PortAudio successful ...\n");
 
    active_connection = 1;
    
@@ -158,13 +158,14 @@ void* porta_thread( void* data )
       err = Pa_WriteStream( sound.stream, sound.buffer, sound.frames );
       if ( err )
       {
-         fprintf(stderr, "Buffer underrun occured.\n");
+         if ( debug )
+            fprintf(stderr, "Buffer underrun occured.\n");
       }
       
    }
 
-   if ( verbose )
-      fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+   if ( debug )
+      fprintf(stderr, "Closed connection.\n\n");
 
 porta_quit: 
    clean_porta_interface(&sound);

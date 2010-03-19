@@ -29,7 +29,7 @@ static uint32_t raw_rate = 44100;
 static uint16_t channel = 2;
 
 static char port[128] = "12345";
-static char host[128] = "localhost";
+static char host[1024] = "localhost";
 
 static int set_other_params(rsound_t *rd);
 static void parse_input(int argc, char **argv);
@@ -131,20 +131,21 @@ static int set_other_params(rsound_t *rd)
    return 0;
 }
 
-static void print_help(char *appname)
+static void print_help()
 {
-   printf("Usage: %s [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels ]\n", appname);
+   printf("rsdplay (librsound) version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", LIBRSOUND_VERSION);
+   printf("=========================================================================\n");
+   printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels ]\n");
    
-   printf("\n%s reads PCM data (S16_LE only currently) only through stdin and sends this data directly to a rsoundserv.\n", appname); 
-   printf("Unless specified with --raw, %s expects a valid WAV header to be present in the input stream.\n\n", appname);
+   printf("\nrsdplay reads PCM data (S16_LE only currently) only through stdin and sends this data directly to a rsoundserv.\n"); 
+   printf("Unless specified with --raw, rsdplay expects a valid WAV header to be present in the input stream.\n\n");
    printf(" Examples:\n"); 
-   printf("\t%s foo.net < bar.wav\n", appname);
-   printf("\tcat bar.wav | %s foo.net -p 4322 --raw -r 48000 -c 2\n\n", appname);
-   printf("With eg. -ao pcm:file, MPlayer or similar programs can stream audio to rsoundserv via FIFO pipes or stdout\n\n");
+   printf("\trsdplay foo.net < bar.wav\n");
+   printf("\tcat bar.wav | rsdplay foo.net -p 4322 --raw -r 48000 -c 2\n\n");
    
    printf("-p/--port: Defines which port to connect to.\n");
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
-   printf("--raw: Enables raw PCM input. When using --raw, %s will generate a fake WAV header\n", appname);
+   printf("--raw: Enables raw PCM input. When using --raw, rsdplay will generate a fake WAV header\n");
    printf("-r/--rate: Defines input samplerate (raw PCM)\n");
    printf("\tExample: -r 48000. Defaults to 44100\n");
    printf("-c/--channel: Specifies number of sound channels (raw PCM)\n");
@@ -154,8 +155,6 @@ static void print_help(char *appname)
 
 static void parse_input(int argc, char **argv)
 {
-
-   char *program_name;
    int c, option_index = 0;
 
    struct option opts[] = {
@@ -168,14 +167,6 @@ static void parse_input(int argc, char **argv)
    };
 
    char optstring[] = "r:p:hc:";
-   program_name = malloc(strlen(argv[0] + 1));
-   if ( program_name == NULL )
-   {
-      fprintf(stderr, "Error allocating memory.\n");
-      exit(1);
-   }
-   strcpy(program_name, argv[0]);
-
    while ( 1 )
    {
       c = getopt_long ( argc, argv, optstring, opts, &option_index );
@@ -203,13 +194,11 @@ static void parse_input(int argc, char **argv)
             break;
 
          case '?':
-            print_help(program_name);
-            free(program_name);
+            print_help();
             exit(1);
 
          case 'h':
-            print_help(program_name);
-            free(program_name);
+            print_help();
             exit(0);
 
          default:
@@ -223,8 +212,8 @@ static void parse_input(int argc, char **argv)
    {
       while ( optind < argc )
       {
-         strncpy(host, argv[optind++], 127);
-         host[127] = 0;
+         strncpy(host, argv[optind++], 1023);
+         host[1023] = 0;
       }
    }
 }

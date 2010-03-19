@@ -18,6 +18,8 @@
 
 #include "audio.h"
 
+#define RSD_VERSION "0.6"
+
 typedef struct
 {
    uint32_t latency;
@@ -27,7 +29,6 @@ typedef struct
 void parse_input(int, char**);
 void new_sound_thread(connection_t);
 void pheader(wav_header*);
-void print_help(char*);
 int get_wav_header(connection_t, wav_header*);
 int send_backend_info(connection_t, backend_info_t);
 int set_up_socket();
@@ -41,5 +42,6 @@ extern int verbose;
 extern int no_threading;
 extern void* (*backend) ( void * );
 extern int daemonize;
+extern int debug;
 
 #endif 

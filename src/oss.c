@@ -122,7 +122,7 @@ void* oss_thread( void* data )
    sound.buffer = NULL;
    sound.audio_fd = -1;
    
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
    rc = get_wav_header(sound.conn, &w);
@@ -133,13 +133,13 @@ void* oss_thread( void* data )
       goto oss_exit;
    }
 
-   if ( verbose )
+   if ( debug )
    {
       fprintf(stderr, "Successfully got WAV header ...\n");
       pheader(&w);
    }  
 
-   if ( verbose )
+   if ( debug )
       printf("Initializing OSS ...\n");
    if ( !init_oss(&sound, &w) )
    {
@@ -160,7 +160,7 @@ void* oss_thread( void* data )
    sound.fragsize = 128 * w.numChannels * 2;
    /* :) */
    
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Fragsize %d, Buffer size %d\n", sound.fragsize, (int)buffer_size);
    
    backend_info_t backend = {
@@ -181,8 +181,8 @@ void* oss_thread( void* data )
       goto oss_exit;
    }
   
-   if ( verbose )
-      printf("Initializing of OSS successful... Party time!\n");
+   if ( debug )
+      printf("Initializing of OSS successful...\n");
 
 
    active_connection = 1;
@@ -199,23 +199,18 @@ void* oss_thread( void* data )
       rc = write(sound.audio_fd, sound.buffer, sound.fragsize);
       if (rc < (int)sound.fragsize) 
       {
-         fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
+         if ( debug )
+            fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
       } 
       else if (rc < 0) 
       {
          fprintf(stderr,
                "Error from write\n");
       }  
-      else if (rc != (int)sound.fragsize) 
-      {
-         fprintf(stderr,
-               "Short write, write %d frames\n", rc);
-      }
-
    }
 
-   if ( verbose )
-      fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+   if ( debug )
+      fprintf(stderr, "Closed connection.\n\n");
 
 oss_exit:
    clean_oss_interface(&sound);
