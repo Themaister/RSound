@@ -8,7 +8,7 @@ You will need at least one of these (headers and libraries):
    libao
    portaudio
 
-You will need autoconf and automake.
+You will need autoconf, automake and libtool.
 
 =========================
 To compile (Unix-like):
