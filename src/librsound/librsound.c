@@ -288,10 +288,10 @@ static void rsnd_drain(rsound_t *rd)
 		struct timespec now_tv;
 		clock_gettime(CLOCK_MONOTONIC, &now_tv);
 		
-		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv.tv_sec;
+		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_nsec.tv_sec;
 		temp *= rd->rate * rd->channels * 2;
 
-		temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv.tv_nsec;
+		temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv_nsec.tv_nsec;
 		temp2 *= rd->rate * rd->channels * 2;
 		temp2 /= 1000000000;
 		temp += temp2;
@@ -299,10 +299,10 @@ static void rsnd_drain(rsound_t *rd)
 		struct timeval now_tv;
 		gettimeofday(&now_tv, NULL);
 		
-		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv.tv_sec;
+		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_usec.tv_sec;
 		temp *= rd->rate * rd->channels * 2;
 
-		temp2 = (int64_t)now_tv.tv_usec - (int64_t)rd->start_tv.tv_usec;
+		temp2 = (int64_t)now_tv.tv_usec - (int64_t)rd->start_tv_usec.tv_usec;
 		temp2 *= rd->rate * rd->channels * 2;
 		temp2 /= 1000000;
 		temp += temp2;
@@ -440,9 +440,9 @@ static void* rsnd_thread ( void * thread_data )
          {
             pthread_mutex_lock(&rd->thread.mutex);
 #ifdef _POSIX_MONOTONIC_CLOCK
-				clock_gettime(CLOCK_MONOTONIC, &rd->start_tv);
+				clock_gettime(CLOCK_MONOTONIC, &rd->start_tv_nsec);
 #else
-				gettimeofday(&rd->start_tv, NULL);
+				gettimeofday(&rd->start_tv_usec, NULL);
 #endif
             rd->has_written = 1;
             pthread_mutex_unlock(&rd->thread.mutex);
