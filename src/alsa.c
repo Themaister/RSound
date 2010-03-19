@@ -87,7 +87,7 @@ static int init_alsa(alsa_t* interface, wav_header* w)
    buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
 
    
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Buffer size: %u, Fragment size: %u.\n", buffer_size, chunk_size);
 
    interface->buffer = malloc(interface->size);
@@ -113,7 +113,7 @@ void* alsa_thread ( void* data )
    sound.conn.ctl_socket = conn->ctl_socket;
    free(conn);
 
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
    rc = get_wav_header(sound.conn, &w);
@@ -125,13 +125,13 @@ void* alsa_thread ( void* data )
       pthread_exit(NULL);
    }
    
-   if ( verbose )
+   if ( debug )
    {
       fprintf(stderr, "Successfully got WAV header ...\n");
       pheader(&w);
    }  
 
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Initializing ALSA ...\n");
 
 
@@ -156,8 +156,8 @@ void* alsa_thread ( void* data )
       goto alsa_exit;
    }
 
-   if ( verbose )
-      fprintf(stderr, "Initializing of ALSA successful... Party time!\n");
+   if ( debug )
+      fprintf(stderr, "Initializing of ALSA successful ...\n");
 
    active_connection = 1;
 
@@ -177,7 +177,8 @@ void* alsa_thread ( void* data )
       rc = snd_pcm_writei(sound.handle, sound.buffer, sound.frames);
       if (rc == -EPIPE) 
       {
-         fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
+         if ( debug )
+            fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
          snd_pcm_prepare(sound.handle);
       } 
       else if (rc < 0) 
@@ -186,16 +187,10 @@ void* alsa_thread ( void* data )
                "Error from writei: %s\n",
                snd_strerror(rc));
       }  
-      else if (rc != (int)sound.frames )
-      {
-         fprintf(stderr,
-               "Short write, write %d frames\n", rc);
-      }
-
    }
 
-   if ( verbose )
-      fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
+   if ( debug )
+      fprintf(stderr, "Closed connection.\n\n");
 
 alsa_exit:
    

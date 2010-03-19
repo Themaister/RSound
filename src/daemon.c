@@ -22,8 +22,9 @@
 char device[128] = "default";
 char port[128] = "12345";
 int verbose = 0;
+int debug = 0;
 void* (*backend) ( void * ) = NULL;
-int daemonize = 1;
+int daemonize = 0;
 int no_threading = 0;
 
 static void* get_addr(struct sockaddr*);
@@ -42,16 +43,13 @@ int main(int argc, char ** argv)
    
    if ( daemonize )
    {
-      fprintf(stderr, "Forking into background ...\n");
+      if ( debug )
+         fprintf(stderr, "Forking into background ...\n");
       i = fork();
       if ( i < 0 ) exit(1);
       if ( i > 0 ) exit(0);
       /* Forking into background */
    }
-   /* Sets up interface for cleanly shutting down the server */
-	write_pid_file();
-   signal(SIGINT, cleanup);
-   signal(SIGTERM, cleanup);
 
    /* Sets up listening socket */
    s = set_up_socket();
@@ -62,9 +60,8 @@ int main(int argc, char ** argv)
       exit(1);
    }
 
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Listening for connection ...\n");
-
 
    fd.fd = s;
    fd.events = POLLIN;
@@ -75,6 +72,11 @@ int main(int argc, char ** argv)
       fprintf(stderr, "Couldn't listen for connections \"%s\"...\n", strerror(errno));
       exit(1);
    }
+	
+   /* Sets up interface for cleanly shutting down the server */
+   write_pid_file();
+   signal(SIGINT, cleanup);
+   signal(SIGTERM, cleanup);
 
    while(1)
    {
@@ -127,8 +129,11 @@ int main(int argc, char ** argv)
 
       if ( strcmp( remoteIP[0], remoteIP[1] ) && valid_addr[0] && valid_addr[1] )
       {
-         fprintf(stderr, "Warning: Got two connections from different sources.\n");
-         fprintf(stderr, "%s :: %s\n", remoteIP[0], remoteIP[1]);
+         if ( debug )
+         {
+            fprintf(stderr, "Warning: Got two connections from different sources.\n");
+            fprintf(stderr, "%s :: %s\n", remoteIP[0], remoteIP[1]);
+         }
          close(s_new);
          close(s_ctl);
          continue;

@@ -67,7 +67,7 @@ void* ao_thread ( void* data )
    sound.buffer = NULL;
    sound.device = NULL;
 
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
 
    rc = get_wav_header(sound.conn, &w);
@@ -78,13 +78,13 @@ void* ao_thread ( void* data )
       goto ao_exit;
    }
 
-   if ( verbose )
+   if ( debug )
    {
       fprintf(stderr, "Successfully got WAV header ...\n");
       pheader(&w);
    }  
 
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Initializing AO ...\n");
 
    if ( !init_ao(&sound, &w) )
@@ -104,8 +104,8 @@ void* ao_thread ( void* data )
       goto ao_exit;
    }
 
-   if ( verbose )
-      fprintf(stderr, "Initializing of AO successful... Party time!\n");
+   if ( debug )
+      fprintf(stderr, "Initializing of AO successful...\n");
 
    sound.buffer = malloc ( chunk_size );
    if ( !sound.buffer )
@@ -128,7 +128,7 @@ void* ao_thread ( void* data )
 
    }
 
-   if ( verbose )
+   if ( debug )
       fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
 
 ao_exit:

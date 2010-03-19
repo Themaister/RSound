@@ -39,7 +39,9 @@
 #define MAX_PACKET_SIZE 1024
 #define PIDFILE "/tmp/.rsound.pid"
 
-/* This file defines some backend independed operations */
+/* This file defines some backend independant operations */
+
+static void print_help(void);
 
 void write_pid_file(void)
 {
@@ -53,7 +55,7 @@ void write_pid_file(void)
 
 void cleanup( int signal )
 {
-   fprintf(stderr, "\n --- Recieved signal, cleaning up ---\n");
+   fprintf(stderr, " --- Recieved signal, cleaning up ---\n");
    unlink(PIDFILE);
 #ifdef _PORTA
    if ( backend == porta_thread )
@@ -107,14 +109,15 @@ void parse_input(int argc, char **argv)
       { "help", 0, NULL, 'h' },
       { "backend", 1, NULL, 'b' },
       { "device", 1, NULL, 'd' },
-      { "no-daemon", 0, NULL, 'n' },
+      { "daemon", 0, NULL, 'D' },
       { "verbose", 0, NULL, 'v' },
-      { "no-threading", 0, NULL, 'T' },
+      { "single", 0, NULL, 'T' },
 		{ "kill", 0, NULL, 'K' },
+      { "debug", 0, NULL, 'B' },
       { NULL, 0, NULL, 0 }
    };
 
-   char optstring[] = "d:b:p:nvh";
+   char optstring[] = "d:b:p:Dvh";
    program_name = malloc(strlen(argv[0]) + 1);
    if ( program_name == NULL )
    {
@@ -143,12 +146,12 @@ void parse_input(int argc, char **argv)
             break;
          
          case '?':
-            print_help(program_name);
+            print_help();
             free(program_name);
             exit(1);
 
          case 'h':
-            print_help(program_name);
+            print_help();
             free(program_name);
             exit(0);
 
@@ -204,14 +207,19 @@ void parse_input(int argc, char **argv)
             }
 #endif
             fprintf(stderr, "\nValid backend not given. Exiting ...\n\n");
-            print_help(argv[0]);
+            print_help();
             exit(1);
 
-         case 'n':
-            daemonize = 0;
+         case 'D':
+            daemonize = 1;
             break;
 
          case 'v':
+            verbose = 1;
+            break;
+
+         case 'B':
+            debug = 1;
             verbose = 1;
             break;
 
@@ -249,17 +257,19 @@ void parse_input(int argc, char **argv)
 
    if ( backend == NULL )
    {
-      fprintf(stderr, "%s was not compiled with any output support, exiting ...", argv[0]);
+      fprintf(stderr, "rsd was not compiled with any output support, exiting ...");
    }
 
 }
 
-void print_help(char *appname)
+static void print_help()
 {
-   putchar('\n');
-   printf("Usage: %s [ -d/--device | -b/--backend | -p/--port | -n/--no-daemon | -v/--verbose | -h/--help | --no-threading | --kill ]\n", appname);
+   printf("rsd - version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", RSD_VERSION);
+   printf("==========================================================================\n");
+   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
-   printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
+   printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t"
+          "    Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
 
    printf("\n-b/--backend: Specifies which audio backend to use.\n");
    printf("Supported backends: ");
@@ -278,12 +288,14 @@ void print_help(char *appname)
    putchar('\n');
    putchar('\n');
 
+   printf("-D/--daemon: Runs as daemon.\n");
    printf("-p/--port: Defines which port to listen on.\n");
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
    printf("-v/--verbose: Enables verbosity\n");
-   printf("-n/--no-daemon: Do not run as daemon.\n");
-   printf("--no-threading: Only allows one connection at a time.\n");
    printf("-h/--help: Prints this help\n\n");
+   printf("--debug: Enable more verbosity\n");
+   printf("--single: Only allows a single connection at a time.\n");
+   printf("--kill: Cleanly shuts downs the running rsd process.\n");
 }
 
 void pheader(wav_header *w)
@@ -398,7 +410,7 @@ int set_up_socket()
    hints.ai_socktype = SOCK_STREAM;
    hints.ai_flags = AI_PASSIVE;
 
-   if ( verbose )
+   if ( debug )
    {
       fprintf(stderr, "Binding on port %s\n", port);
    }
