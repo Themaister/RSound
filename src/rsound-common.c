@@ -498,7 +498,7 @@ static int recieve_data(connection_t conn, char* buffer, size_t size)
 static void* rsd_thread(void *thread_data)
 {
    connection_t conn;
-   void *data = NULL;
+   void *data;
    wav_header_t w;
    int rc, written;
    
@@ -528,7 +528,7 @@ static void* rsd_thread(void *thread_data)
    if ( debug )
       fprintf(stderr, "Initializing %s ...\n", backend->backend);
 
-   if ( backend->init(data) < 0 )
+   if ( backend->init(&data) < 0 )
    {
       fprintf(stderr, "Failed to initialize %s ...\n", backend->backend);
       goto rsd_exit;
@@ -588,30 +588,10 @@ rsd_exit:
    if ( debug )
       fprintf(stderr, "Closed connection.\n\n");
 
+   free(buffer);
    backend->close(data);
    close(conn.socket);
    close(conn.ctl_socket);
    pthread_exit(NULL);
 }
-
-
-
-
-
-
-
-   
-
-
-
-
-
-
-
-
-
-
-
-
-
 

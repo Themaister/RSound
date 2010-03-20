@@ -28,8 +28,7 @@ static void alsa_close(void* data)
    }
 }
 
-/* ALSA is just wonderful, isn't it? ... */
-static int alsa_init(void *data)
+static int alsa_init(void **data)
 {
    alsa_t *alsa = calloc(1, sizeof(alsa_t));
    if ( alsa == NULL )
@@ -42,7 +41,7 @@ static int alsa_init(void *data)
       return -1;
    }
 
-   data = alsa;
+   *data = alsa;
 
    return 0;
 }
@@ -54,15 +53,15 @@ static int alsa_set_params(void *data, wav_header_t *w)
    int rc;
    unsigned int buffer_time = BUFFER_TIME;
    snd_pcm_uframes_t frames = 256;
+   snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
    /* Prefer a small frame count for this, with a high buffer/framesize. */
 
    snd_pcm_hw_params_malloc(&interface->params);
    if ( snd_pcm_hw_params_any(interface->handle, interface->params) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ) return -1;
-   if ( snd_pcm_hw_params_set_format(interface->handle, interface->params, SND_PCM_FORMAT_S16_LE) < 0) return -1;
+   if ( snd_pcm_hw_params_set_format(interface->handle, interface->params, format) < 0) return -1;
    if ( snd_pcm_hw_params_set_channels(interface->handle, interface->params, w->numChannels) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_rate_near(interface->handle, interface->params, &w->sampleRate, NULL) < 0 ) return -1;
-   
    if ( snd_pcm_hw_params_set_buffer_time_near(interface->handle, interface->params, &buffer_time, NULL) < 0 ) return -1; 
    if ( snd_pcm_hw_params_set_period_size_near(interface->handle, interface->params, &frames, NULL) < 0 ) return -1;
 
@@ -89,8 +88,6 @@ static void alsa_get_backend (void *data, backend_info_t* backend_info)
    snd_pcm_uframes_t latency;
    snd_pcm_hw_params_get_period_size(sound->params, &latency,
          NULL);
-   snd_pcm_hw_params_free(sound->params);
-
    backend_info->latency = latency * snd_pcm_samples_to_bytes(sound->handle, 1);
    backend_info->chunk_size = sound->size;
 }
@@ -115,7 +112,7 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
    return snd_pcm_frames_to_bytes(sound->handle, rc);
 }
 
-rsd_backend_callback_t rsd_alsa = {
+const rsd_backend_callback_t rsd_alsa = {
    .init = alsa_init,
    .set_params = alsa_set_params,
    .write = alsa_write,

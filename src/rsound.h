@@ -31,7 +31,7 @@ extern char device[];
 extern char port[];
 extern int verbose;
 extern int no_threading;
-extern rsd_backend_callback_t *backend;
+extern const rsd_backend_callback_t *backend;
 extern int daemonize;
 extern int debug;
 
