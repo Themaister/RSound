@@ -24,16 +24,10 @@
 
 typedef struct
 {
-   char *buffer;
    int audio_fd;
-   uint32_t fragsize;
-   connection_t conn;
 } oss_t;
 
 #define OSS_DEVICE "/dev/dsp"
 
-void* oss_thread( void* socket );
-/*extern int verbose;
-extern char device[];*/
 #endif
 

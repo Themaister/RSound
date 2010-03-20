@@ -27,10 +27,7 @@ typedef struct
    snd_pcm_t* handle; 
    snd_pcm_hw_params_t* params;
    snd_pcm_uframes_t frames;
-   char* buffer;
    size_t size;
-   connection_t conn;
 } alsa_t;
 
-void* alsa_thread( void* socket );
 #endif
