@@ -42,8 +42,8 @@ static int infd = 0;
 int main(int argc, char **argv)
 {
    int rc;
-	rsound_t *rd;
-	char *buffer;
+   rsound_t *rd;
+   char *buffer;
    
    parse_input(argc, argv);
    if ( rsd_init(&rd) < 0 )
@@ -80,20 +80,20 @@ int main(int argc, char **argv)
       memset(buffer, 0, READ_SIZE);
       rc = read(infd, buffer, READ_SIZE);
       if ( rc <= 0 )
-			goto quit;
+         goto quit;
 
       rc = rsd_write(rd, buffer, READ_SIZE);
       if ( rc <= 0 )
       {
          fprintf(stderr, "Server closed connection.\n");
-			goto quit;
+         goto quit;
       }
       
    }
 quit:
-	rsd_stop(rd);
-	rsd_free(rd);
-	close(infd);
+   rsd_stop(rd);
+   rsd_free(rd);
+   close(infd);
    
    return 0;
 }
@@ -153,7 +153,7 @@ static void print_help()
    printf("-c/--channel: Specifies number of sound channels (raw PCM)\n");
    printf("\tExample: -c 1. Defaults to stereo (2)\n");
    printf("-h/--help: Prints this help\n");
-	printf("-f/--file: Uses file rather than stdin\n\n");
+   printf("-f/--file: Uses file rather than stdin\n\n");
 }
 
 static void parse_input(int argc, char **argv)
@@ -166,7 +166,7 @@ static void parse_input(int argc, char **argv)
       { "help", 0, NULL, 'h'},
       { "rate", 1, NULL, 'r'},
       { "channels", 1, NULL, 'c'},
-		{ "file", 1, NULL, 'f'},
+      { "file", 1, NULL, 'f'},
       { NULL, 0, NULL, 0 }
    };
 
@@ -184,14 +184,14 @@ static void parse_input(int argc, char **argv)
             raw_rate = atoi(optarg);
             break;
 
-			case 'f':
-				infd = open(optarg, O_RDONLY);
-				if ( infd < 0 )
-				{
-					fprintf(stderr, "Could not open file ...\n");
-					exit(1);
-				}
-				break;
+         case 'f':
+            infd = open(optarg, O_RDONLY);
+            if ( infd < 0 )
+            {
+               fprintf(stderr, "Could not open file ...\n");
+               exit(1);
+            }
+            break;
 
          case 'R':
             raw_mode = 1;
