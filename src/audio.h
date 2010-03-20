@@ -34,7 +34,7 @@
 #include <time.h>
 #include <unistd.h>
 
-typedef struct 
+typedef struct wav_header 
 {
    uint32_t chunkId;
    uint32_t chunkSize;
@@ -49,7 +49,25 @@ typedef struct
    uint16_t bitsPerSample;
    uint32_t subChunkId2;
    uint32_t subChunkSize2;
-} wav_header;
+} wav_header_t;
+
+typedef struct backend_info
+{
+   uint32_t latency;
+   uint32_t chunk_size;
+} backend_info_t;
+
+typedef struct rsd_backend_callback
+{
+   int (*initialize)(void);
+   int (*init)(void*);
+   int (*set_params)(void*, wav_header_t*);
+   size_t (*write)(void*, const void*, size_t);
+   void (*get_backend_info)(void*, backend_info_t*);
+   void (*close)(void*);
+   int (*shutdown)(void);
+   const char *backend;
+} rsd_backend_callback_t;
 
 typedef struct
 {

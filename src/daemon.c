@@ -24,7 +24,7 @@ char device[128] = "default";
 char port[128] = "12345";
 int verbose = 0;
 int debug = 0;
-void* (*backend) ( void * ) = NULL;
+rsd_backend_callback_t *backend = NULL;
 int daemonize = 0;
 int no_threading = 0;
 

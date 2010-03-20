@@ -16,51 +16,57 @@
 #include "alsa.h"
 #include "rsound.h"
 
-static void clean_alsa_interface(void* data)
+static void alsa_close(void* data)
 {
    alsa_t *sound = data;
 
-   close(sound->conn.socket);
-   close(sound->conn.ctl_socket);
    if ( sound->handle )
    {
+      snd_pcm_hw_params_free(sound->params);
       snd_pcm_drop(sound->handle);
       snd_pcm_close(sound->handle);
    }
-   if ( sound->buffer )
-      free(sound->buffer);
 }
 
 /* ALSA is just wonderful, isn't it? ... */
-static int init_alsa(alsa_t* interface, wav_header* w)
+static int alsa_init(void *data)
 {
+   alsa_t *alsa = calloc(1, sizeof(alsa_t));
+   if ( alsa == NULL )
+      return -1;
+   
+   int rc = snd_pcm_open(&alsa->handle, device, SND_PCM_STREAM_PLAYBACK, 0);
+   if ( rc < 0 )
+   {
+      fprintf(stderr, "Unable to open PCM device: %s\n", snd_strerror(rc));
+      return -1;
+   }
+
+   data = alsa;
+
+   return 0;
+}
+
+static int alsa_set_params(void *data, wav_header_t *w)
+{
+   alsa_t *interface = data;
    uint32_t chunk_size = 0;
    uint32_t buffer_size = 0;
    
    int rc;
    unsigned int buffer_time = BUFFER_TIME;
    snd_pcm_uframes_t frames = 256;
-   snd_pcm_uframes_t bufferSize;
-   interface->buffer = NULL;
    /* Prefer a small frame count for this, with a high buffer/framesize. */
 
-   rc = snd_pcm_open(&interface->handle, device, SND_PCM_STREAM_PLAYBACK, 0);
-
-   if ( rc < 0 )
-   {
-      fprintf(stderr, "Unable to open PCM device: %s\n", snd_strerror(rc));
-      return 0;
-   }
-
    snd_pcm_hw_params_malloc(&interface->params);
-   if ( snd_pcm_hw_params_any(interface->handle, interface->params) < 0 ) return 0;
-   if ( snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ) return 0;
-   if ( snd_pcm_hw_params_set_format(interface->handle, interface->params, SND_PCM_FORMAT_S16_LE) < 0) return 0;
-   if ( snd_pcm_hw_params_set_channels(interface->handle, interface->params, w->numChannels) < 0 ) return 0;
-   if ( snd_pcm_hw_params_set_rate_near(interface->handle, interface->params, &w->sampleRate, NULL) < 0 ) return 0;
+   if ( snd_pcm_hw_params_any(interface->handle, interface->params) < 0 ) return -1;
+   if ( snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ) return -1;
+   if ( snd_pcm_hw_params_set_format(interface->handle, interface->params, SND_PCM_FORMAT_S16_LE) < 0) return -1;
+   if ( snd_pcm_hw_params_set_channels(interface->handle, interface->params, w->numChannels) < 0 ) return -1;
+   if ( snd_pcm_hw_params_set_rate_near(interface->handle, interface->params, &w->sampleRate, NULL) < 0 ) return -1;
    
-   if ( snd_pcm_hw_params_set_buffer_time_near(interface->handle, interface->params, &buffer_time, NULL) < 0 ) return 0; 
-   if ( snd_pcm_hw_params_set_period_size_near(interface->handle, interface->params, &frames, NULL) < 0 ) return 0;
+   if ( snd_pcm_hw_params_set_buffer_time_near(interface->handle, interface->params, &buffer_time, NULL) < 0 ) return -1; 
+   if ( snd_pcm_hw_params_set_period_size_near(interface->handle, interface->params, &frames, NULL) < 0 ) return -1;
 
    rc = snd_pcm_hw_params(interface->handle, interface->params);
    if (rc < 0) 
@@ -68,133 +74,56 @@ static int init_alsa(alsa_t* interface, wav_header* w)
       fprintf(stderr,
             "unable to set hw parameters: %s\n",
             snd_strerror(rc));
-      return 0;
+      return -1;
    }
-
-   snd_pcm_hw_params_get_period_size(interface->params, &interface->frames,
-         NULL);
-   interface->size = (int)interface->frames * w->numChannels * 2;
-   interface->frames = (int)interface->frames;
-   snd_pcm_hw_params_get_buffer_size(interface->params, &bufferSize);
-
 
    /* Force small packet sizes */
    interface->frames = 128;
    interface->size = 128 * w->numChannels * 2;
    /* */
 
-   chunk_size = (uint32_t)interface->size;
-   buffer_size = (uint32_t)bufferSize * w->numChannels * 2;
-
-   
-   if ( debug )
-      fprintf(stderr, "Buffer size: %u, Fragment size: %u.\n", buffer_size, chunk_size);
-
-   interface->buffer = malloc(interface->size);
-   if ( interface->buffer == NULL )
-   {
-      fprintf(stderr, "Error allocation memory for buffer.\n");
-      return 0;
-   }
-   return 1;
+   return 0;
 }
 
-void* alsa_thread ( void* data )
+static void alsa_get_backend (void *data, backend_info_t* backend_info)
 {
-   alsa_t sound;
+   alsa_t *sound = data;
+   snd_pcm_uframes_t latency;
+   snd_pcm_hw_params_get_period_size(sound->params, &latency,
+         NULL);
+   snd_pcm_hw_params_free(sound->params);
 
-   wav_header w;
-   int rc;
-   int active_connection;
-   int underrun_count = 0;
+   backend_info->latency = (uint32_t)latency * w.numChannels * 2;
+   backend_info->chunk_size = sound->size;
+}
 
-   connection_t *conn = data;
-   sound.conn.socket = conn->socket;
-   sound.conn.ctl_socket = conn->ctl_socket;
-   free(conn);
-
-   if ( debug )
-      fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
-
-   rc = get_wav_header(sound.conn, &w);
-   if ( rc == -1 )
-   {
-      close(sound.conn.socket);
-      close(sound.conn.ctl_socket);
-      fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-      pthread_exit(NULL);
-   }
+static size_t alsa_write (void *data, const void* buf, size_t size)
+{
+   alsa_t *sound = data;
+   snd_pcm_sframes_t rc;
+   snd_pcm_sframes_t write_size = snd_pcm_bytes_to_frames(sound->handle, size );
    
-   if ( debug )
+   rc = snd_pcm_writei(sound->handle, buf, write_size);
+   if (rc == -EPIPE) 
+      snd_pcm_prepare(sound->handle);
+   
+   else if (rc < 0) 
    {
-      fprintf(stderr, "Successfully got WAV header ...\n");
-      pheader(&w);
+      fprintf(stderr,
+            "Error from writei: %s\n",
+            snd_strerror(rc));
    }  
 
-   if ( debug )
-      fprintf(stderr, "Initializing ALSA ...\n");
-
-
-   if ( !init_alsa(&sound, &w) )
-   {
-      fprintf(stderr, "Failed to initialize ALSA ...\n");
-      goto alsa_exit;
-   }
-
-   snd_pcm_uframes_t latency;
-   snd_pcm_hw_params_get_period_size(sound.params, &latency,
-         NULL);
-   snd_pcm_hw_params_free(sound.params);
-
-   backend_info_t backend = { 
-      .latency = (uint32_t)latency * w.numChannels * 2,
-      .chunk_size = sound.size
-   };
-   if ( !send_backend_info(sound.conn, backend) )
-   {
-      fprintf(stderr, "Failed to send buffer info ...\n");
-      goto alsa_exit;
-   }
-
-   if ( debug )
-      fprintf(stderr, "Initializing of ALSA successful ...\n");
-
-   active_connection = 1;
-
-   while(active_connection)
-   {
-      memset(sound.buffer, 0, sound.size);
-
-      /* Reads complete buffer */
-      rc = recieve_data(sound.conn, sound.buffer, sound.size);
-      if ( rc == 0 )
-      {
-         active_connection = 0;
-         break;
-      }
-
-      /* Plays it back :D */
-      rc = snd_pcm_writei(sound.handle, sound.buffer, sound.frames);
-      if (rc == -EPIPE) 
-      {
-         if ( debug )
-            fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
-         snd_pcm_prepare(sound.handle);
-      } 
-      else if (rc < 0) 
-      {
-         fprintf(stderr,
-               "Error from writei: %s\n",
-               snd_strerror(rc));
-      }  
-   }
-
-   if ( debug )
-      fprintf(stderr, "Closed connection.\n\n");
-
-alsa_exit:
-   
-   clean_alsa_interface(&sound);
-   pthread_exit(NULL);
-   return NULL; /* GCC warning */
+   return snd_pcm_frames_to_bytes(sound->handle, rc);
 }
+
+const rsd_callback_t = {
+   .initialize = NULL,
+   .init = alsa_init,
+   .set_params = alsa_set_params,
+   .write = alsa_write,
+   .get_backend_info = alsa_backend,
+   .close = alsa_close,
+   .shutdown = NULL,
+   .backend = "ALSA"
+};
