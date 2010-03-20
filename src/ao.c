@@ -16,124 +16,74 @@
 #include "ao.h"
 #include "rsound.h"
 
-static void clean_ao_interface(ao_t* sound)
+static void ao_rsd_close(void *data)
 {
-   close(sound->conn.socket);
-   close(sound->conn.ctl_socket);
+   ao_t* sound = data;
 
    if ( sound->device )
       ao_close(sound->device);
-   if ( sound->buffer )
-      free(sound->buffer);
 }
 
-static int init_ao(ao_t* interface, wav_header* w)
+static void ao_rsd_initialize(void)
 {
-   
-   int default_driver;
-
    ao_initialize();
+}
 
-   default_driver = ao_default_driver_id();
+static void ao_rsd_shutdown(void)
+{
+   ao_shutdown();
+}
+
+static int ao_rsd_init(void** data)
+{
+   int default_driver = ao_default_driver_id();
+   ao_t *sound = calloc(1, sizeof(ao_t));
+   sound->default_driver = default_driver;
+   if ( sound->default_driver <= 0 )
+      return -1;
+   *data = sound;
+   return 0;
+}
+
+static int ao_rsd_set_param(void* data, wav_header_t *w)
+{
+   ao_t* interface = data;
 
    interface->format.bits = 16;
    interface->format.channels = w->numChannels;
    interface->format.rate = w->sampleRate;
    interface->format.byte_format = AO_FMT_LITTLE;
 
-   interface->device = ao_open_live(default_driver, &interface->format, NULL);
+   interface->device = ao_open_live(interface->default_driver, &interface->format, NULL);
    if ( interface->device == NULL )
    {
       fprintf(stderr, "Error opening device.\n");
-      return 0;
+      return -1;
    }
 
-   return 1;
+   return 0;
 }
 
-void* ao_thread ( void* data )
+static size_t ao_rsd_write(void *data, const void* buf, size_t size)
 {
-   ao_t sound;
-   wav_header w;
-   int rc;
-   int active_connection;
-   uint32_t chunk_size = DEFAULT_CHUNK_SIZE;
-
-   connection_t *conn = data;
-   sound.conn.socket = conn->socket;
-   sound.conn.ctl_socket = conn->ctl_socket;
-   free(conn);
-
-   sound.buffer = NULL;
-   sound.device = NULL;
-
-   if ( debug )
-      fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
-
-   rc = get_wav_header(sound.conn, &w);
-
-   if ( rc != 1 )
-   {
-      fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-      goto ao_exit;
-   }
-
-   if ( debug )
-   {
-      fprintf(stderr, "Successfully got WAV header ...\n");
-      pheader(&w);
-   }  
-
-   if ( debug )
-      fprintf(stderr, "Initializing AO ...\n");
-
-   if ( !init_ao(&sound, &w) )
-   {
-      fprintf(stderr, "Failed to initialize AO\n");
-      goto ao_exit;
-   }
-
-   /* Dirty, and should be avoided, but I need to study the API better. */
-   backend_info_t backend = {
-      .latency = chunk_size,
-      .chunk_size = chunk_size
-   };
-   if ( !send_backend_info(sound.conn, backend ))
-   {
-      fprintf(stderr, "Couldn't send backend info.\n");
-      goto ao_exit;
-   }
-
-   if ( debug )
-      fprintf(stderr, "Initializing of AO successful...\n");
-
-   sound.buffer = malloc ( chunk_size );
-   if ( !sound.buffer )
-   {
-      fprintf(stderr, "Couldn't allocate memory for buffer.");
-      goto ao_exit;
-   }
-
-   active_connection = 1;
-   while(active_connection)
-   {
-      rc = recieve_data(sound.conn, sound.buffer, chunk_size );
-      if ( rc == 0 )
-      {
-         active_connection = 0;
-         break;
-      }
-
-      ao_play(sound.device, sound.buffer, chunk_size);
-
-   }
-
-   if ( debug )
-      fprintf(stderr, "Closed connection. The friendly PCM-service welcomes you back.\n\n\n");
-
-ao_exit:
-   clean_ao_interface(&sound);
-   pthread_exit(NULL);
-   return NULL; /* GCC warning */
-
+   ao_t *sound = data;
+   return ao_play(sound->device, (void*)buf, size);
 }
+
+static void ao_rsd_get_backend(void *data, backend_info_t *backend_info)
+{
+   backend_info->latency = DEFAULT_CHUNK_SIZE;
+   backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
+}
+
+const rsd_backend_callback_t rsd_ao = {
+   .init = ao_rsd_init,
+   .initialize = ao_rsd_initialize,
+   .shutdown = ao_rsd_shutdown,
+   .write = ao_rsd_write,
+   .close = ao_rsd_close,
+   .get_backend_info = ao_rsd_get_backend,
+   .set_params = ao_rsd_set_param
+};
+
+

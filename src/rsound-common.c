@@ -18,18 +18,22 @@
 
 #ifdef _ALSA
 #include "alsa.h"
+extern const rsd_backend_callback_t rsd_alsa;
 #endif
 
 #ifdef _OSS
 #include "oss.h"
+extern const rsd_backend_callback_t rsd_oss;
 #endif
 
 #ifdef _AO
 #include "ao.h"
+extern const rsd_backend_callback_t rsd_ao;
 #endif
 
 #ifdef _PORTA
 #include "porta.h"
+extern const rsd_backend_callback_t rsd_porta;
 #endif
 
 #include <getopt.h>
@@ -42,6 +46,8 @@
 /* This file defines some backend independant operations */
 
 static void print_help(void);
+static void* rsd_thread(void*);
+static int recieve_data(connection_t, char*, size_t);
 
 void write_pid_file(void)
 {
@@ -53,18 +59,18 @@ void write_pid_file(void)
 	}
 }
 
+void initialize_audio ( void )
+{
+   if ( backend->initialize )
+      backend->initialize();
+}
+
 void cleanup( int signal )
 {
    fprintf(stderr, " --- Recieved signal, cleaning up ---\n");
    unlink(PIDFILE);
-#ifdef _PORTA
-   if ( backend == porta_thread )
-      Pa_Terminate();
-#endif
-#ifdef _AO
-   if ( backend == ao_thread )
-      ao_shutdown();
-#endif
+   if ( backend->shutdown )
+      backend->shutdown();
    exit(0);
 }
 
@@ -92,7 +98,7 @@ void new_sound_thread ( connection_t connection )
    }
    if ( no_threading && (int)last_thread != 0 )
       pthread_join(last_thread, NULL);
-   pthread_create(&thread, NULL, backend, (void*)conn);     
+   pthread_create(&thread, NULL, rsd_thread, (void*)conn);     
 	if ( !no_threading )
 		pthread_detach(thread);
    last_thread = thread;
@@ -128,7 +134,7 @@ void parse_input(int argc, char **argv)
    }
    strcpy(program_name, argv[0]);
 
-   while ( 1 )
+   for(;;)
    {
       c = getopt_long ( argc, argv, optstring, opts, &option_index );
 
@@ -183,28 +189,28 @@ void parse_input(int argc, char **argv)
 #ifdef _ALSA
             if ( !strcmp( "alsa", optarg ) )
             {
-               backend = alsa_thread;
+               backend = &rsd_alsa;
                break;
             }  
 #endif
 #ifdef _OSS
             if ( !strcmp( "oss", optarg ) )
             {
-               backend = oss_thread;
+               backend = &rsd_oss;
                break;
             }
 #endif
 #ifdef _AO
             if ( !strcmp( "libao", optarg ) )
             {
-               backend = ao_thread;
+               backend = &rsd_ao;
                break;
             }
 #endif
 #ifdef _PORTA
             if ( !strcmp( "portaudio", optarg ) )
             {
-               backend = porta_thread;
+               backend = &rsd_porta;
                break;
             }
 #endif
@@ -237,21 +243,21 @@ void parse_input(int argc, char **argv)
 #ifdef __CYGWIN__
    /* We prefer portaudio if we're in Windows. */
    #ifdef _PORTA
-      backend = porta_thread;
+      backend = &rsd_porta;
    #elif _AO
-      backend = ao_thread;
+      backend = &rsd_ao;
    #elif _OSS
-      backend = oss_thread;
+      backend = &rsd_oss;
    #endif
 #else
    #ifdef _ALSA
-      backend = alsa_thread;
+      backend = &rsd_alsa;
    #elif _OSS
-      backend = oss_thread;
+      backend = &rsd_oss;
    #elif _AO
-      backend = ao_thread;
+      backend = &rsd_ao;
    #elif _PORTA
-      backend = porta_thread;
+      backend = &rsd_porta;
    #endif
 #endif
 
@@ -300,7 +306,7 @@ static void print_help()
    printf("--kill: Cleanly shuts downs the running rsd process.\n");
 }
 
-void pheader(wav_header *w)
+static void pheader(wav_header_t *w)
 {
    fprintf(stderr, "============================================\n");
    fprintf(stderr, "WAV header:\n");
@@ -319,7 +325,7 @@ void pheader(wav_header *w)
 }
 
 /* Reads raw 44 bytes WAV header and parses this */
-int get_wav_header(connection_t conn, wav_header* head)
+static int get_wav_header(connection_t conn, wav_header_t* head)
 {
 
    int i = is_little_endian();
@@ -365,11 +371,12 @@ int get_wav_header(connection_t conn, wav_header* head)
       return -1;
    }
 
-   return 1;
+   return 0;
 }
 
-int send_backend_info(connection_t conn, backend_info_t backend )
+static int send_backend_info(connection_t conn, backend_info_t *backend )
 {
+
 #define RSND_HEADER_SIZE 8
    
    int rc;
@@ -377,21 +384,21 @@ int send_backend_info(connection_t conn, backend_info_t backend )
 
    char header[RSND_HEADER_SIZE];
 
-   *((uint32_t*)header) = htonl(backend.latency);
-   *((uint32_t*)(header+4)) = htonl(backend.chunk_size);
+   *((uint32_t*)header) = htonl(backend->latency);
+   *((uint32_t*)(header+4)) = htonl(backend->chunk_size);
 
    fd.fd = conn.socket;
    fd.events = POLLOUT;
 
    if ( poll(&fd, 1, 10000) < 0 )
-      return 0;
+      return -1;
    if ( fd.revents & POLLHUP )
-      return 0;
+      return -1;
    rc = send(conn.socket, header, RSND_HEADER_SIZE, 0);
    if ( rc != RSND_HEADER_SIZE)
-      return 0;
+      return -1;
 
-   return 1;
+   return 0;
 }
 
 /* Sets up listening socket for further use */
@@ -442,8 +449,6 @@ int set_up_socket()
       goto error;
    }
 
-   
-
    freeaddrinfo(servinfo);
    return s;
 
@@ -453,7 +458,7 @@ error:
 
 }
 
-int recieve_data(connection_t conn, char* buffer, size_t size)
+static int recieve_data(connection_t conn, char* buffer, size_t size)
 {
    int rc;
    size_t read = 0;
@@ -488,5 +493,106 @@ int recieve_data(connection_t conn, char* buffer, size_t size)
    }
    
    return read;
+}
+
+static void* rsd_thread(void *thread_data)
+{
+   connection_t conn;
+   void *data;
+   wav_header_t w;
+   int rc, written;
+   char *buffer = NULL;
+   
+   connection_t *temp_conn = thread_data;
+   conn.socket = temp_conn->socket;
+   conn.ctl_socket = temp_conn->ctl_socket;
+   free(temp_conn);
+
+   if ( debug )
+      fprintf(stderr, "Connection accepted, awaiting WAV header data ...\n");
+
+   rc = get_wav_header(conn, &w);
+   if ( rc == -1 )
+   {
+      close(conn.socket);
+      close(conn.ctl_socket);
+      fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
+      pthread_exit(NULL);
+   }
+
+   if ( debug )
+   {
+      fprintf(stderr, "Successfully got WAV header ...\n");
+      pheader(&w);
+   }
+
+   if ( debug )
+      fprintf(stderr, "Initializing %s ...\n", backend->backend);
+
+   if ( backend->init(&data) < 0 )
+   {
+      fprintf(stderr, "Failed to initialize %s ...\n", backend->backend);
+      goto rsd_exit;
+   }
+
+   if ( backend->set_params(data, &w) < 0 )
+   {
+      fprintf(stderr, "Failed to set params ...\n");
+      goto rsd_exit;
+   }
+
+   backend_info_t backend_info; 
+   backend->get_backend_info(data, &backend_info);
+   if ( backend_info.latency == 0 || backend_info.chunk_size == 0 )
+   {
+      fprintf(stderr, "Couldn't get backend info ...\n");
+      goto rsd_exit;
+   }
+
+   if ( send_backend_info(conn, &backend_info) < 0 )
+   {
+      fprintf(stderr, "Failed to send backend info ...\n");
+      goto rsd_exit;
+   }
+
+   if ( debug )
+      fprintf(stderr, "Initializing of %s successful ...\n", backend->backend);
+
+   size_t size = backend_info.chunk_size;
+   buffer = malloc(size);
+
+   if ( buffer == NULL )
+   {
+      fprintf(stderr, "Couldn't allocate memory for buffer ...\n");
+      goto rsd_exit;
+   }
+
+   for(;;)
+   {
+      memset(buffer, 0, size);
+      
+      rc = recieve_data(conn, buffer, size);
+      if ( rc == 0 )
+         goto rsd_exit;
+      
+      for ( written = 0; written < size; )
+      {
+         rc = backend->write(data, buffer + written, size - written);
+         if ( rc <= 0 )
+            goto rsd_exit;
+
+         written += rc;
+      }
+   }
+
+rsd_exit:
+   if ( debug )
+      fprintf(stderr, "Closed connection.\n\n");
+   if ( buffer )
+      free(buffer);
+   backend->close(data);
+   close(conn.socket);
+   close(conn.ctl_socket);
+   pthread_exit(NULL);
 }
 

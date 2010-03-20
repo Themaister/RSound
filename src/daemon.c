@@ -24,7 +24,7 @@ char device[128] = "default";
 char port[128] = "12345";
 int verbose = 0;
 int debug = 0;
-void* (*backend) ( void * ) = NULL;
+const rsd_backend_callback_t *backend = NULL;
 int daemonize = 0;
 int no_threading = 0;
 
@@ -80,6 +80,7 @@ int main(int argc, char ** argv)
    signal(SIGINT, cleanup);
    signal(SIGTERM, cleanup);
 
+   initialize_audio();
    while(1)
    {
       /* Accepts, and creates new sound thread */
