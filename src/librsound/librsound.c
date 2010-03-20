@@ -427,13 +427,13 @@ static void* rsnd_thread ( void * thread_data )
    /* Plays back data as long as there is data in the buffer */
    for (;;)
    {
-      pthread_testcancel();
       while ( rd->buffer_pointer >= (int)rd->backend_info.chunk_size )
       {
          pthread_testcancel();
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size);
          if ( rc <= 0 )
          {
+            pthread_testcancel();
             rsnd_reset(rd);
             pthread_cond_signal(&rd->thread.cond);
             pthread_exit(NULL);
@@ -466,6 +466,7 @@ static void* rsnd_thread ( void * thread_data )
                           
       }
 
+      pthread_testcancel();
       pthread_mutex_lock(&rd->thread.cond_mutex);
 		pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
