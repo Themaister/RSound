@@ -23,10 +23,7 @@ typedef struct
 {
    ao_device *device;
    ao_sample_format format;
-   char *buffer;
-   connection_t conn;
+   int default_driver;
 } ao_t;
 
-void* ao_thread( void* socket );
-/*extern int verbose;*/
 #endif

@@ -59,13 +59,13 @@ typedef struct backend_info
 
 typedef struct rsd_backend_callback
 {
-   int (*initialize)(void);
+   void (*initialize)(void);
    int (*init)(void**);
    int (*set_params)(void*, wav_header_t*);
    size_t (*write)(void*, const void*, size_t);
    void (*get_backend_info)(void*, backend_info_t*);
    void (*close)(void*);
-   int (*shutdown)(void);
+   void (*shutdown)(void);
    const char *backend;
 } rsd_backend_callback_t;
 
