@@ -67,7 +67,9 @@ static int ao_rsd_set_param(void* data, wav_header_t *w)
 static size_t ao_rsd_write(void *data, const void* buf, size_t size)
 {
    ao_t *sound = data;
-   return ao_play(sound->device, (void*)buf, size);
+   if ( ao_play(sound->device, (void*)buf, size) == 0 )
+      return 0;
+   return size;
 }
 
 static void ao_rsd_get_backend(void *data, backend_info_t *backend_info)
@@ -83,7 +85,8 @@ const rsd_backend_callback_t rsd_ao = {
    .write = ao_rsd_write,
    .close = ao_rsd_close,
    .get_backend_info = ao_rsd_get_backend,
-   .set_params = ao_rsd_set_param
+   .set_params = ao_rsd_set_param,
+   .backend = "AO"
 };
 
 
