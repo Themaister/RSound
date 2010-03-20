@@ -80,6 +80,7 @@ int main(int argc, char ** argv)
    signal(SIGINT, cleanup);
    signal(SIGTERM, cleanup);
 
+   initialize_audio();
    while(1)
    {
       /* Accepts, and creates new sound thread */

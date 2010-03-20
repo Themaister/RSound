@@ -50,8 +50,6 @@ static int alsa_init(void *data)
 static int alsa_set_params(void *data, wav_header_t *w)
 {
    alsa_t *interface = data;
-   uint32_t chunk_size = 0;
-   uint32_t buffer_size = 0;
    
    int rc;
    unsigned int buffer_time = BUFFER_TIME;
@@ -93,7 +91,7 @@ static void alsa_get_backend (void *data, backend_info_t* backend_info)
          NULL);
    snd_pcm_hw_params_free(sound->params);
 
-   backend_info->latency = (uint32_t)latency * w.numChannels * 2;
+   backend_info->latency = latency * snd_pcm_samples_to_bytes(sound->handle, 1);
    backend_info->chunk_size = sound->size;
 }
 
@@ -117,13 +115,11 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
    return snd_pcm_frames_to_bytes(sound->handle, rc);
 }
 
-const rsd_callback_t = {
-   .initialize = NULL,
+rsd_backend_callback_t rsd_alsa = {
    .init = alsa_init,
    .set_params = alsa_set_params,
    .write = alsa_write,
-   .get_backend_info = alsa_backend,
+   .get_backend_info = alsa_get_backend,
    .close = alsa_close,
-   .shutdown = NULL,
    .backend = "ALSA"
 };

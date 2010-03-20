@@ -25,12 +25,13 @@ void new_sound_thread(connection_t);
 int set_up_socket();
 void write_pid_file(void);
 void cleanup(int);
+void initialize_audio(void);
 
 extern char device[];
 extern char port[];
 extern int verbose;
 extern int no_threading;
-extern const rsd_backend_callback_t *backend;
+extern rsd_backend_callback_t *backend;
 extern int daemonize;
 extern int debug;
 

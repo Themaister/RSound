@@ -46,6 +46,8 @@ extern const rsd_backend_callback_t rsd_porta;
 /* This file defines some backend independant operations */
 
 static void print_help(void);
+static void* rsd_thread(void*);
+static int recieve_data(connection_t, char*, size_t);
 
 void write_pid_file(void)
 {
@@ -57,11 +59,18 @@ void write_pid_file(void)
 	}
 }
 
+void initialize_audio ( void )
+{
+   if ( backend->initialize )
+      backend->initialize();
+}
+
 void cleanup( int signal )
 {
    fprintf(stderr, " --- Recieved signal, cleaning up ---\n");
    unlink(PIDFILE);
-   backend->shutdown();
+   if ( backend->shutdown )
+      backend->shutdown();
    exit(0);
 }
 
@@ -362,11 +371,12 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
       return -1;
    }
 
-   return 1;
+   return 0;
 }
 
-static int send_backend_info(connection_t conn, backend_info_t backend )
+static int send_backend_info(connection_t conn, backend_info_t *backend )
 {
+
 #define RSND_HEADER_SIZE 8
    
    int rc;
@@ -374,21 +384,21 @@ static int send_backend_info(connection_t conn, backend_info_t backend )
 
    char header[RSND_HEADER_SIZE];
 
-   *((uint32_t*)header) = htonl(backend.latency);
-   *((uint32_t*)(header+4)) = htonl(backend.chunk_size);
+   *((uint32_t*)header) = htonl(backend->latency);
+   *((uint32_t*)(header+4)) = htonl(backend->chunk_size);
 
    fd.fd = conn.socket;
    fd.events = POLLOUT;
 
    if ( poll(&fd, 1, 10000) < 0 )
-      return 0;
+      return -1;
    if ( fd.revents & POLLHUP )
-      return 0;
+      return -1;
    rc = send(conn.socket, header, RSND_HEADER_SIZE, 0);
    if ( rc != RSND_HEADER_SIZE)
-      return 0;
+      return -1;
 
-   return 1;
+   return 0;
 }
 
 /* Sets up listening socket for further use */
@@ -488,8 +498,9 @@ static int recieve_data(connection_t conn, char* buffer, size_t size)
 static void* rsd_thread(void *thread_data)
 {
    connection_t conn;
-   void *data;
+   void *data = NULL;
    wav_header_t w;
+   int rc, written;
    
    connection_t *temp_conn = thread_data;
    conn.socket = temp_conn->socket;
@@ -523,7 +534,7 @@ static void* rsd_thread(void *thread_data)
       goto rsd_exit;
    }
 
-   if ( backend->params(data, &w) < 0 )
+   if ( backend->set_params(data, &w) < 0 )
    {
       fprintf(stderr, "Failed to set params ...\n");
       goto rsd_exit;
@@ -537,7 +548,7 @@ static void* rsd_thread(void *thread_data)
       goto rsd_exit;
    }
 
-   if ( send_backend_info(thread.conn, &backend_info) < 0 )
+   if ( send_backend_info(conn, &backend_info) < 0 )
    {
       fprintf(stderr, "Failed to send backend info ...\n");
       goto rsd_exit;
@@ -548,7 +559,6 @@ static void* rsd_thread(void *thread_data)
 
    size_t size = backend_info.chunk_size;
    char *buffer = malloc(size);
-   int rc, written;
 
    if ( buffer == NULL )
    {
