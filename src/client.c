@@ -20,6 +20,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #define READ_SIZE 1024
 #define HEADER_SIZE 44
@@ -33,6 +36,8 @@ static char host[1024] = "localhost";
 
 static int set_other_params(rsound_t *rd);
 static void parse_input(int argc, char **argv);
+
+static int infd = 0;
 
 int main(int argc, char **argv)
 {
@@ -51,7 +56,7 @@ int main(int argc, char **argv)
    rsd_set_param(rd, RSD_PORT, (void*)port);
    if ( set_other_params(rd) < 0 )
    {
-      fprintf(stderr, "Couldn't read data from stdin.\n");
+      fprintf(stderr, "Couldn't read data.\n");
       rsd_free(rd);
       exit(1);
    }
@@ -70,28 +75,25 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-
    while(1)
    {
       memset(buffer, 0, READ_SIZE);
-      
-      rc = read(0, buffer, READ_SIZE);
+      rc = read(infd, buffer, READ_SIZE);
       if ( rc <= 0 )
-      {
-         rsd_stop(rd);
-         exit(0);
-      }
+			goto quit;
 
       rc = rsd_write(rd, buffer, READ_SIZE);
       if ( rc <= 0 )
       {
-         rsd_stop(rd);
-         rsd_free(rd);
          fprintf(stderr, "Server closed connection.\n");
-         exit(0);
+			goto quit;
       }
       
    }
+quit:
+	rsd_stop(rd);
+	rsd_free(rd);
+	close(infd);
    
    return 0;
 }
@@ -111,7 +113,7 @@ static int set_other_params(rsound_t *rd)
    {  
       while ( read_in < HEADER_SIZE )
       {
-         rc = read( 0, buf + read_in, HEADER_SIZE - read_in );
+         rc = read( infd, buf + read_in, HEADER_SIZE - read_in );
          if ( rc <= 0 )
             return -1;
          read_in += rc;
@@ -135,9 +137,9 @@ static void print_help()
 {
    printf("rsdplay (librsound) version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", LIBRSOUND_VERSION);
    printf("=========================================================================\n");
-   printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels ]\n");
+   printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels | -f/--file ]\n");
    
-   printf("\nrsdplay reads PCM data (S16_LE only currently) only through stdin and sends this data directly to a rsoundserv.\n"); 
+   printf("\nrsdplay reads PCM data (S16_LE only currently) only through stdin (default) or a file, and sends this data directly to an rsound server.\n"); 
    printf("Unless specified with --raw, rsdplay expects a valid WAV header to be present in the input stream.\n\n");
    printf(" Examples:\n"); 
    printf("\trsdplay foo.net < bar.wav\n");
@@ -150,7 +152,8 @@ static void print_help()
    printf("\tExample: -r 48000. Defaults to 44100\n");
    printf("-c/--channel: Specifies number of sound channels (raw PCM)\n");
    printf("\tExample: -c 1. Defaults to stereo (2)\n");
-   printf("-h/--help: Prints this help\n\n");
+   printf("-h/--help: Prints this help\n");
+	printf("-f/--file: Uses file rather than stdin\n\n");
 }
 
 static void parse_input(int argc, char **argv)
@@ -163,10 +166,11 @@ static void parse_input(int argc, char **argv)
       { "help", 0, NULL, 'h'},
       { "rate", 1, NULL, 'r'},
       { "channels", 1, NULL, 'c'},
+		{ "file", 1, NULL, 'f'},
       { NULL, 0, NULL, 0 }
    };
 
-   char optstring[] = "r:p:hc:";
+   char optstring[] = "r:p:hc:f:";
    while ( 1 )
    {
       c = getopt_long ( argc, argv, optstring, opts, &option_index );
@@ -179,6 +183,15 @@ static void parse_input(int argc, char **argv)
          case 'r':
             raw_rate = atoi(optarg);
             break;
+
+			case 'f':
+				infd = open(optarg, O_RDONLY);
+				if ( infd < 0 )
+				{
+					fprintf(stderr, "Could not open file ...\n");
+					exit(1);
+				}
+				break;
 
          case 'R':
             raw_mode = 1;
