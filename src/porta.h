@@ -23,12 +23,10 @@
 typedef struct
 {
    PaStream *stream;
-   char *buffer;
    size_t size;
    size_t frames;
-   connection_t conn;
+   uint32_t bps;
 } porta_t;
 
-void* porta_thread( void* socket );
 #endif
 
