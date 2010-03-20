@@ -501,6 +501,7 @@ static void* rsd_thread(void *thread_data)
    void *data;
    wav_header_t w;
    int rc, written;
+   char *buffer = NULL;
    
    connection_t *temp_conn = thread_data;
    conn.socket = temp_conn->socket;
@@ -558,7 +559,7 @@ static void* rsd_thread(void *thread_data)
       fprintf(stderr, "Initializing of %s successful ...\n", backend->backend);
 
    size_t size = backend_info.chunk_size;
-   char *buffer = malloc(size);
+   buffer = malloc(size);
 
    if ( buffer == NULL )
    {
@@ -587,8 +588,8 @@ static void* rsd_thread(void *thread_data)
 rsd_exit:
    if ( debug )
       fprintf(stderr, "Closed connection.\n\n");
-
-   free(buffer);
+   if ( buffer )
+      free(buffer);
    backend->close(data);
    close(conn.socket);
    close(conn.ctl_socket);

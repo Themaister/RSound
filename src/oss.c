@@ -16,49 +16,51 @@
 #include "oss.h"
 #include "rsound.h"
 
-static void clean_oss_interface(oss_t* sound)
+static void oss_close(void *data)
 {
+   oss_t *sound = data;
    close(sound->audio_fd);
-   close(sound->conn.socket);
-   close(sound->conn.ctl_socket);
-   if ( sound->buffer )
-      free(sound->buffer);
 }
 
 /* Opens and sets params */
-static int init_oss(oss_t* sound, wav_header* w)
+static int oss_init(void **data)
 {
-   int format = AFMT_S16_LE;
-   int stereo; 
-   char oss_device[64] = {0};
-   int sampleRate = w->sampleRate;
+   oss_t *sound = calloc(1, sizeof(oss_t));
 
+   char oss_device[128] = {0};
    if ( strcmp(device, "default") != 0 )
-      strncpy(oss_device, device, 63);
+      strncpy(oss_device, device, 127);
    else
-      strncpy(oss_device, OSS_DEVICE, 63);
-
+      strncpy(oss_device, OSS_DEVICE, 127);
 
    sound->audio_fd = open(oss_device, O_WRONLY, 0);
-
    if ( sound->audio_fd == -1 )
    {
-      fprintf(stderr, "Could not open device %s.\n", oss_device);
-      return 0;
+      fprintf(stderr, "Couldn't open device %s.\n", oss_device);
+      return -1;
    }
+   *data = sound;
+   return 0;
+}
+
+static int oss_set_params(void *data, wav_header_t *w)
+{
+   oss_t *sound = data;
+
+   int format = AFMT_S16_LE;
+   int stereo; 
+   int sampleRate = w->sampleRate;
    
    if ( ioctl( sound->audio_fd, SNDCTL_DSP_SETFMT, &format) == -1 )
    {
       perror("SNDCTL_DSP_SETFMT");
-      close(sound->audio_fd);
-      return 0;
+      return -1;
    }
    
    if ( format != AFMT_S16_LE )
    {
       fprintf(stderr, "Sound card doesn't support S16LE sampling format.\n");
-      close(sound->audio_fd);
-      return 0;
+      return -1;
    }
    
    if ( w->numChannels == 2 )
@@ -68,153 +70,64 @@ static int init_oss(oss_t* sound, wav_header* w)
    else
    {
       fprintf(stderr, "Multichannel audio not supported.\n");
-      close(sound->audio_fd);
-      return 0;
+      return -1;
    }
       
    if ( ioctl( sound->audio_fd, SNDCTL_DSP_STEREO, &stereo) == -1 )
    {
       perror("SNDCTL_DSP_STEREO");
-      close(sound->audio_fd);
-      return 0;
+      return -1;
    }
    
    if ( stereo != 1 && w->numChannels != 1 )
    {
       fprintf(stderr, "Sound card doesn't support stereo mode.\n");
-      close(sound->audio_fd);
-      return 0;
+      return -1;
    }
    
    if ( ioctl ( sound->audio_fd, SNDCTL_DSP_SPEED, &sampleRate ) == -1 )
    {
       perror("SNDCTL_DSP_SPEED");
-      close(sound->audio_fd);
-      return 0;
+      return -1;
    }
    
    if ( sampleRate != (int)w->sampleRate )
    {
       fprintf(stderr, "Sample rate couldn't be set correctly.\n");
-      close(sound->audio_fd);
-      return 0;
+      return -1;
    }
    
-   
-    return 1;
+   return 0;
 }
 
-void* oss_thread( void* data )
+static void oss_get_backend (void *data, backend_info_t *backend_info)
 {
-   oss_t sound;
-   wav_header w;
-   int rc;
-   int active_connection;
-   int underrun_count = 0;
-   uint32_t buffer_size;
+   oss_t *sound = data;
    audio_buf_info zz;
 
-   connection_t *conn = data;
-   sound.conn.socket = conn->socket;
-   sound.conn.ctl_socket = conn->ctl_socket;
-   free(conn);
-
-   sound.buffer = NULL;
-   sound.audio_fd = -1;
-   
-   if ( debug )
-      fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
-
-   rc = get_wav_header(sound.conn, &w);
-
-   if ( rc != 1 )
-   {
-      fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-      goto oss_exit;
-   }
-
-   if ( debug )
-   {
-      fprintf(stderr, "Successfully got WAV header ...\n");
-      pheader(&w);
-   }  
-
-   if ( debug )
-      printf("Initializing OSS ...\n");
-   if ( !init_oss(&sound, &w) )
-   {
-      fprintf(stderr, "Initializing of OSS failed ...\n");
-      goto oss_exit;
-   }
-
-   if ( ioctl( sound.audio_fd, SNDCTL_DSP_GETOSPACE, &zz ) != 0 )
+   if ( ioctl( sound->audio_fd, SNDCTL_DSP_GETOSPACE, &zz ) != 0 )
    {
       fprintf(stderr, "Getting data from ioctl failed SNDCTL_DSP_GETOSPACE.\n");
-      goto oss_exit;
+      memset(backend_info, 0, sizeof(backend_info_t));
    }
 
-   buffer_size = (uint32_t)zz.bytes;
-   sound.fragsize = (uint32_t)zz.fragsize;
-   
-   /* Low packet size */
-   sound.fragsize = 128 * w.numChannels * 2;
-   /* :) */
-   
-   if ( debug )
-      fprintf(stderr, "Fragsize %d, Buffer size %d\n", sound.fragsize, (int)buffer_size);
-   
-   backend_info_t backend = {
-      .latency = (uint32_t)zz.fragsize,
-      .chunk_size = sound.fragsize
-   };
-
-   if ( !send_backend_info(sound.conn, backend ))
-   {
-      fprintf(stderr, "Error sending backend info.\n");
-      goto oss_exit;
-   }
-   
-   sound.buffer = malloc ( sound.fragsize );
-   if ( !sound.buffer )
-   {
-      fprintf(stderr, "Error allocating memory for sound buffer.\n");
-      goto oss_exit;
-   }
-  
-   if ( debug )
-      printf("Initializing of OSS successful...\n");
-
-
-   active_connection = 1;
-   /* While connection is active, read data and reroutes it to OSS_DEVICE */
-   while(active_connection)
-   {
-      rc = recieve_data(sound.conn, sound.buffer, sound.fragsize);
-      if ( rc == 0 )
-      {
-         active_connection = 0;
-         break;
-      }
-
-      rc = write(sound.audio_fd, sound.buffer, sound.fragsize);
-      if (rc < (int)sound.fragsize) 
-      {
-         if ( debug )
-            fprintf(stderr, "Underrun occurred. Count: %d\n", ++underrun_count);
-      } 
-      else if (rc < 0) 
-      {
-         fprintf(stderr,
-               "Error from write\n");
-      }  
-   }
-
-   if ( debug )
-      fprintf(stderr, "Closed connection.\n\n");
-
-oss_exit:
-   clean_oss_interface(&sound);
-   pthread_exit(NULL);
-   return NULL; /* GCC warning */
+   backend_info->latency = zz.fragsize;
+   backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
 }
+
+static size_t oss_write (void *data, const void* buf, size_t size)
+{
+   oss_t *sound = data;
+   return write(sound->audio_fd, buf, size);
+}
+
+const rsd_backend_callback_t rsd_oss = {
+   .init = oss_init,
+   .set_params = oss_set_params,
+   .write = oss_write,
+   .get_backend_info = oss_get_backend,
+   .close = oss_close,
+   .backend = "OSS"
+};
+   
 
