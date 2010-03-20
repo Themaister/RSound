@@ -18,33 +18,42 @@
 
 #define FRAMES_PER_BUFFER (DEFAULT_CHUNK_SIZE/4)
 
-static void clean_porta_interface(porta_t* sound)
+static void porta_close(void *data)
 {
-   close(sound->conn.socket);
-   close(sound->conn.ctl_socket);
+   porta_t* sound = data; 
    if ( sound->stream )
    {
       Pa_StopStream ( sound->stream );
       Pa_CloseStream ( sound->stream );
    }
-   if ( sound->buffer )
-      free(sound->buffer);
+}
+
+static void porta_initialize(void)
+{
+   Pa_Initialize();
+}
+
+static void porta_shutdown(void)
+{
+   Pa_Terminate();
 }
 
 /* Designed to use the blocking I/O API. It's just a more simple design. */
-static int init_porta(porta_t* sound, wav_header* w)
+static int porta_init(void **data)
 {
+   porta_t *sound = calloc(1, sizeof(porta_t));
+   if ( sound == NULL )
+      return -1;
+   *data = sound;
+   return 0;
+}
+  
+static int porta_set_param(void *data, wav_header_t *w)
+{
+   porta_t *sound = data;
    PaError err;
    PaStreamParameters params;
-   
-   err = Pa_Initialize();
-   if ( err != paNoError )
-   {
-      fprintf(stderr, "Error initalizing.\n");
-      fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
-      return 0;
-   }
-   
+
    params.device = Pa_GetDefaultOutputDevice();
    params.channelCount = w->numChannels;
    params.sampleFormat = paInt16;
@@ -53,7 +62,7 @@ static int init_porta(porta_t* sound, wav_header* w)
    
    sound->size = FRAMES_PER_BUFFER * 2 * w->numChannels;
    sound->frames = FRAMES_PER_BUFFER;
-   sound->buffer = malloc ( sound->size );
+   sound->bps = 2 * w->numChannels * w->sampleRate;
    
    err = Pa_OpenStream (
          &sound->stream,
@@ -69,7 +78,7 @@ static int init_porta(porta_t* sound, wav_header* w)
    {
       fprintf(stderr, "Couldn't open stream.\n");
       fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
-      return 0;
+      return -1;
    }
 
    err = Pa_StartStream ( sound->stream );
@@ -77,100 +86,42 @@ static int init_porta(porta_t* sound, wav_header* w)
    {
       fprintf(stderr, "Couldn't start stream.\n");
       fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
-      return 0;
+      return -1;
    }
 
-   return 1;
+   return 0;
 }
 
-void* porta_thread( void* data )
+static void porta_get_backend(void *data, backend_info_t *backend_info)
 {
-   porta_t sound;
-   wav_header w;
-   int rc;
-   int active_connection;
+   porta_t *sound = data;
+   backend_info->latency = (uint32_t)(sound->bps * Pa_GetStreamInfo( sound->stream )->outputLatency),
+   backend_info->chunk_size = sound->size;
+}
+
+static size_t porta_write(void *data, const void *buf, size_t size)
+{
+   porta_t *sound = data;
    PaError err;
    
-   connection_t *conn = data;
-   sound.conn.socket = conn->socket;
-   sound.conn.ctl_socket = conn->ctl_socket;
-   free(conn);
+   size_t write_frames = size / (sound->size / sound->frames);
 
-   sound.buffer = NULL;
-   sound.stream = NULL;
-   
-   if ( debug )
-      fprintf(stderr, "Connection accepted, awaiting WAV header data...\n");
+   err = Pa_WriteStream( sound->stream, buf, write_frames );
+   if ( err < 0 && err != paOutputUnderflowed )
+      return -1;
 
-   rc = get_wav_header(sound.conn, &w);
-
-   if ( rc != 1 )
-   {
-      fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
-      goto porta_quit;
-   }
-
-   if ( debug )
-   {
-      fprintf(stderr, "Successfully got WAV header ...\n");
-      pheader(&w);
-   }  
-
-   if ( debug )
-      printf("Initializing PortAudio ...\n");
-   if ( !init_porta(&sound, &w) )
-   {
-      fprintf(stderr, "Initializing of PortAudio failed ...\n");
-      goto porta_quit;
-   }
-
-   /* Just have to set something for buffer_size */
-   backend_info_t backend = {
-      .latency = (uint32_t)(w.numChannels * 2 * w.sampleRate * Pa_GetStreamInfo( sound.stream )->outputLatency),
-      .chunk_size = sound.size
-   };
-
-
-
-   if ( !send_backend_info(sound.conn, backend ) )
-   {
-      fprintf(stderr, "Couldn't send backend info.\n");
-      goto porta_quit;
-   }
-
-   if ( debug )
-      printf("Initializing of PortAudio successful ...\n");
-
-   active_connection = 1;
-   
-   while(active_connection)
-   {
-      memset(sound.buffer, 0, sound.size);
-
-      /* Reads complete buffer */
-      rc = recieve_data(sound.conn, sound.buffer, sound.size);
-      if ( rc == 0 )
-      {
-         active_connection = 0;
-         break;
-      }
-   
-      err = Pa_WriteStream( sound.stream, sound.buffer, sound.frames );
-      if ( err )
-      {
-         if ( debug )
-            fprintf(stderr, "Buffer underrun occured.\n");
-      }
-      
-   }
-
-   if ( debug )
-      fprintf(stderr, "Closed connection.\n\n");
-
-porta_quit: 
-   clean_porta_interface(&sound);
-   pthread_exit(NULL);
-   return NULL; /* To make GCC warning happy */
-
+   return size;
 }
+
+const rsd_backend_callback_t rsd_porta = {
+   .init = porta_init,
+   .initialize = porta_initialize,
+   .close = porta_close,
+   .write = porta_write,
+   .get_backend_info = porta_get_backend,
+   .set_params = porta_set_param,
+   .shutdown = porta_shutdown,
+   .backend = "PortAudio"
+};
+
 
