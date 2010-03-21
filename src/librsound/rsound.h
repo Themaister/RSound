@@ -1,7 +1,7 @@
 #ifndef __RSOUND_H
 #define __RSOUND_H
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -123,7 +123,7 @@ int rsd_pause (rsound_t *rd, int enable);
 /* Frees an rsound_t struct. */
 int rsd_free (rsound_t *rd);
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 
