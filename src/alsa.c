@@ -33,24 +33,22 @@ static int alsa_init(void **data)
    alsa_t *alsa = calloc(1, sizeof(alsa_t));
    if ( alsa == NULL )
       return -1;
+   *data = alsa;
+
+   return 0;
+}
+
+static int alsa_open(void *data, wav_header_t *w)
+{
+   alsa_t *interface = data;
    
-   int rc = snd_pcm_open(&alsa->handle, device, SND_PCM_STREAM_PLAYBACK, 0);
+   int rc = snd_pcm_open(&interface->handle, device, SND_PCM_STREAM_PLAYBACK, 0);
    if ( rc < 0 )
    {
       fprintf(stderr, "Unable to open PCM device: %s\n", snd_strerror(rc));
       return -1;
    }
 
-   *data = alsa;
-
-   return 0;
-}
-
-static int alsa_set_params(void *data, wav_header_t *w)
-{
-   alsa_t *interface = data;
-   
-   int rc;
    unsigned int buffer_time = BUFFER_TIME;
    snd_pcm_uframes_t frames = 256;
    snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
@@ -114,7 +112,7 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
 
 const rsd_backend_callback_t rsd_alsa = {
    .init = alsa_init,
-   .set_params = alsa_set_params,
+   .open = alsa_open,
    .write = alsa_write,
    .get_backend_info = alsa_get_backend,
    .close = alsa_close,

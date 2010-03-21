@@ -26,7 +26,15 @@ static void oss_close(void *data)
 static int oss_init(void **data)
 {
    oss_t *sound = calloc(1, sizeof(oss_t));
+   if ( sound == NULL )
+      return -1;
+   *data = sound;
+   return 0;
+}
 
+static int oss_open(void *data, wav_header_t *w)
+{
+   oss_t *sound = data;
    char oss_device[128] = {0};
    if ( strcmp(device, "default") != 0 )
       strncpy(oss_device, device, 127);
@@ -39,14 +47,7 @@ static int oss_init(void **data)
       fprintf(stderr, "Couldn't open device %s.\n", oss_device);
       return -1;
    }
-   *data = sound;
-   return 0;
-}
-
-static int oss_set_params(void *data, wav_header_t *w)
-{
-   oss_t *sound = data;
-
+   
    int format = AFMT_S16_LE;
    int stereo; 
    int sampleRate = w->sampleRate;
@@ -123,7 +124,7 @@ static size_t oss_write (void *data, const void* buf, size_t size)
 
 const rsd_backend_callback_t rsd_oss = {
    .init = oss_init,
-   .set_params = oss_set_params,
+   .open= oss_open,
    .write = oss_write,
    .get_backend_info = oss_get_backend,
    .close = oss_close,

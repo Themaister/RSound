@@ -22,8 +22,6 @@
 typedef struct
 {
    ao_device *device;
-   ao_sample_format format;
-   int default_driver;
 } ao_t;
 
 #endif

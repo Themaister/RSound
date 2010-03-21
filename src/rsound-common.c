@@ -498,7 +498,7 @@ static int recieve_data(connection_t conn, char* buffer, size_t size)
 static void* rsd_thread(void *thread_data)
 {
    connection_t conn;
-   void *data;
+   void *data = NULL;
    wav_header_t w;
    int rc, written;
    char *buffer = NULL;
@@ -535,9 +535,9 @@ static void* rsd_thread(void *thread_data)
       goto rsd_exit;
    }
 
-   if ( backend->set_params(data, &w) < 0 )
+   if ( backend->open(data, &w) < 0 )
    {
-      fprintf(stderr, "Failed to set params ...\n");
+      fprintf(stderr, "Failed to open audio driver ...\n");
       goto rsd_exit;
    }
 
@@ -588,9 +588,8 @@ static void* rsd_thread(void *thread_data)
 rsd_exit:
    if ( debug )
       fprintf(stderr, "Closed connection.\n\n");
-   if ( buffer )
-      free(buffer);
    backend->close(data);
+   free(buffer);
    free(data);
    close(conn.socket);
    close(conn.ctl_socket);

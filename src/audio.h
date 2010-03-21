@@ -61,7 +61,7 @@ typedef struct rsd_backend_callback
 {
    void (*initialize)(void);
    int (*init)(void**);
-   int (*set_params)(void*, wav_header_t*);
+   int (*open)(void*, wav_header_t*);
    size_t (*write)(void*, const void*, size_t);
    void (*get_backend_info)(void*, backend_info_t*);
    void (*close)(void*);
