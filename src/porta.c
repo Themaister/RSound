@@ -48,7 +48,7 @@ static int porta_init(void **data)
    return 0;
 }
   
-static int porta_set_param(void *data, wav_header_t *w)
+static int porta_open(void *data, wav_header_t *w)
 {
    porta_t *sound = data;
    PaError err;
@@ -119,7 +119,7 @@ const rsd_backend_callback_t rsd_porta = {
    .close = porta_close,
    .write = porta_write,
    .get_backend_info = porta_get_backend,
-   .set_params = porta_set_param,
+   .open = porta_open,
    .shutdown = porta_shutdown,
    .backend = "PortAudio"
 };

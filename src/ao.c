@@ -38,23 +38,27 @@ static int ao_rsd_init(void** data)
 {
    int default_driver = ao_default_driver_id();
    ao_t *sound = calloc(1, sizeof(ao_t));
-   sound->default_driver = default_driver;
-   if ( sound->default_driver <= 0 )
+   if ( sound == NULL )
       return -1;
    *data = sound;
    return 0;
 }
 
-static int ao_rsd_set_param(void* data, wav_header_t *w)
+static int ao_rsd_open(void* data, wav_header_t *w)
 {
    ao_t* interface = data;
 
-   interface->format.bits = 16;
-   interface->format.channels = w->numChannels;
-   interface->format.rate = w->sampleRate;
-   interface->format.byte_format = AO_FMT_LITTLE;
-
-   interface->device = ao_open_live(interface->default_driver, &interface->format, NULL);
+   ao_sample_format format = {
+      .bits = 16,
+      .channels = w->numChannels,
+      .rate = w->sampleRate,
+      .byte_format = AO_FMT_LITTLE
+   };
+   
+   int default_driver = ao_default_driver_id();
+   if ( default_driver < 0 )
+      return -1;
+   interface->device = ao_open_live(default_driver, &format, NULL);
    if ( interface->device == NULL )
    {
       fprintf(stderr, "Error opening device.\n");
@@ -68,7 +72,7 @@ static size_t ao_rsd_write(void *data, const void* buf, size_t size)
 {
    ao_t *sound = data;
    if ( ao_play(sound->device, (void*)buf, size) == 0 )
-      return 0;
+      return -1;
    return size;
 }
 
@@ -85,7 +89,7 @@ const rsd_backend_callback_t rsd_ao = {
    .write = ao_rsd_write,
    .close = ao_rsd_close,
    .get_backend_info = ao_rsd_get_backend,
-   .set_params = ao_rsd_set_param,
+   .open = ao_rsd_open,
    .backend = "AO"
 };
 
