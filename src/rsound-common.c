@@ -591,6 +591,7 @@ rsd_exit:
    if ( buffer )
       free(buffer);
    backend->close(data);
+   free(data);
    close(conn.socket);
    close(conn.ctl_socket);
    pthread_exit(NULL);
