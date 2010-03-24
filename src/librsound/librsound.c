@@ -210,10 +210,7 @@ static int rsnd_create_connection(rsound_t *rd)
       rc = rsnd_connect_server(rd);
       if (rc < 0)
       {
-         close(rd->conn.socket);
-         close(rd->conn.ctl_socket);
-         rd->conn.socket = -1;
-         rd->conn.ctl_socket = -1;
+         rsd_stop(rd);
          return -1;
       }
    }
@@ -510,7 +507,7 @@ size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
       return -1;
 
    size_t result;
-   size_t max_write = (rsound->buffer_size - rsound->backend_info.chunk_size)/2;
+   size_t max_write = rsound->buffer_size - rsound->backend_info.chunk_size;
 
    size_t written = 0;
    size_t write_size;
@@ -606,10 +603,9 @@ size_t rsd_delay(rsound_t *rd)
 int rsd_pause(rsound_t* rsound, int enable)
 {
    if ( enable )
-      rsd_stop(rsound);
+      return rsd_stop(rsound);
    else
-      rsd_start(rsound);
-   return 0;
+      return rsd_start(rsound);
 }
 
 int rsd_init(rsound_t** rsound)

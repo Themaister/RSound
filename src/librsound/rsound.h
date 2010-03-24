@@ -64,7 +64,7 @@ typedef struct rsound
    int min_latency;
    backend_info_t backend_info;
 
-   int ready_for_data;
+   volatile int ready_for_data;
 
    uint32_t rate;
    uint32_t channels;
