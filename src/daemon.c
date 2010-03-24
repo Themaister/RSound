@@ -32,7 +32,7 @@ static void* get_addr(struct sockaddr*);
 
 int main(int argc, char ** argv)
 {
-   int s, s_new, s_ctl, i;
+   int s = -1, s_new = -1, s_ctl = -1, i;
    connection_t conn;
    struct sockaddr_storage their_addr[2];
    socklen_t addr_size;
@@ -69,7 +69,7 @@ int main(int argc, char ** argv)
    fd.events = POLLIN;
 
    /* Set up listening socket */
-   if ( listen(s, 2) == -1 )
+   if ( listen(s, 10) == -1 )
    {
       fprintf(stderr, "Couldn't listen for connections \"%s\"...\n", strerror(errno));
       exit(1);
@@ -101,6 +101,9 @@ int main(int argc, char ** argv)
       if (poll(&fd, 1, 200) < 0)
       {
          perror("poll");
+         close(s_new);
+         close(s_ctl);
+         close(s);
          exit(1);
       }
 
@@ -112,12 +115,13 @@ int main(int argc, char ** argv)
       else
       {
          fprintf(stderr, "CTL-socket timed out.\n");
-         close(s_new);
+         close(s_new); s_new = -1; s_ctl = -1;
          continue;
       }
 
       if ( s_ctl == -1 )
       {
+         close(s_new); s_new = -1;
          fprintf(stderr, "%s\n", strerror( errno ) ); 
          continue;
       }
@@ -137,8 +141,8 @@ int main(int argc, char ** argv)
             fprintf(stderr, "Warning: Got two connections from different sources.\n");
             fprintf(stderr, "%s :: %s\n", remoteIP[0], remoteIP[1]);
          }
-         close(s_new);
-         close(s_ctl);
+         close(s_new); s_new = -1;
+         close(s_ctl); s_ctl = -1;
          continue;
       }
       else if ( valid_addr[0] && valid_addr[1] )
@@ -154,6 +158,8 @@ int main(int argc, char ** argv)
       conn.socket = s_new;
       conn.ctl_socket = s_ctl;
       new_sound_thread(conn);
+      s_new = -1;
+      s_ctl = -1;
    }    
    
    return 0;
