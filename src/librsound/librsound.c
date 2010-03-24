@@ -74,6 +74,8 @@ static int rsnd_connect_server( rsound_t *rd )
 
 	rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+   if ( rd->conn.socket < 0 || rd->conn.ctl_socket < 0 )
+      goto error;
 
    if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0)
       goto error;
@@ -203,7 +205,7 @@ static int rsnd_create_connection(rsound_t *rd)
 {
 	int rc;
 
-   if ( rd->conn.socket < 0 && rd->conn.ctl_socket < 0 )
+   if ( rd->conn.socket <= 0 && rd->conn.ctl_socket <= 0 )
    {
       rc = rsnd_connect_server(rd);
       if (rc < 0)
@@ -231,13 +233,13 @@ static int rsnd_create_connection(rsound_t *rd)
          return -1;
       }
 
-      rd->ready_for_data = 1;
       rc = rsnd_start_thread(rd);
       if (rc < 0)
       {
          rsd_stop(rd);
          return -1;
       }
+      rd->ready_for_data = 1;
    }
 	
    return 0;
@@ -321,12 +323,6 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
    /* Wait until we have a ready buffer */
    for (;;)
    {
-      /* Thread has been shut down and, someone still tried to play back. Race conditions? */
-      if ( !rd->thread_active )
-      {
-         return -1;
-      }
-
       pthread_mutex_lock(&rd->thread.mutex);
       if (rd->buffer_pointer + (int)size <= (int)rd->buffer_size  )
       {
@@ -335,6 +331,12 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       }
       pthread_mutex_unlock(&rd->thread.mutex);
       
+      /* Thread has been shut down and, someone still tried to play back. Race conditions? */
+      if ( !rd->thread_active )
+      {
+         return -1;
+      }
+
       /* get signal from thread to check again */
       pthread_mutex_lock(&rd->thread.cond_mutex);
 		pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
@@ -504,8 +506,11 @@ int rsd_stop(rsound_t *rd)
 
 size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
 {
+   if ( !rsound->ready_for_data )
+      return -1;
+
    size_t result;
-   size_t max_write = rsound->buffer_size - rsound->backend_info.chunk_size;
+   size_t max_write = (rsound->buffer_size - rsound->backend_info.chunk_size)/2;
 
    size_t written = 0;
    size_t write_size;
@@ -531,7 +536,12 @@ int rsd_start(rsound_t *rsound)
 {
    if ( rsound->rate == 0 || rsound->channels == 0 || rsound->host == NULL || rsound->port == NULL )
       return -1;
-   return ( rsnd_create_connection(rsound) );
+   if ( rsnd_create_connection(rsound) < 0 )
+   {
+      fprintf(stderr, "Couldn't establish connection to server.\n");
+      return -1;
+   }
+   return 0;
 }
 
 /* ioctl()-ish param setting :D */
