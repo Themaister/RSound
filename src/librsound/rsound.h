@@ -52,9 +52,9 @@ typedef struct rsound
    char *port;
    char *buffer;
 
-   int buffer_pointer;
+   volatile int buffer_pointer;
    size_t buffer_size;
-   int thread_active;
+   volatile int thread_active;
 
    int64_t total_written;
 	struct timespec start_tv_nsec;

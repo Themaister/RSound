@@ -482,6 +482,7 @@ static int rsnd_reset(rsound_t *rd)
    rd->has_written = 0;
    rd->bytes_in_buffer = 0;
    rd->thread_active = 0;
+   pthread_cond_signal(&rd->thread.cond);
    pthread_mutex_unlock(&rd->thread.mutex);
    pthread_mutex_unlock(&rd->thread.cond_mutex);
    return 0;
