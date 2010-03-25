@@ -59,7 +59,7 @@ typedef struct rsound
    int64_t total_written;
 	struct timespec start_tv_nsec;
    struct timeval start_tv_usec;
-   int has_written;
+   volatile int has_written;
    int bytes_in_buffer;
    int min_latency;
    backend_info_t backend_info;
