@@ -383,14 +383,16 @@ static int rsnd_start_thread(rsound_t *rd)
 	pthread_t thread;
    if ( !rd->thread_active )
    {
+      rd->thread_active = 1;
       rc = pthread_create(&thread, NULL, rsnd_thread, rd);
       if ( rc < 0 )
       {
+         rd->thread_active = 0;
+         rd->thread.threadId = -1;
          fprintf(stderr, "Failed to create thread.\n");
          return -1;
       }
 		rd->thread.threadId = thread;
-      rd->thread_active = 1;
       return 0;
    }
    else
