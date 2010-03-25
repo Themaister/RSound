@@ -18,7 +18,7 @@
 
 #include "audio.h"
 
-#define RSD_VERSION "0.6"
+#define RSD_VERSION "0.7"
 
 void parse_input(int, char**);
 void new_sound_thread(connection_t);
