@@ -345,14 +345,14 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 
       /* get signal from thread to check again */
       
-      struct timespec tv;
+/*      struct timespec tv;
       clock_gettime(CLOCK_REALTIME, &tv);
       int nsecs = 50000000;
 
       tv.tv_nsec = (tv.tv_nsec + nsecs)%1000000000;
       if ( tv.tv_nsec < 50000000 )
          tv.tv_sec++;
-
+*/
       //fprintf(stderr, "Going into lock...\n");
       pthread_mutex_lock(&rd->thread.cond_mutex);
 		pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
@@ -496,21 +496,22 @@ static void* rsnd_thread ( void * thread_data )
                           
       }
 
-      struct timespec tv;
+/*      struct timespec tv;
       clock_gettime(CLOCK_REALTIME, &tv);
       int nsecs = 50000000;
 
       tv.tv_nsec = (tv.tv_nsec + nsecs)%1000000000;
       if ( tv.tv_nsec < 50000000 )
          tv.tv_sec++;
-
+*/
       pthread_testcancel();
       // Shouldn't really have to use a timedwait to make sure the thread won't deadlock.
       if ( rd->thread_active )
       {
          //fprintf(stderr, "Thread going into lock.\n");
          pthread_mutex_lock(&rd->thread.cond_mutex);
-         pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &tv);
+//         pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &tv);
+         pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
          pthread_mutex_unlock(&rd->thread.cond_mutex);
          //fprintf(stderr, "Thread going out of lock.\n");
       }
