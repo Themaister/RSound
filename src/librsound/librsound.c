@@ -46,33 +46,33 @@ static void* rsnd_thread ( void * thread_data );
 /* Determine whether we're running big- or small endian */
 static inline int rsnd_is_little_endian(void)
 {
-	uint16_t i = 1;
-	return *((uint8_t*)&i);
+   uint16_t i = 1;
+   return *((uint8_t*)&i);
 }
 
 static inline void rsnd_swap_endian_16 ( uint16_t * x )
 {
-	*x = (*x>>8) | (*x<<8);
+   *x = (*x>>8) | (*x<<8);
 }
 
 static inline void rsnd_swap_endian_32 ( uint32_t * x )
 {
-	*x = 	(*x >> 24 ) |
-			((*x<<8) & 0x00FF0000) |
-			((*x>>8) & 0x0000FF00) |
-			(*x << 24);
+   *x =  (*x >> 24 ) |
+         ((*x<<8) & 0x00FF0000) |
+         ((*x>>8) & 0x0000FF00) |
+         (*x << 24);
 }
 
 static int rsnd_connect_server( rsound_t *rd )
 {
-	struct addrinfo hints, *res;
-	memset(&hints, 0, sizeof( hints ));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
+   struct addrinfo hints, *res;
+   memset(&hints, 0, sizeof( hints ));
+   hints.ai_family = AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
    
    getaddrinfo(rd->host, rd->port, &hints, &res);
 
-	rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+   rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    if ( rd->conn.socket < 0 || rd->conn.ctl_socket < 0 )
       goto error;
@@ -80,7 +80,7 @@ static int rsnd_connect_server( rsound_t *rd )
    if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0)
       goto error;
 
-	if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0 )
+   if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0 )
       goto error;
 
 /* Uses non-blocking IO since it performed more deterministic with poll()/send() */   
@@ -92,66 +92,66 @@ static int rsnd_connect_server( rsound_t *rd )
    }
 #endif /* Cygwin doesn't seem to like non-blocking I/O ... */
 
-	freeaddrinfo(res);
+   freeaddrinfo(res);
    return 0;
 error:
    freeaddrinfo(res);
-	return -1;
+   return -1;
 }
 
 /* Conjures a WAV-header and sends this to server */
 static int rsnd_send_header_info(rsound_t *rd)
 {
 #define HEADER_SIZE 44
-	char buffer[HEADER_SIZE] = {0};
-	int rc = 0;
+   char buffer[HEADER_SIZE] = {0};
+   int rc = 0;
    struct pollfd fd;
 
 #define RATE 24
 #define CHANNEL 22
 #define FRAMESIZE 34
 
-	uint32_t sample_rate_temp = rd->rate;
-	uint16_t channels_temp = rd->channels;
-	uint16_t framesize_temp = 16;
+   uint32_t sample_rate_temp = rd->rate;
+   uint16_t channels_temp = rd->channels;
+   uint16_t framesize_temp = 16;
 
-	if ( !rsnd_is_little_endian() )
-	{
-		rsnd_swap_endian_32(&sample_rate_temp);
-		rsnd_swap_endian_16(&channels_temp);
-		rsnd_swap_endian_16(&framesize_temp);
-	}
+   if ( !rsnd_is_little_endian() )
+   {
+      rsnd_swap_endian_32(&sample_rate_temp);
+      rsnd_swap_endian_16(&channels_temp);
+      rsnd_swap_endian_16(&framesize_temp);
+   }
 
-	*((uint32_t*)(buffer+RATE)) = sample_rate_temp;
-	*((uint16_t*)(buffer+CHANNEL)) = channels_temp;
-	*((uint16_t*)(buffer+FRAMESIZE)) = framesize_temp;
+   *((uint32_t*)(buffer+RATE)) = sample_rate_temp;
+   *((uint16_t*)(buffer+CHANNEL)) = channels_temp;
+   *((uint16_t*)(buffer+FRAMESIZE)) = framesize_temp;
 
    fd.fd = rd->conn.socket;
    fd.events = POLLOUT;
 
    if ( poll(&fd, 1, 10000) < 0 )
    {
-		close(rd->conn.socket);
-		close(rd->conn.ctl_socket);
+      close(rd->conn.socket);
+      close(rd->conn.ctl_socket);
       return -1;
    }
 
    if ( fd.revents & POLLHUP )
    {
-		close(rd->conn.socket);
-		close(rd->conn.ctl_socket);
+      close(rd->conn.socket);
+      close(rd->conn.ctl_socket);
       return -1;
    }
 
-	rc = send ( rd->conn.socket, buffer, HEADER_SIZE, 0);
-	if ( rc != HEADER_SIZE )
-	{
-		close(rd->conn.socket);
-		close(rd->conn.ctl_socket);
-		return -1;
-	}
+   rc = send ( rd->conn.socket, buffer, HEADER_SIZE, 0);
+   if ( rc != HEADER_SIZE )
+   {
+      close(rd->conn.socket);
+      close(rd->conn.ctl_socket);
+      return -1;
+   }
 
-	return 0;
+   return 0;
 }
 
 /* Recieves backend info from server that is of interest to the client. (This mini-protocol might be extended later on.) */
@@ -162,7 +162,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    size_t recieved = 0;
 
    char rsnd_header[RSND_HEADER_SIZE] = {0};
-	int rc;
+   int rc;
 
    struct pollfd fd;
    fd.fd = rd->conn.socket;
@@ -196,22 +196,22 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       recieved += rc;
    }
 
-	rd->backend_info.latency = ntohl(*((uint32_t*)(rsnd_header)));
-	rd->backend_info.chunk_size = ntohl(*((uint32_t*)(rsnd_header+4)));
+   rd->backend_info.latency = ntohl(*((uint32_t*)(rsnd_header)));
+   rd->backend_info.chunk_size = ntohl(*((uint32_t*)(rsnd_header+4)));
 
 /* Assumes a default buffer size should it cause problems of being too small */
    if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size)
       rd->buffer_size = rd->backend_info.chunk_size * 32;
 
-	rd->buffer = realloc ( rd->buffer, rd->buffer_size );
-	rd->buffer_pointer = 0;
+   rd->buffer = realloc ( rd->buffer, rd->buffer_size );
+   rd->buffer_pointer = 0;
 
-	return 0;
+   return 0;
 }
 
 static int rsnd_create_connection(rsound_t *rd)
 {
-	int rc;
+   int rc;
 
    if ( rd->conn.socket <= 0 && rd->conn.ctl_socket <= 0 )
    {
@@ -246,13 +246,13 @@ static int rsnd_create_connection(rsound_t *rd)
       }
       rd->ready_for_data = 1;
    }
-	
+   
    return 0;
 }
 
 static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
 {
-	int rc = 0;
+   int rc = 0;
    size_t wrote = 0;
    size_t send_size = 0;
    struct pollfd fd;
@@ -284,44 +284,44 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
 
       wrote += rc;
    }
-	return wrote;
+   return wrote;
 }
 
 /* Calculates how many bytes there are in total in the virtual buffer. Is used to determine latency. 
    Might be changed in the future to correctly determine latency from server */
 static void rsnd_drain(rsound_t *rd)
 {
-	if ( rd->has_written )
-	{
-		int64_t temp, temp2;
+   if ( rd->has_written )
+   {
+      int64_t temp, temp2;
 
 /* Falls back to gettimeofday() when CLOCK_MONOTONIC is not supported */
 #ifdef _POSIX_MONOTONIC_CLOCK
-		struct timespec now_tv;
-		clock_gettime(CLOCK_MONOTONIC, &now_tv);
-		
-		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_nsec.tv_sec;
-		temp *= rd->rate * rd->channels * 2;
+      struct timespec now_tv;
+      clock_gettime(CLOCK_MONOTONIC, &now_tv);
+      
+      temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_nsec.tv_sec;
+      temp *= rd->rate * rd->channels * 2;
 
-		temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv_nsec.tv_nsec;
-		temp2 *= rd->rate * rd->channels * 2;
-		temp2 /= 1000000000;
-		temp += temp2;
+      temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv_nsec.tv_nsec;
+      temp2 *= rd->rate * rd->channels * 2;
+      temp2 /= 1000000000;
+      temp += temp2;
 #else
-		struct timeval now_tv;
-		gettimeofday(&now_tv, NULL);
-		
-		temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_usec.tv_sec;
-		temp *= rd->rate * rd->channels * 2;
+      struct timeval now_tv;
+      gettimeofday(&now_tv, NULL);
+      
+      temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_usec.tv_sec;
+      temp *= rd->rate * rd->channels * 2;
 
-		temp2 = (int64_t)now_tv.tv_usec - (int64_t)rd->start_tv_usec.tv_usec;
-		temp2 *= rd->rate * rd->channels * 2;
-		temp2 /= 1000000;
-		temp += temp2;
+      temp2 = (int64_t)now_tv.tv_usec - (int64_t)rd->start_tv_usec.tv_usec;
+      temp2 *= rd->rate * rd->channels * 2;
+      temp2 /= 1000000;
+      temp += temp2;
 #endif
       rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)rd->buffer_pointer - temp);
    }
-	else
+   else
       rd->bytes_in_buffer = rd->buffer_pointer;
 }
 
@@ -355,7 +355,7 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 */
       //fprintf(stderr, "Going into lock...\n");
       pthread_mutex_lock(&rd->thread.cond_mutex);
-		pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
+      pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
       //fprintf(stderr, "Got out of lock!\n");
    }
@@ -380,7 +380,7 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 static int rsnd_start_thread(rsound_t *rd)
 {
    int rc;
-	pthread_t thread;
+   pthread_t thread;
    if ( !rd->thread_active )
    {
       rd->thread_active = 1;
@@ -392,7 +392,7 @@ static int rsnd_start_thread(rsound_t *rd)
          fprintf(stderr, "Failed to create thread.\n");
          return -1;
       }
-		rd->thread.threadId = thread;
+      rd->thread.threadId = thread;
       return 0;
    }
    else
@@ -476,9 +476,9 @@ static void* rsnd_thread ( void * thread_data )
          {
             pthread_mutex_lock(&rd->thread.mutex);
 #ifdef _POSIX_MONOTONIC_CLOCK
-				clock_gettime(CLOCK_MONOTONIC, &rd->start_tv_nsec);
+            clock_gettime(CLOCK_MONOTONIC, &rd->start_tv_nsec);
 #else
-				gettimeofday(&rd->start_tv_usec, NULL);
+            gettimeofday(&rd->start_tv_usec, NULL);
 #endif
             rd->has_written = 1;
             pthread_mutex_unlock(&rd->thread.mutex);
@@ -633,7 +633,7 @@ size_t rsd_pointer(rsound_t *rsound)
 {
    int ptr;
 
-   ptr = rsnd_get_ptr(rsound);	
+   ptr = rsnd_get_ptr(rsound);   
 
    return ptr;
 }
@@ -664,11 +664,11 @@ int rsd_pause(rsound_t* rsound, int enable)
 
 int rsd_init(rsound_t** rsound)
 {
-	*rsound = calloc(1, sizeof(rsound_t));
-	if ( *rsound == NULL )
-	{
-		return -1;
-	}
+   *rsound = calloc(1, sizeof(rsound_t));
+   if ( *rsound == NULL )
+   {
+      return -1;
+   }
    
    (*rsound)->conn.socket = -1;
    (*rsound)->conn.ctl_socket = -1;
