@@ -13,7 +13,7 @@ extern "C" {
 
 #define RSD_DEFAULT_HOST "localhost"
 #define RSD_DEFAULT_PORT "12345"
-#define LIBRSOUND_VERSION "0.6"
+#define LIBRSOUND_VERSION "0.7"
 
 enum {
    RSD_SAMPLERATE = 0,
@@ -32,7 +32,7 @@ typedef struct connection
 
 typedef struct rsound_thread
 {
-   pthread_t threadId;
+   volatile pthread_t threadId;
    pthread_mutex_t mutex;
    pthread_mutex_t cond_mutex;
    pthread_cond_t cond;

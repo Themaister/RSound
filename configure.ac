@@ -1,4 +1,4 @@
-AC_INIT(RSound, 0.5, maister@archlinux.us)
+AC_INIT(RSound, 0.7, maister@archlinux.us)
 
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
