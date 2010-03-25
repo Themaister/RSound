@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <poll.h>
-#include <errno.h>
+#include <errno.h> 
 #include <time.h>
 
 static inline int rsnd_is_little_endian(void);
@@ -154,10 +154,12 @@ static int rsnd_send_header_info(rsound_t *rd)
 	return 0;
 }
 
-/* Recieves backend info from server that is of interest to the client. (Things sent/recieved might be extended later) */
+/* Recieves backend info from server that is of interest to the client. (This mini-protocol might be extended later on.) */
 static int rsnd_get_backend_info ( rsound_t *rd )
 {
    #define RSND_HEADER_SIZE 8
+
+   size_t recieved = 0;
 
    char rsnd_header[RSND_HEADER_SIZE] = {0};
 	int rc;
@@ -166,27 +168,33 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    fd.fd = rd->conn.socket;
    fd.events = POLLIN;
 
-   if ( poll(&fd, 1, 10000) < 0 )
+   while ( recieved < RSND_HEADER_SIZE )
    {
-      close(rd->conn.socket);
-      close(rd->conn.ctl_socket);
-      return -1;
-   }
 
-   if ( fd.revents & POLLHUP )
-   {
-      close(rd->conn.socket);
-      close(rd->conn.ctl_socket);
-      return -1;
-   }
+      if ( poll(&fd, 1, 10000) < 0 )
+      {
+         close(rd->conn.socket);
+         close(rd->conn.ctl_socket);
+         return -1;
+      }
 
-	rc = recv(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 0);
-	if ( rc != RSND_HEADER_SIZE)
-	{
-		close(rd->conn.socket);
-      close(rd->conn.ctl_socket);
-		return -1;
-	}
+      if ( fd.revents & POLLHUP )
+      {
+         close(rd->conn.socket);
+         close(rd->conn.ctl_socket);
+         return -1;
+      }
+
+      rc = recv(rd->conn.socket, rsnd_header + recieved, RSND_HEADER_SIZE - recieved, 0);
+      if ( rc <= 0)
+      {
+         close(rd->conn.socket);
+         close(rd->conn.ctl_socket);
+         return -1;
+      }
+
+      recieved += rc;
+   }
 
 	rd->backend_info.latency = ntohl(*((uint32_t*)(rsnd_header)));
 	rd->backend_info.chunk_size = ntohl(*((uint32_t*)(rsnd_header+4)));
@@ -254,19 +262,23 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
    while ( wrote < size )
    {
       pthread_testcancel();
-      if ( poll(&fd, 1, 500) < 0 )
+      if ( poll(&fd, 1, 10000) < 0 )
+      {
+         perror("poll");
          return 0;
+      }
 
       if ( fd.revents & POLLHUP )
+      {
          return 0;
+      }
 
       if ( fd.revents & POLLOUT )
       {
          send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
          rc = send(socket, buf + wrote, send_size, 0);
-         if ( rc <= 0 )
-            return 0;
       }
+      /* If server hasn't stopped blocking after 10 secs, then we should probably shut down the stream. */
       else
          return 0;
 
@@ -318,28 +330,42 @@ static void rsnd_drain(rsound_t *rd)
 static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 {
    /* Wait until we have a ready buffer */
-   for (;;)
+   //for (;;)
+   while ( (rd->buffer_pointer + (int)size > (int)rd->buffer_size) && rd->thread_active && rd->ready_for_data )
    {
-      pthread_mutex_lock(&rd->thread.mutex);
+      /*pthread_mutex_lock(&rd->thread.mutex);
       if (rd->buffer_pointer + (int)size <= (int)rd->buffer_size  )
       {
          pthread_mutex_unlock(&rd->thread.mutex);
          break;
       }
-      pthread_mutex_unlock(&rd->thread.mutex);
+      pthread_mutex_unlock(&rd->thread.mutex);*/
       
       /* Thread has been shut down and, someone still tried to play back. Race conditions? */
-      if ( !rd->thread_active )
-      {
-         return -1;
-      }
 
       /* get signal from thread to check again */
+      
+      struct timespec tv;
+      clock_gettime(CLOCK_REALTIME, &tv);
+      int nsecs = 50000000;
+
+      tv.tv_nsec = (tv.tv_nsec + nsecs)%1000000000;
+      if ( tv.tv_nsec < 50000000 )
+         tv.tv_sec++;
+
+      //fprintf(stderr, "Going into lock...\n");
       pthread_mutex_lock(&rd->thread.cond_mutex);
 		pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
+      //fprintf(stderr, "Got out of lock!\n");
    }
 
+   if ( !rd->thread_active || !rd->ready_for_data )
+   {
+      //fprintf(stderr, "Oh snap!\n");
+      return -1;
+   }
+   
    pthread_mutex_lock(&rd->thread.mutex);
    memcpy(rd->buffer + rd->buffer_pointer, buf, size);
    rd->buffer_pointer += (int)size;
@@ -363,7 +389,6 @@ static int rsnd_start_thread(rsound_t *rd)
          fprintf(stderr, "Failed to create thread.\n");
          return -1;
       }
-		pthread_detach(thread);
 		rd->thread.threadId = thread;
       rd->thread_active = 1;
       return 0;
@@ -376,11 +401,17 @@ static int rsnd_stop_thread(rsound_t *rd)
 {
    if ( rd->thread_active )
    {
-      if ( pthread_cancel(rd->thread.threadId) < 0 )
-         fprintf(stderr, "Failed to cancel playback thread.\n");
-
       rd->thread_active = 0;
+      // Being really forceful with this, but ... who knows.
+      pthread_mutex_unlock(&rd->thread.mutex);
+      pthread_mutex_unlock(&rd->thread.cond_mutex);
       pthread_cond_signal(&rd->thread.cond);
+      if ( pthread_cancel(rd->thread.threadId) < 0 )
+      {
+         fprintf(stderr, "Failed to cancel playback thread.\n");
+         return 0;
+      }
+      pthread_join(rd->thread.threadId, NULL);
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
       return 0;
@@ -426,12 +457,13 @@ static void* rsnd_thread ( void * thread_data )
    /* Plays back data as long as there is data in the buffer */
    for (;;)
    {
-      while ( rd->buffer_pointer >= (int)rd->backend_info.chunk_size )
+      while ( (rd->buffer_pointer >= (int)rd->backend_info.chunk_size) && rd->thread_active )
       {
          pthread_testcancel();
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size);
          if ( rc <= 0 )
          {
+            //fprintf(stderr, "OH FUCK!\n");
             pthread_testcancel();
             rsnd_reset(rd);
             pthread_cond_signal(&rd->thread.cond);
@@ -461,14 +493,33 @@ static void* rsnd_thread ( void * thread_data )
 
          /* Buffer has decreased, signal fill_buffer */
          pthread_cond_signal(&rd->thread.cond);
-
                           
       }
 
+      struct timespec tv;
+      clock_gettime(CLOCK_REALTIME, &tv);
+      int nsecs = 50000000;
+
+      tv.tv_nsec = (tv.tv_nsec + nsecs)%1000000000;
+      if ( tv.tv_nsec < 50000000 )
+         tv.tv_sec++;
+
       pthread_testcancel();
-      pthread_mutex_lock(&rd->thread.cond_mutex);
-		pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
-      pthread_mutex_unlock(&rd->thread.cond_mutex);
+      // Shouldn't really have to use a timedwait to make sure the thread won't deadlock.
+      if ( rd->thread_active )
+      {
+         //fprintf(stderr, "Thread going into lock.\n");
+         pthread_mutex_lock(&rd->thread.cond_mutex);
+         pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &tv);
+         pthread_mutex_unlock(&rd->thread.cond_mutex);
+         //fprintf(stderr, "Thread going out of lock.\n");
+      }
+      else
+      {
+         pthread_cond_signal(&rd->thread.cond);
+         pthread_exit(NULL);
+      }
+
    }
 }
 
@@ -503,7 +554,7 @@ int rsd_stop(rsound_t *rd)
 
 size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
 {
-   if ( !rsound->ready_for_data )
+   if ( !rsound->ready_for_data || !rsound->thread_active )
       return -1;
 
    size_t result;
@@ -535,7 +586,7 @@ int rsd_start(rsound_t *rsound)
       return -1;
    if ( rsnd_create_connection(rsound) < 0 )
    {
-      fprintf(stderr, "Couldn't establish connection to server.\n");
+      //fprintf(stderr, "Couldn't establish connection to server.\n");
       return -1;
    }
    return 0;
