@@ -76,7 +76,10 @@ static int rsnd_connect_server( rsound_t *rd )
    rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    if ( rd->conn.socket < 0 || rd->conn.ctl_socket < 0 )
+   {
+      fprintf(stderr, "Getting sockets failed.\n");
       goto error;
+   }
 
    if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0)
       goto error;
@@ -96,6 +99,7 @@ static int rsnd_connect_server( rsound_t *rd )
    freeaddrinfo(res);
    return 0;
 error:
+   fprintf(stderr, "Connecting to server failed.\n");
    freeaddrinfo(res);
    return -1;
 }
@@ -136,23 +140,17 @@ static int rsnd_send_header_info(rsound_t *rd)
    {
       if ( poll(&fd, 1, 10000) < 0 )
       {
-         close(rd->conn.socket);
-         close(rd->conn.ctl_socket);
          return -1;
       }
 
       if ( fd.revents & POLLHUP )
       {
-         close(rd->conn.socket);
-         close(rd->conn.ctl_socket);
          return -1;
       }
 
       rc = send ( rd->conn.socket, buffer + written, HEADER_SIZE - written, 0);
       if ( rc <= 0 )
       {
-         close(rd->conn.socket);
-         close(rd->conn.ctl_socket);
          return -1;
       }
       written += rc;
@@ -180,23 +178,17 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
       if ( poll(&fd, 1, 10000) < 0 )
       {
-         close(rd->conn.socket);
-         close(rd->conn.ctl_socket);
          return -1;
       }
 
       if ( fd.revents & POLLHUP )
       {
-         close(rd->conn.socket);
-         close(rd->conn.ctl_socket);
          return -1;
       }
 
       rc = recv(rd->conn.socket, rsnd_header + recieved, RSND_HEADER_SIZE - recieved, 0);
       if ( rc <= 0)
       {
-         close(rd->conn.socket);
-         close(rd->conn.ctl_socket);
          return -1;
       }
 
@@ -407,15 +399,17 @@ static int rsnd_stop_thread(rsound_t *rd)
       // Being really forceful with this, but ... who knows.
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
-      pthread_cond_signal(&rd->thread.cond);
       if ( pthread_cancel(rd->thread.threadId) < 0 )
       {
+         pthread_cond_signal(&rd->thread.cond);
          fprintf(stderr, "Failed to cancel playback thread.\n");
          pthread_mutex_unlock(&rd->thread.mutex);
          pthread_mutex_unlock(&rd->thread.cond_mutex);
          return 0;
       }
-      pthread_join(rd->thread.threadId, NULL);
+      pthread_cond_signal(&rd->thread.cond);
+      if ( pthread_join(rd->thread.threadId, NULL) < 0 )
+         fprintf(stderr, "*** Warning, did not terminate thread ***\n");
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
       return 0;
@@ -541,10 +535,10 @@ static int rsnd_reset(rsound_t *rd)
 int rsd_stop(rsound_t *rd)
 {
    assert(rd != NULL);
-   const char buf[] = "CLOSE";
+//   const char buf[] = "CLOSE";
    rsnd_stop_thread(rd);
    
-   send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
+   //send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
    close(rd->conn.ctl_socket);
    close(rd->conn.socket);
    
