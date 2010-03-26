@@ -156,7 +156,7 @@ int main(int argc, char ** argv)
          }
       }
 
-      if ( !legal_ip(remoteIP[0] ) )
+      if ( !legal_ip( remoteIP[0] ) )
       {
          close(s_new); s_new = -1;
          close(s_ctl); s_ctl = -1;
