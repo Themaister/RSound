@@ -555,7 +555,6 @@ int rsd_stop(rsound_t *rd)
 size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
 {
    assert(rsound != NULL);
-   assert(rsound->ready_for_data);
    if ( !rsound->ready_for_data )
    {
       return -1;

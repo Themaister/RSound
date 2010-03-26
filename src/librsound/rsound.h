@@ -32,7 +32,7 @@ typedef struct connection
 
 typedef struct rsound_thread
 {
-   volatile pthread_t threadId;
+   pthread_t threadId;
    pthread_mutex_t mutex;
    pthread_mutex_t cond_mutex;
    pthread_cond_t cond;
