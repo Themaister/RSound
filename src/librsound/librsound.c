@@ -243,6 +243,7 @@ static int rsnd_create_connection(rsound_t *rd)
          rsd_stop(rd);
          return -1;
       }
+
       rd->ready_for_data = 1;
    }
    
@@ -580,12 +581,34 @@ size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
 int rsd_start(rsound_t *rsound)
 {
    assert(rsound != NULL);
-   if ( rsound->rate == 0 || rsound->channels == 0 || rsound->host == NULL || rsound->port == NULL )
-      return -1;
+   assert(rsound->rate > 0);
+   assert(rsound->channels > 0);
+   assert(rsound->host != NULL);
+   assert(rsound->port != NULL);
+
    if ( rsnd_create_connection(rsound) < 0 )
    {
       return -1;
    }
+
+   struct pollfd fd = {
+      .fd = rsound->conn.socket,
+      .events = POLLOUT
+   };
+
+   if ( poll(&fd, 1, 2000) < 0 )
+   {
+      perror("poll");
+      rsd_stop(rsound);
+      return -1;
+   }
+
+   if ( !(fd.revents & POLLOUT) )
+   {
+      rsd_stop(rsound);
+      return -1;
+   }
+
    return 0;
 }
 
