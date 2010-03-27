@@ -574,7 +574,8 @@ static void* rsd_thread(void *thread_data)
       rc = recieve_data(conn, buffer, size);
       if ( rc == 0 )
       {
-         fprintf(stderr, "Client closed connection.\n");
+         if ( debug )
+            fprintf(stderr, "Client closed connection.\n");
          goto rsd_exit;
       }
       
@@ -583,7 +584,8 @@ static void* rsd_thread(void *thread_data)
          rc = backend->write(data, buffer + written, size - written);
          if ( rc <= 0 )
          {
-            fprintf(stderr, "Backend write failed. %d\n", rc);
+            if ( debug )
+               fprintf(stderr, "write() failed with error code %d.\n", rc);
             goto rsd_exit;
          }
 

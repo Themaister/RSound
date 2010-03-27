@@ -220,6 +220,25 @@ static int rsnd_create_connection(rsound_t *rd)
          rsd_stop(rd);
          return -1;
       }
+      
+      struct pollfd fd = {
+         .fd = rd->conn.socket,
+         .events = POLLOUT
+      };
+
+      if ( poll(&fd, 1, 2000) < 0 )
+      {
+         perror("poll");
+         rsd_stop(rd);
+         return -1;
+      }
+
+      if ( !(fd.revents & POLLOUT) )
+      {
+         rsd_stop(rd);
+         return -1;
+      }
+
    }
    if ( !rd->ready_for_data )
    {
@@ -243,6 +262,7 @@ static int rsnd_create_connection(rsound_t *rd)
          rsd_stop(rd);
          return -1;
       }
+
       rd->ready_for_data = 1;
    }
    
@@ -269,6 +289,7 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
 
       if ( fd.revents & POLLHUP )
       {
+         fprintf(stderr, "*** Remote side hung up! ***\n");
          return 0;
       }
 
@@ -276,12 +297,19 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
       {
          send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
          rc = send(socket, buf + wrote, send_size, 0);
+         if ( rc < 0 )
+         {
+            fprintf(stderr, "Error sending chunk, %s\n", strerror(errno));
+            return rc;
+         }
+         wrote += rc;
+      }
+      else
+      {
+         return 0;
       }
       /* If server hasn't stopped blocking after 10 secs, then we should probably shut down the stream. */
-      else
-         return 0;
 
-      wrote += rc;
    }
    return wrote;
 }
@@ -514,7 +542,9 @@ static void* rsnd_thread ( void * thread_data )
 
 static int rsnd_reset(rsound_t *rd)
 {
-   pthread_mutex_lock(&rd->thread.mutex);
+   close(rd->conn.socket);
+   close(rd->conn.ctl_socket);
+
    rd->conn.socket = -1;
    rd->conn.ctl_socket = -1;
    rd->total_written = 0;
@@ -539,8 +569,6 @@ int rsd_stop(rsound_t *rd)
    rsnd_stop_thread(rd);
    
    //send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
-   close(rd->conn.ctl_socket);
-   close(rd->conn.socket);
    
    rsnd_reset(rd);
    return 0;
@@ -580,12 +608,17 @@ size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
 int rsd_start(rsound_t *rsound)
 {
    assert(rsound != NULL);
-   if ( rsound->rate == 0 || rsound->channels == 0 || rsound->host == NULL || rsound->port == NULL )
-      return -1;
+   assert(rsound->rate > 0);
+   assert(rsound->channels > 0);
+   assert(rsound->host != NULL);
+   assert(rsound->port != NULL);
+
    if ( rsnd_create_connection(rsound) < 0 )
    {
       return -1;
    }
+
+   
    return 0;
 }
 
