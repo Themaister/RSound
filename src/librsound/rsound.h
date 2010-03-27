@@ -26,8 +26,8 @@ enum {
 
 typedef struct connection
 {
-   int socket;
-   int ctl_socket;
+   volatile int socket;
+   volatile int ctl_socket;
 } connection_t;
 
 typedef struct rsound_thread

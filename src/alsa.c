@@ -98,7 +98,10 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
    
    rc = snd_pcm_writei(sound->handle, buf, write_size);
    if (rc == -EPIPE) 
+   {
       snd_pcm_prepare(sound->handle);
+      return size;
+   }
    
    else if (rc < 0) 
    {
