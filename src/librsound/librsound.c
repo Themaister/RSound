@@ -289,7 +289,7 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
 
       if ( fd.revents & POLLHUP )
       {
-         fprintf(stderr, "*** Remote side hung up!\n");
+         fprintf(stderr, "*** Remote side hung up! ***\n");
          return 0;
       }
 
@@ -306,7 +306,6 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
       }
       else
       {
-         fprintf(stderr, "*** No POLLOUT :<\n");
          return 0;
       }
       /* If server hasn't stopped blocking after 10 secs, then we should probably shut down the stream. */
@@ -492,7 +491,6 @@ static void* rsnd_thread ( void * thread_data )
          if ( rc <= 0 )
          {
             pthread_testcancel();
-            fprintf(stderr, "*** WARNING, called rsnd_reset()!!!!!\n");
             rsnd_reset(rd);
             pthread_cond_signal(&rd->thread.cond);
             /* This thread will not be joined. */
@@ -536,7 +534,6 @@ static void* rsnd_thread ( void * thread_data )
       else
       {
          pthread_cond_signal(&rd->thread.cond);
-         fprintf(stderr, "?!?!?!?!\n");
          pthread_exit(NULL);
       }
 
