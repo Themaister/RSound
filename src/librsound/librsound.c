@@ -536,6 +536,7 @@ static void* rsnd_thread ( void * thread_data )
       else
       {
          pthread_cond_signal(&rd->thread.cond);
+         fprintf(stderr, "?!?!?!?!\n");
          pthread_exit(NULL);
       }
 
