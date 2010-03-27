@@ -484,8 +484,16 @@ static void* rsnd_thread ( void * thread_data )
    /* Plays back data as long as there is data in the buffer. Else, sleep until it can. */
    for (;;)
    {
-      while ( (rd->buffer_pointer >= (int)rd->backend_info.chunk_size) && rd->thread_active )
+      for(;;)
       {
+         pthread_mutex_lock(&rd->thread.mutex);
+         if ( rd->buffer_pointer < (int)rd->backend_info.chunk_size || !rd->thread_active )
+         {
+            pthread_mutex_unlock(&rd->thread.mutex);
+            break;
+         }
+         pthread_mutex_unlock(&rd->thread.mutex);
+
          pthread_testcancel();
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size);
          if ( rc <= 0 )
@@ -545,6 +553,7 @@ static int rsnd_reset(rsound_t *rd)
    close(rd->conn.socket);
    close(rd->conn.ctl_socket);
 
+   pthread_mutex_lock(&rd->thread.mutex);
    rd->conn.socket = -1;
    rd->conn.ctl_socket = -1;
    rd->total_written = 0;
