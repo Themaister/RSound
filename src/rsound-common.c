@@ -573,13 +573,17 @@ static void* rsd_thread(void *thread_data)
       
       rc = recieve_data(conn, buffer, size);
       if ( rc == 0 )
+      {
          goto rsd_exit;
+      }
       
       for ( written = 0; written < size; )
       {
          rc = backend->write(data, buffer + written, size - written);
          if ( rc <= 0 )
+         {
             goto rsd_exit;
+         }
 
          written += rc;
       }

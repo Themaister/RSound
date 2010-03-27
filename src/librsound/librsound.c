@@ -220,6 +220,25 @@ static int rsnd_create_connection(rsound_t *rd)
          rsd_stop(rd);
          return -1;
       }
+      
+      struct pollfd fd = {
+         .fd = rd->conn.socket,
+         .events = POLLOUT
+      };
+
+      if ( poll(&fd, 1, 2000) < 0 )
+      {
+         perror("poll");
+         rsd_stop(rd);
+         return -1;
+      }
+
+      if ( !(fd.revents & POLLOUT) )
+      {
+         rsd_stop(rd);
+         return -1;
+      }
+
    }
    if ( !rd->ready_for_data )
    {
@@ -270,6 +289,7 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
 
       if ( fd.revents & POLLHUP )
       {
+         fprintf(stderr, "*** Remote side hung up!\n");
          return 0;
       }
 
@@ -277,12 +297,20 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
       {
          send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
          rc = send(socket, buf + wrote, send_size, 0);
+         if ( rc < 0 )
+         {
+            fprintf(stderr, "Error sending chunk, %s\n", strerror(errno));
+            return rc;
+         }
+         wrote += rc;
+      }
+      else
+      {
+         fprintf(stderr, "*** No POLLOUT :<\n");
+         return 0;
       }
       /* If server hasn't stopped blocking after 10 secs, then we should probably shut down the stream. */
-      else
-         return 0;
 
-      wrote += rc;
    }
    return wrote;
 }
@@ -464,6 +492,7 @@ static void* rsnd_thread ( void * thread_data )
          if ( rc <= 0 )
          {
             pthread_testcancel();
+            fprintf(stderr, "*** WARNING, called rsnd_reset()!!!!!\n");
             rsnd_reset(rd);
             pthread_cond_signal(&rd->thread.cond);
             /* This thread will not be joined. */
@@ -515,7 +544,9 @@ static void* rsnd_thread ( void * thread_data )
 
 static int rsnd_reset(rsound_t *rd)
 {
-   pthread_mutex_lock(&rd->thread.mutex);
+   close(rd->conn.socket);
+   close(rd->conn.ctl_socket);
+
    rd->conn.socket = -1;
    rd->conn.ctl_socket = -1;
    rd->total_written = 0;
@@ -540,8 +571,6 @@ int rsd_stop(rsound_t *rd)
    rsnd_stop_thread(rd);
    
    //send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
-   close(rd->conn.ctl_socket);
-   close(rd->conn.socket);
    
    rsnd_reset(rd);
    return 0;
@@ -591,24 +620,7 @@ int rsd_start(rsound_t *rsound)
       return -1;
    }
 
-   struct pollfd fd = {
-      .fd = rsound->conn.socket,
-      .events = POLLOUT
-   };
-
-   if ( poll(&fd, 1, 2000) < 0 )
-   {
-      perror("poll");
-      rsd_stop(rsound);
-      return -1;
-   }
-
-   if ( !(fd.revents & POLLOUT) )
-   {
-      rsd_stop(rsound);
-      return -1;
-   }
-
+   
    return 0;
 }
 
