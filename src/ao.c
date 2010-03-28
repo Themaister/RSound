@@ -36,7 +36,6 @@ static void ao_rsd_shutdown(void)
 
 static int ao_rsd_init(void** data)
 {
-   int default_driver = ao_default_driver_id();
    ao_t *sound = calloc(1, sizeof(ao_t));
    if ( sound == NULL )
       return -1;
