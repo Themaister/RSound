@@ -41,7 +41,7 @@ typedef struct wav_header
    uint32_t format;
    uint32_t subChunkId;
    uint32_t subChunkSize;
-   uint32_t audioFormat;
+   uint16_t audioFormat;
    uint16_t numChannels;
    uint32_t sampleRate;
    uint32_t byteRate;
