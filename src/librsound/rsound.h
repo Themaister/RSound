@@ -13,7 +13,7 @@ extern "C" {
 
 #define RSD_DEFAULT_HOST "localhost"
 #define RSD_DEFAULT_PORT "12345"
-#define LIBRSOUND_VERSION "0.7"
+#define LIBRSOUND_VERSION "0.8"
 
 enum {
    RSD_SAMPLERATE = 0,
