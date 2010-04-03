@@ -15,21 +15,24 @@ extern "C" {
 #define RSD_DEFAULT_PORT "12345"
 #define LIBRSOUND_VERSION "0.8"
 
+/* Defines operations that can be used with rsd_set_param() */
 enum {
    RSD_SAMPLERATE = 0,
    RSD_CHANNELS,
    RSD_HOST,
    RSD_PORT,
    RSD_BUFSIZE,
-   RSD_LATENCY
+   RSD_LATENCY /* <<--- Not implemented yet */
 };
 
+/* Do not use directly */
 typedef struct connection
 {
    volatile int socket;
    volatile int ctl_socket;
 } connection_t;
 
+/* Do not use directly */
 typedef struct rsound_thread
 {
    pthread_t threadId;
@@ -38,13 +41,15 @@ typedef struct rsound_thread
    pthread_cond_t cond;
 } rsound_thread_t;
 
+/* No not use directly */
 typedef struct backend_info
 {
-   // Inherit latency from backend that must be added to the calculated latency. 
+   /* Inherit latency from backend that must be added to the calculated latency when we call rsd_delay() client side. */
    uint32_t latency;
    uint32_t chunk_size;
 } backend_info_t;
 
+/* Defines the main structure for use with the API. */
 typedef struct rsound
 {
    connection_t conn;
@@ -73,12 +78,18 @@ typedef struct rsound
 } rsound_t;
 
 /* -- API --
-   All functions (except for rsd_write() return 0 for success, and -1 for error */
+   All functions (except for rsd_write() return 0 for success, and -1 for error. errno is currently not set. */
 
 /* Initializes an rsound_t structure. To make sure no memory leaks occur, you need to rsd_free() it after use.
-   e.g.
+   A typical use of the API is as follows:
       rsound_t *rd;
       rsd_init(&rd);
+      rsd_set_param(rd, RSD_HOST, "foohost");
+      *sets more params*
+      rsd_start(rd);
+      rsd_write(rd, buf, size); 
+      rsd_stop(rd);
+      rsd_free(rd);
 */
 int rsd_init (rsound_t **rd);
 
@@ -95,10 +106,12 @@ int rsd_init (rsound_t **rd);
 int rsd_set_param (rsound_t *rd, int option, void* param);
 
 /* Establishes connection to server. Might fail if connection can't be established or that one of 
-   the mandatory options isn't set in rsd_set_param() */ 
+   the mandatory options isn't set in rsd_set_param(). This needs to be called after params have been set
+   with rsd_set_param(), and before rsd_write(). */ 
 int rsd_start (rsound_t *rd);
 
-/* Disconnects from server. To continue playing, you will need to rsd_start() again. */
+/* Disconnects from server. All audio data still in network buffer, etc will be dropped. 
+   To continue playing, you will need to rsd_start() again. */
 int rsd_stop (rsound_t *rd);
 
 /* Writes from buf to the internal buffer. Might fail if no connection is established, 
@@ -108,7 +121,8 @@ int rsd_stop (rsound_t *rd);
 size_t rsd_write (rsound_t *rd, const char* buf, size_t size);
 
 /* Gets the position of the buffer pointer. 
-   Not really interesting for normal applications. */
+   Not really interesting for normal applications. 
+   Might be useful for implementing rsound on top of other blocking APIs. */
 size_t rsd_pointer (rsound_t *rd);
 
 /* Aquires how much data can be written to the buffer without blocking */
@@ -117,7 +131,8 @@ size_t rsd_get_avail (rsound_t *rd);
 /* Aquires the latency at the moment for the audio stream. It is measured in bytes. Useful for syncing video and audio. */
 size_t rsd_delay (rsound_t *rd);
 
-/* Pauses or unpauses a stream. pause -> enable = 1 */
+/* Pauses or unpauses a stream. pause -> enable = 1 
+   This function essentially calls on start() and stop(). This behavior might be changed later. */
 int rsd_pause (rsound_t *rd, int enable);
 
 /* Frees an rsound_t struct. */
