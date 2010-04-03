@@ -513,10 +513,12 @@ static void* rsnd_thread ( void * thread_data )
    int rc;
 
    /* Plays back data as long as there is data in the buffer. Else, sleep until it can. */
+   /* Two (;;) for loops! :X. */
    for (;;)
    {
       for(;;)
       {
+         /* If the buffer is empty or we've stopped the stream. Jump out of this for loop */
          pthread_mutex_lock(&rd->thread.mutex);
          if ( rd->buffer_pointer < (int)rd->backend_info.chunk_size || !rd->thread_active )
          {
@@ -563,6 +565,7 @@ static void* rsnd_thread ( void * thread_data )
                           
       }
 
+      /* If we're still good to go, sleep. We are waiting for fill_buffer() to fill up some data. */
       pthread_testcancel();
       if ( rd->thread_active )
       {
