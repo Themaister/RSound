@@ -13,8 +13,15 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/************************************************************** 
+*   This file defines some backend independent functions      *
+***************************************************************/
+
 #include "endian.h"
 #include "rsound.h"
+
+
+/* Pulls in callback structs depending on compilation options. */
 
 #ifdef _ALSA
 #include "alsa.h"
@@ -41,14 +48,16 @@ extern const rsd_backend_callback_t rsd_porta;
 #include <signal.h>
 
 #define MAX_PACKET_SIZE 1024
+
+/* Not really portable, need to find something better */
 #define PIDFILE "/tmp/.rsound.pid"
 
-/* This file defines some backend independant operations */
 
 static void print_help(void);
 static void* rsd_thread(void*);
 static int recieve_data(connection_t, char*, size_t);
 
+/* Writes a file with the process id, so that a subsequent --kill can kill it cleanly. */
 void write_pid_file(void)
 {
 	FILE *pidfile = fopen(PIDFILE, "w");
@@ -83,27 +92,46 @@ void new_sound_thread ( connection_t connection )
    conn->socket = connection.socket;
    conn->ctl_socket = connection.ctl_socket;
 
+   /* Prefer non-blocking sockets due to its consistent performance with poll()/recv() */
    if ( fcntl(conn->socket, F_SETFL, O_NONBLOCK) < 0)
    {
-      free(conn);
       fprintf(stderr, "Setting non-blocking socket failed.\n");
-      return;
+      goto error;
    }
 
    if ( fcntl(conn->ctl_socket, F_SETFL, O_NONBLOCK) < 0)
    {
-      free(conn);
       fprintf(stderr, "Setting non-blocking socket failed.\n");
-      return;
+      goto error;
    }
+
+   /* If we're not using serveral threads, we must wait for the last thread to join. */
    if ( no_threading && (int)last_thread != 0 )
       pthread_join(last_thread, NULL);
-   pthread_create(&thread, NULL, rsd_thread, (void*)conn);     
+
+   /* Creates new thread */
+   if ( pthread_create(&thread, NULL, rsd_thread, (void*)conn) < 0 )
+   {
+      fprintf(stderr, "Creating thread failed ...\n");
+      goto error;
+   }
+
+   /* If we're not going to join, we need to detach it. */
 	if ( !no_threading )
 		pthread_detach(thread);
+
+   /* Sets the static variable for use with next new_sound_thread() call. */
    last_thread = thread;
+   return;
+
+   /* Cleanup if fcntl failed. */
+error:
+   close(conn->socket);
+   close(conn->ctl_socket);
+   free(conn);
 }
 
+/* getopt command-line parsing. Sets the variables declared in daemon.c */
 void parse_input(int argc, char **argv)
 {
    char *program_name;
@@ -240,6 +268,8 @@ void parse_input(int argc, char **argv)
    if ( backend == NULL )
    {
 
+/* Select a default backend if nothing was specified on the command line. */
+
 #ifdef __CYGWIN__
    /* We prefer portaudio if we're in Windows. */
    #ifdef _PORTA
@@ -263,6 +293,7 @@ void parse_input(int argc, char **argv)
 
    }
 
+   /* Shouldn't really happen, but ... */
    if ( backend == NULL )
    {
       fprintf(stderr, "rsd was not compiled with any output support, exiting ...");
@@ -328,8 +359,9 @@ static void pheader(wav_header_t *w)
 static int get_wav_header(connection_t conn, wav_header_t* head)
 {
 
+   /* Are we on a little endian system?
+    * WAV files are little-endian. If server is big-endian, swaps over data to get sane results. */
    int i = is_little_endian();
-   /* WAV files are little-endian. If server is big-endian, swaps over data to get sane results. */
    uint16_t temp16;
    uint32_t temp32;
 
@@ -346,6 +378,9 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
 #define CHANNELS 22
 #define RATE 24
 #define BITS_PER_SAMPLE 34
+
+/* Since we can't really rely on that the compiler doesn't pad our structs in funny ways (portability ftw), we need to do it this
+   horrid way. :v */
 
    temp16 = *((uint16_t*)(header+CHANNELS));
    if (!i)
@@ -384,6 +419,7 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
 
    char header[RSND_HEADER_SIZE];
 
+/* Again, padding ftw */
    *((uint32_t*)header) = htonl(backend->latency);
    *((uint32_t*)(header+4)) = htonl(backend->chunk_size);
 
@@ -411,7 +447,7 @@ int set_up_socket()
 
    memset(&hints, 0, sizeof (struct addrinfo));
 #ifdef __CYGWIN__
-   /* Because Windows fails. */
+   /* Because Windows apparently fails, and doesn't like AF_UNSPEC. */
    hints.ai_family = AF_INET;
 #else
    hints.ai_family = AF_UNSPEC;
@@ -452,11 +488,16 @@ int set_up_socket()
    freeaddrinfo(servinfo);
    return s;
 
+   /* In case something goes to hell. */
 error:
    freeaddrinfo(servinfo);
    return -1;
 
 }
+
+/* Makes sure that size data is recieved in full. Else, returns a 0. 
+   If the control socket is set, this is a sign that it has been closed (for some reason),
+   which currently means that we should stop the connection immediately. */
 
 static int recieve_data(connection_t conn, char* buffer, size_t size)
 {
@@ -495,6 +536,7 @@ static int recieve_data(connection_t conn, char* buffer, size_t size)
    return read;
 }
 
+/* All and mighty connection handler. */
 static void* rsd_thread(void *thread_data)
 {
    connection_t conn;
@@ -511,6 +553,7 @@ static void* rsd_thread(void *thread_data)
    if ( debug )
       fprintf(stderr, "Connection accepted, awaiting WAV header data ...\n");
 
+   /* Firstly, get the wave header with stream settings. */
    rc = get_wav_header(conn, &w);
    if ( rc == -1 )
    {
@@ -529,12 +572,14 @@ static void* rsd_thread(void *thread_data)
    if ( debug )
       fprintf(stderr, "Initializing %s ...\n", backend->backend);
 
+   /* Sets up backend */
    if ( backend->init(&data) < 0 )
    {
       fprintf(stderr, "Failed to initialize %s ...\n", backend->backend);
       goto rsd_exit;
    }
 
+   /* Opens device with settings. */
    if ( backend->open(data, &w) < 0 )
    {
       fprintf(stderr, "Failed to open audio driver ...\n");
@@ -549,6 +594,7 @@ static void* rsd_thread(void *thread_data)
       goto rsd_exit;
    }
 
+   /* Now we can send backend info to client. */
    if ( send_backend_info(conn, &backend_info) < 0 )
    {
       fprintf(stderr, "Failed to send backend info ...\n");
@@ -567,6 +613,7 @@ static void* rsd_thread(void *thread_data)
       goto rsd_exit;
    }
 
+   /* Recieve data, write to sound card. Rinse, repeat :') */
    for(;;)
    {
       memset(buffer, 0, size);
@@ -593,6 +640,7 @@ static void* rsd_thread(void *thread_data)
       }
    }
 
+   /* Cleanup */
 rsd_exit:
    if ( debug )
       fprintf(stderr, "Closed connection.\n\n");
