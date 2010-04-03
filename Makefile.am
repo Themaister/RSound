@@ -42,7 +42,6 @@ src_rsdplay_SOURCES = src/client.c \
                      src/librsound/rsound.h
 
 src_rsd_SOURCES =   src/daemon.c \
-                           src/endian.c \
                            src/endian.h \
                            src/rsound-common.c \
                            src/rsound.h \
