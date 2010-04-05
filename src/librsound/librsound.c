@@ -407,6 +407,30 @@ static void rsnd_drain(rsound_t *rd)
    it will treat this as an error. Crude implementation of a blocking FIFO. */ 
 static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 {
+
+   /* Makes sure that we do not try to fill the data buffer too much. 
+      Will sleep so that we keep latency in the desired amount. */
+
+   /* Should we bother with checking latency? */
+   if ( rd->max_latency > 0 )
+   {
+      /* Latency of stream in ms */
+      int latency_ms = 1000 * rsd_delay(rd) / ( rd->rate * rd->channels * 2 );
+      
+      /* Should we sleep for a while to keep the latency low? */
+      if ( rd->max_latency < latency_ms )
+      {
+         int sleep_ms = latency_ms - rd->max_latency;
+         const struct timespec tv = {
+            .tv_sec = sleep_ms / 1000,
+            .tv_nsec = (sleep_ms * 1000000)%1000000000
+         };
+
+         nanosleep(&tv, NULL);
+      }
+   }
+
+
    /* Wait until we have a ready buffer */
    for (;;)
    {
@@ -716,7 +740,7 @@ int rsd_set_param(rsound_t *rd, int option, void* param)
          rd->buffer_size = *((int*)param);
          break;
       case RSD_LATENCY:
-         rd->min_latency = *((int*)param);
+         rd->max_latency = *((int*)param);
          break;
       default:
          return -1;
