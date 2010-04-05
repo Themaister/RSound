@@ -25,6 +25,7 @@ extern "C" {
 #include <time.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <assert.h>
 
 #define RSD_DEFAULT_HOST "localhost"
 #define RSD_DEFAULT_PORT "12345"
@@ -37,7 +38,7 @@ enum {
    RSD_HOST,
    RSD_PORT,
    RSD_BUFSIZE,
-   RSD_LATENCY /* <<--- Not implemented yet */
+   RSD_LATENCY /* <<--- Not implemented correctly yet */
 };
 
 /* Do not use directly */
@@ -109,14 +110,19 @@ typedef struct rsound
 int rsd_init (rsound_t **rd);
 
 /* Sets params associated with an rsound_t. These options (int options) include:
-   RSD_HOST: Server to connect to. Expects (char *) in param. Mandatory. Might use RSD_DEFAULT_HOST
-   RSD_PORT: Set port. Expects (char *) in param. Mandatory. Might use RSD_DEFAULT_PORT
+
+   RSD_HOST: Server to connect to. Expects (char *) in param. If not set, will default 
+   to environmental variable RSD_SERVER or "localhost". 
+
+   RSD_PORT: Set port. Expects (char *) in param. If not set, will default to environmental 
+   variable RSD_PORT or "12345".
+
    RSD_CHANNELS: Set number of audio channels. Expects (int *) in param. Mandatory.
    RSD_SAMPLERATE: Set samplerate of audio stream. Expects (int *) in param. Mandatory.
    RSD_BUFSIZE: Sets internal buffersize for the stream. Might be overridden if too small. 
    Expects (int *) in param. Optional.
-   RSD_LATENCY: (!NOT PROPERLY IMPLEMENTED YET!) Sets maximum audio latency in milliseconds. 
-   Might be overridden if too small. Expects (int *) in param. Optional.
+   RSD_LATENCY: (!NOT PROPERLY IMPLEMENTED YET!) Sets maximum audio latency in milliseconds. Most applications
+   do not need this. Might be overridden if too small. Expects (int *) in param. Optional.
 */
 int rsd_set_param (rsound_t *rd, int option, void* param);
 
@@ -125,7 +131,7 @@ int rsd_set_param (rsound_t *rd, int option, void* param);
    with rsd_set_param(), and before rsd_write(). */ 
 int rsd_start (rsound_t *rd);
 
-/* Disconnects from server. All audio data still in network buffer, etc will be dropped. 
+/* Disconnects from server. All audio data still in network buffer and other buffers will be dropped. 
    To continue playing, you will need to rsd_start() again. */
 int rsd_stop (rsound_t *rd);
 
@@ -145,6 +151,21 @@ size_t rsd_get_avail (rsound_t *rd);
 
 /* Aquires the latency at the moment for the audio stream. It is measured in bytes. Useful for syncing video and audio. */
 size_t rsd_delay (rsound_t *rd);
+
+/* Utility for returning latency in milliseconds. */
+inline size_t rsd_delay_ms (rsound_t *rd)
+{
+   assert (rd);
+   assert (rd->rate > 0 && rd->channels > 0 );
+
+   return (rsd_delay(rd) * 1000) / ( rd->rate * rd->channels * 2 );
+}
+
+/* Will sleep until latency of stream reaches maximum allowed latency defined earlier by rsd_set_param - RSD_LATENCY 
+   Useful for hard headed blocking I/O design where user defined latency is needed. If rsd_set_param hasn't been set
+   with RSD_LATENCY, this function will do nothing. */
+void rsd_delay_wait(rsound_t *rd);
+
 
 /* Pauses or unpauses a stream. pause -> enable = 1 
    This function essentially calls on start() and stop(). This behavior might be changed later. */

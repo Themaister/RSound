@@ -408,29 +408,7 @@ static void rsnd_drain(rsound_t *rd)
 static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 {
 
-   /* Makes sure that we do not try to fill the data buffer too much. 
-      Will sleep so that we keep latency in the desired amount. */
-
-   /* Should we bother with checking latency? */
-   if ( rd->max_latency > 0 )
-   {
-      /* Latency of stream in ms */
-      int latency_ms = 1000 * rsd_delay(rd) / ( rd->rate * rd->channels * 2 );
-      
-      /* Should we sleep for a while to keep the latency low? */
-      if ( rd->max_latency < latency_ms )
-      {
-         int sleep_ms = latency_ms - rd->max_latency;
-         const struct timespec tv = {
-            .tv_sec = sleep_ms / 1000,
-            .tv_nsec = (sleep_ms * 1000000)%1000000000
-         };
-
-         nanosleep(&tv, NULL);
-      }
-   }
-
-
+   
    /* Wait until we have a ready buffer */
    for (;;)
    {
@@ -749,6 +727,35 @@ int rsd_set_param(rsound_t *rd, int option, void* param)
          
 }
 
+void rsd_delay_wait(rsound_t *rd)
+{
+
+   /* When called, we make sure that the latency never goes over the time designated in RSD_LATENCY.
+      Useful for certain blocking I/O designs where the latency still needs to be quite low.
+      Without this, the latency of the stream will depend on how big the network buffers are.
+      ( We simulate that we're a low latency sound card ) */
+
+   /* Should we bother with checking latency at all? */
+   if ( rd->max_latency > 0 )
+   {
+      /* Latency of stream in ms */
+      int latency_ms = rsd_delay_ms(rd);
+
+      /* Should we sleep for a while to keep the latency low? */
+      if ( rd->max_latency < latency_ms )
+      {
+         int64_t sleep_ms = latency_ms - rd->max_latency;
+         const struct timespec tv = {
+            .tv_sec = sleep_ms / 1000,
+            .tv_nsec = (sleep_ms * 1000000)%1000000000
+         };
+
+         /* Sleepy time */
+         nanosleep(&tv, NULL);
+      }
+   }
+}
+
 size_t rsd_pointer(rsound_t *rsound)
 {
    assert(rsound != NULL);
@@ -790,6 +797,8 @@ int rsd_init(rsound_t** rsound)
 {
    assert(rsound != NULL);
    *rsound = calloc(1, sizeof(rsound_t));
+   if ( *rsound == NULL )
+      return -1;
    
    (*rsound)->conn.socket = -1;
    (*rsound)->conn.ctl_socket = -1;
@@ -797,6 +806,19 @@ int rsd_init(rsound_t** rsound)
    pthread_mutex_init(&(*rsound)->thread.mutex, NULL);
    pthread_mutex_init(&(*rsound)->thread.cond_mutex, NULL);
    pthread_cond_init(&(*rsound)->thread.cond, NULL);
+
+   /* Checks if environment variable RSD_SERVER and RSD_PORT are set */
+   char *rsdhost = getenv("RSD_SERVER");
+   char *rsdport = getenv("RSD_PORT");
+   if ( rsdhost != NULL )
+      rsd_set_param(*rsound, RSD_HOST, rsdhost);
+   else
+      rsd_set_param(*rsound, RSD_HOST, RSD_DEFAULT_HOST);
+
+   if ( rsdport != NULL )
+      rsd_set_param(*rsound, RSD_PORT, rsdport);
+   else
+      rsd_set_param(*rsound, RSD_PORT, RSD_DEFAULT_PORT);
 
    return 0;
 }
