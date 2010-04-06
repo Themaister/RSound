@@ -25,12 +25,12 @@
 typedef struct
 {
    ALuint source;
-   ALuint buffers[NUM_BUFFERS];
+//   ALuint buffers[NUM_BUFFERS];
    ALenum format;
    int channels;
    int rate;
    int latency;
-   int buffer_read;
+   int queue;
 
 } al_t;
 
