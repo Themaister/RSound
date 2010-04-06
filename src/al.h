@@ -24,8 +24,6 @@
 
 typedef struct
 {
-   ALCdevice *handle;
-   ALCcontext *context;
    ALuint source;
    ALuint buffers[NUM_BUFFERS];
    ALenum format;

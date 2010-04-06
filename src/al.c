@@ -16,6 +16,9 @@
 #include "al.h"
 #include "rsound.h"
 
+static ALCdevice *global_handle;
+static ALCcontext *global_context;
+
 static void al_close(void *data)
 {
    al_t *al= data;
@@ -23,13 +26,6 @@ static void al_close(void *data)
    {
       alDeleteSources(1, &al->source);
       alDeleteBuffers(NUM_BUFFERS, al->buffers);
-
-      alcMakeContextCurrent(NULL);
-      if ( al->context )
-         alcDestroyContext(al->context);
-
-      if ( al->handle )
-         alcCloseDevice(al->handle);
    }
 
 }
@@ -44,6 +40,26 @@ static int al_init(void** data)
    return 0;
 }
 
+static void al_initialize(void)
+{
+   global_handle = alcOpenDevice(NULL);
+   if ( global_handle == NULL )
+      exit(1);
+
+   global_context = alcCreateContext(global_handle, NULL);
+   if ( global_context == NULL )
+      exit(1);
+
+   alcMakeContextCurrent(global_context);
+}
+
+static void al_shutdown(void)
+{
+   alcMakeContextCurrent(NULL);
+   alcDestroyContext(global_context);
+   alcCloseDevice(global_handle);
+}
+
 static int al_open(void* data, wav_header_t *w)
 {
    al_t *al = data;
@@ -56,20 +72,9 @@ static int al_open(void* data, wav_header_t *w)
 
    al->rate = w->sampleRate;
 
-   al->handle = alcOpenDevice(NULL);
-   if ( al->handle == NULL )
-      return -1;
-
-   al->context = alcCreateContext(al->handle, NULL);
-   if ( al->context == NULL )
-      return -1;
-
-   alcMakeContextCurrent(al->context);
-
    alGenSources(1, &al->source);
    alGenBuffers(NUM_BUFFERS, al->buffers);
    al->buffer_read = 0;
-   
    
    return 0;
 }
@@ -79,8 +84,6 @@ static size_t al_write(void *data, const void* buf, size_t size)
 
    al_t *al = data;
 
-   alcMakeContextCurrent(al->context);
-   
    // Fills up the buffer before we start playing.
    if ( al->buffer_read < NUM_BUFFERS )
    {
@@ -107,10 +110,16 @@ static size_t al_write(void *data, const void* buf, size_t size)
    ALint val;
 
    // Waits until we have a buffer we can unqueue.
+
+   struct timespec tv = {
+      .tv_sec = 0,
+      .tv_nsec = 1000000
+   };
+
    do
    {
       alGetSourcei(al->source, AL_BUFFERS_PROCESSED, &val);
-      usleep(100);
+      nanosleep(&tv, NULL);
    } while ( val <= 0 );
 
    // Buffers up the data
@@ -138,6 +147,8 @@ static void al_get_backend(void *data, backend_info_t *backend_info)
 
 const rsd_backend_callback_t rsd_al = {
    .init = al_init,
+   .initialize = al_initialize,
+   .shutdown = al_shutdown,
    .write = al_write,
    .close = al_close,
    .get_backend_info = al_get_backend,
