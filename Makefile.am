@@ -38,6 +38,13 @@ if HAVE_OSS
    AM_CFLAGS += -D_OSS
 endif
 
+if HAVE_AL
+   sources_serv += src/al.c
+   sources_serv += src/al.h
+   AM_CFLAGS += -D_AL
+   SERV_LIBS += -lopenal
+endif
+
 src_rsdplay_SOURCES = src/client.c \
                      src/librsound/rsound.h
 

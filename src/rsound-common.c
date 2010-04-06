@@ -19,28 +19,31 @@
 
 #include "endian.h"
 #include "rsound.h"
+#include "audio.h"
+#include <fcntl.h>
+#include <unistd.h>
 
 
 /* Pulls in callback structs depending on compilation options. */
 
 #ifdef _ALSA
-#include "alsa.h"
 extern const rsd_backend_callback_t rsd_alsa;
 #endif
 
 #ifdef _OSS
-#include "oss.h"
 extern const rsd_backend_callback_t rsd_oss;
 #endif
 
 #ifdef _AO
-#include "ao.h"
 extern const rsd_backend_callback_t rsd_ao;
 #endif
 
 #ifdef _PORTA
-#include "porta.h"
 extern const rsd_backend_callback_t rsd_porta;
+#endif
+
+#ifdef _AL
+extern const rsd_backend_callback_t rsd_al;
 #endif
 
 #include <getopt.h>
@@ -242,6 +245,14 @@ void parse_input(int argc, char **argv)
                break;
             }
 #endif
+#ifdef _AL
+            if ( !strcmp( "openal", optarg ) )
+            {
+               backend = &rsd_al;
+               break;
+            }
+#endif
+
             fprintf(stderr, "\nValid backend not given. Exiting ...\n\n");
             print_help();
             exit(1);
@@ -274,6 +285,8 @@ void parse_input(int argc, char **argv)
    /* We prefer portaudio if we're in Windows. */
    #ifdef _PORTA
       backend = &rsd_porta;
+   #elif _AL
+      backend = &rsd_al;
    #elif _AO
       backend = &rsd_ao;
    #elif _OSS
@@ -288,6 +301,8 @@ void parse_input(int argc, char **argv)
       backend = &rsd_ao;
    #elif _PORTA
       backend = &rsd_porta;
+   #elif _AL
+      backend = &rsd_al;
    #endif
 #endif
 
@@ -324,6 +339,10 @@ static void print_help()
 #ifdef _PORTA
    printf("portaudio ");
 #endif
+#ifdef _AL
+   printf("openal ");
+#endif
+
    putchar('\n');
    putchar('\n');
 
