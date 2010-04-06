@@ -21,6 +21,7 @@ static void al_close(void *data)
    al_t* sound = data;
    if ( data )
    {
+      alcMakeContextCurrent(NULL);
       if ( sound->context )
       {
          alcDestroyContext(sound->context);
@@ -31,6 +32,7 @@ static void al_close(void *data)
       {
          alcCloseDevice(sound->handle);
       }
+
    }
 
 }
@@ -65,9 +67,10 @@ static int al_open(void* data, wav_header_t *w)
    if ( al->context == NULL )
       return -1;
 
-   alcMakeContextCurrent(al->context);
 
    alGenSources(1, &al->source);
+   al->queue_length--;
+   
    
    return 0;
 }
@@ -77,17 +80,18 @@ static size_t al_write(void *data, const void* buf, size_t size)
    al_t *al = data;
 
    
-   ALuint buffer = 0;
 
-   alGenBuffers(1, &buffer);
 
-   alBufferData(buffer, al->format, buf, size, al->rate);
-   alSourcei(al->source, AL_BUFFER, buffer);
 
-   ALint playing;
-   alGetSourcei(al->source, AL_SOURCE_STATE, &playing);
-   if ( playing != AL_PLAYING )
-      alSourcePlay(al->source);
+
+
+
+
+
+
+
+
+
 
    return size;
 

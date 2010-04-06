@@ -20,6 +20,15 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 
+/*typedef struct
+{
+   char *buffer;
+   int length;
+   int queqe_length;
+   int size;
+} al_buffer_t;*/
+
+
 typedef struct
 {
    ALCdevice *handle;
@@ -28,6 +37,9 @@ typedef struct
    ALenum format;
    int channels;
    int rate;
+   int latency;
+   int queue_length;
+
 
 } al_t;
 
