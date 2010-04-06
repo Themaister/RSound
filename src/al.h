@@ -16,30 +16,23 @@
 #ifndef AL_H
 #define AL_H
 
+#define NUM_BUFFERS 16
+
 #include "audio.h"
 #include <AL/al.h>
 #include <AL/alc.h>
-
-/*typedef struct
-{
-   char *buffer;
-   int length;
-   int queqe_length;
-   int size;
-} al_buffer_t;*/
-
 
 typedef struct
 {
    ALCdevice *handle;
    ALCcontext *context;
    ALuint source;
+   ALuint buffers[NUM_BUFFERS];
    ALenum format;
    int channels;
    int rate;
    int latency;
-   int queue_length;
-
+   int buffer_read;
 
 } al_t;
 

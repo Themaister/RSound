@@ -18,21 +18,18 @@
 
 static void al_close(void *data)
 {
-   al_t* sound = data;
-   if ( data )
+   al_t *al= data;
+   if ( al )
    {
+      alDeleteSources(1, &al->source);
+      alDeleteBuffers(NUM_BUFFERS, al->buffers);
+
       alcMakeContextCurrent(NULL);
-      if ( sound->context )
-      {
-         alcDestroyContext(sound->context);
-         sound->context = 0;
-      }
+      if ( al->context )
+         alcDestroyContext(al->context);
 
-      if ( sound->handle )
-      {
-         alcCloseDevice(sound->handle);
-      }
-
+      if ( al->handle )
+         alcCloseDevice(al->handle);
    }
 
 }
@@ -67,9 +64,11 @@ static int al_open(void* data, wav_header_t *w)
    if ( al->context == NULL )
       return -1;
 
+   alcMakeContextCurrent(al->context);
 
    alGenSources(1, &al->source);
-   al->queue_length--;
+   alGenBuffers(NUM_BUFFERS, al->buffers);
+   al->buffer_read = 0;
    
    
    return 0;
@@ -77,29 +76,63 @@ static int al_open(void* data, wav_header_t *w)
 
 static size_t al_write(void *data, const void* buf, size_t size)
 {
+
    al_t *al = data;
 
+   alcMakeContextCurrent(al->context);
    
+   // Fills up the buffer before we start playing.
+   if ( al->buffer_read < NUM_BUFFERS )
+   {
+      alBufferData(al->buffers[al->buffer_read++], al->format, buf, size, al->rate);
+      if ( alGetError() != AL_NO_ERROR )
+      {
+         return 0;
+      }
 
+      if ( al->buffer_read == NUM_BUFFERS )
+      {
+         alSourceQueueBuffers(al->source, NUM_BUFFERS, al->buffers);
+         alSourcePlay(al->source);
+         if ( alGetError() != AL_NO_ERROR )
+         {
+            return 0;
+         }
+      }
 
+      return size;
+   }
 
+   ALuint buffer;
+   ALint val;
 
+   // Waits until we have a buffer we can unqueue.
+   do
+   {
+      alGetSourcei(al->source, AL_BUFFERS_PROCESSED, &val);
+      usleep(100);
+   } while ( val <= 0 );
 
+   // Buffers up the data
+   alSourceUnqueueBuffers(al->source, 1, &buffer);
+   alBufferData(buffer, al->format, buf, size, al->rate);
+   alSourceQueueBuffers(al->source, 1, &buffer);
+   if ( alGetError() != AL_NO_ERROR )
+   {
+      return 0;
+   }
 
-
-
-
-
-
-
+   // Checks if we're playing
+   alGetSourcei(al->source, AL_SOURCE_STATE, &val);
+   if ( val != AL_PLAYING )
+      alSourcePlay(al->source);
 
    return size;
-
 }
 
 static void al_get_backend(void *data, backend_info_t *backend_info)
 {
-   backend_info->latency = DEFAULT_CHUNK_SIZE;
+   backend_info->latency = DEFAULT_CHUNK_SIZE * NUM_BUFFERS;
    backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
 }
 
