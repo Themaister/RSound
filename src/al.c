@@ -148,8 +148,8 @@ static size_t al_write(void *data, const void* buf, size_t size)
 
 static void al_get_backend(void *data, backend_info_t *backend_info)
 {
-   backend_info->latency = DEFAULT_CHUNK_SIZE * NUM_BUFFERS;
-   backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
+   backend_info->latency = 1024 * NUM_BUFFERS;
+   backend_info->chunk_size = 1024;
 }
 
 const rsd_backend_callback_t rsd_al = {

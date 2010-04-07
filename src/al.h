@@ -16,7 +16,7 @@
 #ifndef AL_H
 #define AL_H
 
-#define NUM_BUFFERS 16
+#define NUM_BUFFERS 8
 
 #include "audio.h"
 #include <AL/al.h>
