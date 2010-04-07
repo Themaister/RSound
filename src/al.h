@@ -16,8 +16,6 @@
 #ifndef AL_H
 #define AL_H
 
-#define NUM_BUFFERS 8
-
 #include "audio.h"
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -25,8 +23,9 @@
 typedef struct
 {
    ALuint source;
-   ALuint buffers[NUM_BUFFERS];
+   ALuint *buffers;
    ALenum format;
+	int num_buffers;
    int channels;
    int rate;
    int latency;
@@ -35,3 +34,6 @@ typedef struct
 } al_t;
 
 #endif
+
+
+

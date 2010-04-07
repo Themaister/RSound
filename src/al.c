@@ -19,15 +19,21 @@
 static ALCdevice *global_handle;
 static ALCcontext *global_context;
 
+#define BUF_SIZE 2048
+
 static void al_close(void *data)
 {
    al_t *al= data;
    if ( al )
    {
+      alSourceStop(al->source);
       alDeleteSources(1, &al->source);
-      alDeleteBuffers(NUM_BUFFERS, al->buffers);
+      if ( al->buffers )
+      {
+         alDeleteBuffers(al->num_buffers, al->buffers);
+         free(al->buffers);
+      }
    }
-
 }
 
 static int al_init(void** data)
@@ -72,10 +78,14 @@ static int al_open(void* data, wav_header_t *w)
 
    al->rate = w->sampleRate;
 
-   alGenSources(1, &al->source);
-   alGenBuffers(NUM_BUFFERS, al->buffers);
-   al->queue = 0;
+	al->num_buffers = al->rate / 10000 + 1;
+   al->buffers = malloc(al->num_buffers * sizeof(int));
+   if ( al->buffers == NULL )
+      return -1;
 
+   alGenSources(1, &al->source);
+   alGenBuffers(al->num_buffers, al->buffers);
+   al->queue = 0;
    
    return 0;
 }
@@ -87,7 +97,7 @@ static size_t al_write(void *data, const void* buf, size_t size)
 
    // Fills up the buffer before we start playing.
    
-   if ( al->queue < NUM_BUFFERS )
+   if ( al->queue < al->num_buffers )
    {
       alBufferData(al->buffers[al->queue++], al->format, buf, size, al->rate);
       if ( alGetError() != AL_NO_ERROR )
@@ -95,9 +105,9 @@ static size_t al_write(void *data, const void* buf, size_t size)
          return 0;
       }
 
-      if ( al->queue == NUM_BUFFERS )
+      if ( al->queue == al->num_buffers )
       {
-         alSourceQueueBuffers(al->source, NUM_BUFFERS, al->buffers);
+         alSourceQueueBuffers(al->source, al->num_buffers, al->buffers);
          alSourcePlay(al->source);
          if ( alGetError() != AL_NO_ERROR )
          {
@@ -119,19 +129,20 @@ static size_t al_write(void *data, const void* buf, size_t size)
    };
 
    // Do we need to unqueue first?
-   do
+   for(;;)
    {
       alGetSourcei(al->source, AL_BUFFERS_PROCESSED, &val);
+      if ( val > 0 )
+         break;
+
       nanosleep(&tv, NULL);
-   } while ( val <= 0 );
+   } 
 
    alSourceUnqueueBuffers(al->source, 1, &buffer);
-   al->queue--;
 
    // Buffers up the data
    alBufferData(buffer, al->format, buf, size, al->rate);
    alSourceQueueBuffers(al->source, 1, &buffer);
-   al->queue++;
    if ( alGetError() != AL_NO_ERROR )
       return 0;
 
@@ -148,8 +159,9 @@ static size_t al_write(void *data, const void* buf, size_t size)
 
 static void al_get_backend(void *data, backend_info_t *backend_info)
 {
-   backend_info->latency = 1024 * NUM_BUFFERS;
-   backend_info->chunk_size = 1024;
+   al_t *al = data;
+   backend_info->latency = BUF_SIZE * al->num_buffers;
+   backend_info->chunk_size = BUF_SIZE;
 }
 
 const rsd_backend_callback_t rsd_al = {
