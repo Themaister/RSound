@@ -235,6 +235,12 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    rd->buffer = realloc ( rd->buffer, rd->buffer_size );
    rd->buffer_pointer = 0;
 
+/////////
+   int bufsiz = rd->buffer_size;
+   setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
+/////////
+
+
    return 0;
 }
 

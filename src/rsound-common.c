@@ -613,6 +613,12 @@ static void* rsd_thread(void *thread_data)
       goto rsd_exit;
    }
 
+///////////////////
+   int bufsiz = backend_info.chunk_size * 16;
+   setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
+///////////////////
+
+
    /* Now we can send backend info to client. */
    if ( send_backend_info(conn, &backend_info) < 0 )
    {
