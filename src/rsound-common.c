@@ -614,7 +614,7 @@ static void* rsd_thread(void *thread_data)
    }
 
 ///////////////////
-   int bufsiz = backend_info.chunk_size * 16;
+   int bufsiz = backend_info.chunk_size * 32;
    setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
 ///////////////////
 
