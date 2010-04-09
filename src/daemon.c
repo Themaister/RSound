@@ -18,6 +18,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <time.h>
+#include <netinet/in.h>
 
 /* Default values */
 
