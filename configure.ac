@@ -38,9 +38,6 @@ AC_CHECK_LIB(rt, clock_gettime, , ,)
 
 AC_SUBST(SERV_LIBS)
 
-AM_SUBST_NOTMAKE(LIBS)
-AM_SUBST_NOTMAKE(DEFS)
-
 AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
 AM_CONDITIONAL(HAVE_OSS, test x$enable_oss = xyes)
 AM_CONDITIONAL(HAVE_PORTA, test x$enable_porta = xyes)
