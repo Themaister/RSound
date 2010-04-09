@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2009 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -15,7 +15,22 @@
 
 #include <stdint.h>
 
-int is_little_endian();
-void swap_endian_32 ( uint32_t* );
-void swap_endian_16 ( uint16_t* );
+inline int is_little_endian()
+{
+   uint16_t i = 1;
+   return *((uint8_t*)&i);
+}
+
+inline void swap_endian_16 ( uint16_t* x )
+{
+   *x = (*x>>8) | (*x<<8);
+}
+
+inline void swap_endian_32 ( uint32_t* x )
+{
+   *x = (*x>>24) | 
+        ((*x<<8) & 0x00FF0000) |
+        ((*x>>8) & 0x0000FF00) |
+        (*x<<24);
+}
 

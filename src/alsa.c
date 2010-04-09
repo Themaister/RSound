@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2009 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -97,9 +97,10 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
    snd_pcm_sframes_t write_size = snd_pcm_bytes_to_frames(sound->handle, size );
    
    rc = snd_pcm_writei(sound->handle, buf, write_size);
-   if (rc == -EPIPE) 
+   if (rc == -EPIPE || rc == -EINTR || rc == -ESTRPIPE ) 
    {
-      snd_pcm_prepare(sound->handle);
+      if ( snd_pcm_recover(sound->handle, rc, 1) < 0 )
+         return 0;
       return size;
    }
    
@@ -108,6 +109,7 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
       fprintf(stderr,
             "Error from writei: %s\n",
             snd_strerror(rc));
+      return 0;
    }  
 
    return snd_pcm_frames_to_bytes(sound->handle, rc);

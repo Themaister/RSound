@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2009 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -31,8 +31,8 @@ static int raw_mode = 0;
 static uint32_t raw_rate = 44100;
 static uint16_t channel = 2;
 
-static char port[128] = "12345";
-static char host[1024] = "localhost";
+static char port[128] = "";
+static char host[1024] = "";
 
 static int set_other_params(rsound_t *rd);
 static void parse_input(int argc, char **argv);
@@ -52,8 +52,11 @@ int main(int argc, char **argv)
       exit(1);
    }
 
-   rsd_set_param(rd, RSD_HOST, (void*)host);
-   rsd_set_param(rd, RSD_PORT, (void*)port);
+   if ( strlen(host) > 0 )
+      rsd_set_param(rd, RSD_HOST, (void*)host);
+   if ( strlen(port) > 0 )
+      rsd_set_param(rd, RSD_PORT, (void*)port);
+   
    if ( set_other_params(rd) < 0 )
    {
       fprintf(stderr, "Couldn't read data.\n");

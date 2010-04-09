@@ -29,6 +29,14 @@
 #include <time.h>
 #include <assert.h>
 
+/* 
+   *************************************************************************************************   
+   *  Naming convention. Functions for use in API are called rsd_*(), internal function are called *
+   *  rsnd_*()                                                                                     *
+   *************************************************************************************************
+*/
+
+
 static inline int rsnd_is_little_endian(void);
 static inline void rsnd_swap_endian_16 ( uint16_t * x );
 static inline void rsnd_swap_endian_32 ( uint32_t * x );
@@ -44,13 +52,14 @@ static size_t rsnd_get_ptr(rsound_t *rd);
 static int rsnd_reset(rsound_t *rd);
 static void* rsnd_thread ( void * thread_data );
 
-/* Determine whether we're running big- or small endian */
+/* Determine whether we're running big- or little endian */
 static inline int rsnd_is_little_endian(void)
 {
    uint16_t i = 1;
    return *((uint8_t*)&i);
 }
 
+/* Simple functions for swapping bytes */
 static inline void rsnd_swap_endian_16 ( uint16_t * x )
 {
    *x = (*x>>8) | (*x<<8);
@@ -64,6 +73,7 @@ static inline void rsnd_swap_endian_32 ( uint32_t * x )
          (*x << 24);
 }
 
+/* Creates sockets and attempts to connect to the server. Returns -1 when failed, and 0 when success. */
 static int rsnd_connect_server( rsound_t *rd )
 {
    struct addrinfo hints, *res;
@@ -98,28 +108,43 @@ static int rsnd_connect_server( rsound_t *rd )
 
    freeaddrinfo(res);
    return 0;
+
+   /* Cleanup for errors. */
 error:
    fprintf(stderr, "Connecting to server failed.\n");
    freeaddrinfo(res);
    return -1;
 }
 
-/* Conjures a WAV-header and sends this to server */
+/* Conjures a WAV-header and sends this to server. Returns -1 when failed, and 0 when success. */
 static int rsnd_send_header_info(rsound_t *rd)
 {
+
+/* Defines the size of a wave header */
 #define HEADER_SIZE 44
    char buffer[HEADER_SIZE] = {0};
    int rc = 0;
    struct pollfd fd;
 
+
+/* These magic numbers represent the position of the elements in the wave header. 
+   We can't simply send a wave struct over the network since the compiler is allowed to
+   pad our structs as they like, so sizeof(waveheader) might not be similar on two different
+   systems. */
+
 #define RATE 24
 #define CHANNEL 22
 #define FRAMESIZE 34
 
+
    uint32_t sample_rate_temp = rd->rate;
    uint16_t channels_temp = rd->channels;
+   /* So far, librsound only support S16_LE samples */
    uint16_t framesize_temp = 16;
 
+   /* Since the values in the wave header we are interested in, are little endian (>_<), we need
+      to determine whether we're running it or not, so we can byte swap accordingly. 
+      Could determine this compile time, but it was simpler to do it this way. */
    if ( !rsnd_is_little_endian() )
    {
       rsnd_swap_endian_32(&sample_rate_temp);
@@ -127,6 +152,7 @@ static int rsnd_send_header_info(rsound_t *rd)
       rsnd_swap_endian_16(&framesize_temp);
    }
 
+   /* Not being able to use structs ftw >_< */
    *((uint32_t*)(buffer+RATE)) = sample_rate_temp;
    *((uint16_t*)(buffer+CHANNEL)) = channels_temp;
    *((uint16_t*)(buffer+FRAMESIZE)) = framesize_temp;
@@ -136,6 +162,7 @@ static int rsnd_send_header_info(rsound_t *rd)
 
    size_t written = 0;
 
+   /* Really makes sure that we do send the whole header. Sets a timeout of 10 seconds. */
    while ( written < HEADER_SIZE )
    {
       if ( poll(&fd, 1, 10000) < 0 )
@@ -173,6 +200,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    fd.fd = rd->conn.socket;
    fd.events = POLLIN;
 
+   /* Really makes sure we recieve the whole header. (If this doesn't go through in one go, it'd make me really scared.) */
    while ( recieved < RSND_HEADER_SIZE )
    {
 
@@ -195,23 +223,28 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       recieved += rc;
    }
 
+   /* Again, we can't be 100% certain that sizeof(backend_info_t) is equal on every system */
    rd->backend_info.latency = ntohl(*((uint32_t*)(rsnd_header)));
    rd->backend_info.chunk_size = ntohl(*((uint32_t*)(rsnd_header+4)));
 
-/* Assumes a default buffer size should it cause problems of being too small */
-   if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size)
+   /* Assumes a default buffer size should it cause problems of being too small */
+   if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size )
       rd->buffer_size = rd->backend_info.chunk_size * 32;
 
+   /* Reallocs memory each time in case we have changes the buffer size from last time */
    rd->buffer = realloc ( rd->buffer, rd->buffer_size );
    rd->buffer_pointer = 0;
 
    return 0;
 }
 
+/* Makes sure that we're connected and done with wave header handshaking. Returns -1 on error, and 0 on success. 
+   This goes for all other functions in use. */
 static int rsnd_create_connection(rsound_t *rd)
 {
    int rc;
 
+   /* Are we connected to the server? If not, these values have been set to <0, so we make sure that we connect */
    if ( rd->conn.socket <= 0 && rd->conn.ctl_socket <= 0 )
    {
       rc = rsnd_connect_server(rd);
@@ -221,6 +254,7 @@ static int rsnd_create_connection(rsound_t *rd)
          return -1;
       }
       
+      /* After connecting, makes really sure that we have a working connection. */
       struct pollfd fd = {
          .fd = rd->conn.socket,
          .events = POLLOUT
@@ -240,8 +274,15 @@ static int rsnd_create_connection(rsound_t *rd)
       }
 
    }
+   /* Is the server ready for data? The first thing it expects is the wave header */
    if ( !rd->ready_for_data )
    {
+      /* Part of the uber simple protocol.
+         1. Send wave header.
+         2. Recieve backend info like latency and preferred packet size.
+         3. Starts the playback thread. */
+
+
       rc = rsnd_send_header_info(rd);
       if (rc < 0)
       {
@@ -269,6 +310,7 @@ static int rsnd_create_connection(rsound_t *rd)
    return 0;
 }
 
+/* Sends a chunk over the network. Makes sure that everything is sent. Returns 0 if connection is lost, >0 if success. */
 static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
 {
    int rc = 0;
@@ -277,6 +319,8 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
    struct pollfd fd;
    fd.fd = socket;
    fd.events = POLLOUT;
+
+#define MAX_PACKET_SIZE 1024
 
    while ( wrote < size )
    {
@@ -295,7 +339,8 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
 
       if ( fd.revents & POLLOUT )
       {
-         send_size = (size - wrote) > 1024 ? 1024 : size - wrote;
+         /* We try to limit ourselves to 1KiB packet sizes. */
+         send_size = (size - wrote) > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - wrote;
          rc = send(socket, buf + wrote, send_size, 0);
          if ( rc < 0 )
          {
@@ -305,29 +350,34 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
          wrote += rc;
       }
       else
-      {
          return 0;
-      }
       /* If server hasn't stopped blocking after 10 secs, then we should probably shut down the stream. */
 
    }
    return wrote;
 }
 
-/* Calculates how many bytes there are in total in the virtual buffer. Is used to determine latency. 
-   Might be changed in the future to correctly determine latency from server */
+/* Calculates how many bytes there are in total in the virtual buffer. This is calculated client side.
+   It should be accurate enough unless we have big problems with buffer underruns.
+   This function is called by rsd_delay() to determine the latency. 
+   This function might be changed in the future to correctly determine latency from server. */
 static void rsnd_drain(rsound_t *rd)
 {
+   /* If the audio playback has started on the server we need to use timers. */
    if ( rd->has_written )
    {
       int64_t temp, temp2;
 
 /* Falls back to gettimeofday() when CLOCK_MONOTONIC is not supported */
+
+/* Calculates the amount of bytes that the server has consumed. */
 #ifdef _POSIX_MONOTONIC_CLOCK
       struct timespec now_tv;
       clock_gettime(CLOCK_MONOTONIC, &now_tv);
       
       temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_nsec.tv_sec;
+
+      /* Multiplies by 2 since we're still only supporting S16_LE samples. */
       temp *= rd->rate * rd->channels * 2;
 
       temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv_nsec.tv_nsec;
@@ -346,6 +396,7 @@ static void rsnd_drain(rsound_t *rd)
       temp2 /= 1000000;
       temp += temp2;
 #endif
+      /* Calculates the amount of data we have in our virtual buffer. Only used to calculate delay. */
       rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)rd->buffer_pointer - temp);
    }
    else
@@ -353,12 +404,15 @@ static void rsnd_drain(rsound_t *rd)
 }
 
 /* Tries to fill the buffer. Uses signals to determine when the buffer is ready to be filled. Should the thread not be active
-   it will treat this as an error */ 
+   it will treat this as an error. Crude implementation of a blocking FIFO. */ 
 static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 {
+
+   
    /* Wait until we have a ready buffer */
    for (;;)
    {
+      /* Should the thread be shut down while we're running, return with error */
       if ( !rd->thread_active )
          return -1;
 
@@ -370,23 +424,10 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       }
       pthread_mutex_unlock(&rd->thread.mutex);
       
-      /* Thread has been shut down and, someone still tried to play back. Race conditions? */
-
-      /* get signal from thread to check again */
-      
-/*      struct timespec tv;
-      clock_gettime(CLOCK_REALTIME, &tv);
-      int nsecs = 50000000;
-
-      tv.tv_nsec = (tv.tv_nsec + nsecs)%1000000000;
-      if ( tv.tv_nsec < 50000000 )
-         tv.tv_sec++;
-*/
-      //fprintf(stderr, "Going into lock...\n");
+      /* Sleeps until we can write to the FIFO. */
       pthread_mutex_lock(&rd->thread.cond_mutex);
       pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
-      //fprintf(stderr, "Got out of lock!\n");
    }
    
    pthread_mutex_lock(&rd->thread.mutex);
@@ -394,7 +435,7 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
    rd->buffer_pointer += (int)size;
    pthread_mutex_unlock(&rd->thread.mutex);
 
-   /* send signal to thread that buffer has been updated */
+   /* Send signal to thread that buffer has been updated */
    pthread_cond_signal(&rd->thread.cond);
 
    return size;
@@ -419,25 +460,27 @@ static int rsnd_start_thread(rsound_t *rd)
       return 0;
 }
 
+/* Makes sure that the playback thread has been correctly shut down */
 static int rsnd_stop_thread(rsound_t *rd)
 {
    if ( rd->thread_active )
    {
       rd->thread_active = 0;
-      // Being really forceful with this, but ... who knows.
+      /* Being really forceful with this unlock, but ... who knows. Better safe than sorry. */
+
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
       if ( pthread_cancel(rd->thread.threadId) < 0 )
       {
          pthread_cond_signal(&rd->thread.cond);
-         fprintf(stderr, "Failed to cancel playback thread.\n");
+         fprintf(stderr, "*** Warning, failed to cancel playback thread. ***\n");
          pthread_mutex_unlock(&rd->thread.mutex);
          pthread_mutex_unlock(&rd->thread.cond_mutex);
          return 0;
       }
       pthread_cond_signal(&rd->thread.cond);
       if ( pthread_join(rd->thread.threadId, NULL) < 0 )
-         fprintf(stderr, "*** Warning, did not terminate thread ***\n");
+         fprintf(stderr, "*** Warning, did not terminate thread. ***\n");
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
       return 0;
@@ -455,11 +498,10 @@ static size_t rsnd_get_delay(rsound_t *rd)
    ptr = (size_t)rd->bytes_in_buffer;
    pthread_mutex_unlock(&rd->thread.mutex);
 
-/* Adds the backend latency */
+/* Adds the backend latency to the calculated latency. */
    ptr += (size_t)rd->backend_info.latency;
    if ( ptr < 0 )
       ptr = 0;
-
 
    return ptr;
 }
@@ -478,26 +520,43 @@ static size_t rsnd_get_ptr(rsound_t *rd)
 /* Ze thread */
 static void* rsnd_thread ( void * thread_data )
 {
+   /* We share data between thread and callable functions */
    rsound_t *rd = thread_data;
    int rc;
 
    /* Plays back data as long as there is data in the buffer. Else, sleep until it can. */
+   /* Two (;;) for loops! :3 Beware! */
    for (;;)
    {
-      while ( (rd->buffer_pointer >= (int)rd->backend_info.chunk_size) && rd->thread_active )
+      for(;;)
       {
+         /* If the buffer is empty or we've stopped the stream. Jump out of this for loop */
+         pthread_mutex_lock(&rd->thread.mutex);
+         if ( rd->buffer_pointer < (int)rd->backend_info.chunk_size || !rd->thread_active )
+         {
+            pthread_mutex_unlock(&rd->thread.mutex);
+            break;
+         }
+         pthread_mutex_unlock(&rd->thread.mutex);
+
          pthread_testcancel();
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size);
+
+         /* If this happens, we should make sure that subsequent and current calls to rsd_write() will fail. */
          if ( rc <= 0 )
          {
             pthread_testcancel();
             rsnd_reset(rd);
+
+            /* Wakes up a potentially sleeping fill_buffer() */
             pthread_cond_signal(&rd->thread.cond);
-            /* This thread will not be joined. */
+
+            /* This thread will not be joined, so detach. */
             pthread_detach(pthread_self());
             pthread_exit(NULL);
          }
          
+         /* If this was the first write, set the start point for the timer. */
          if ( !rd->has_written )
          {
             pthread_mutex_lock(&rd->thread.mutex);
@@ -510,20 +569,23 @@ static void* rsnd_thread ( void * thread_data )
             pthread_mutex_unlock(&rd->thread.mutex);
          }
 
+         /* Increase the total_written counter. Used in rsnd_drain() */
          pthread_mutex_lock(&rd->thread.mutex);
          rd->total_written += rc;
          pthread_mutex_unlock(&rd->thread.mutex);
 
+         /* "Drains" the buffer. This operation looks kinda expensive with large buffers, but hey. D: */
          pthread_mutex_lock(&rd->thread.mutex);
          memmove(rd->buffer, rd->buffer + rd->backend_info.chunk_size, rd->buffer_size - rd->backend_info.chunk_size);
          rd->buffer_pointer -= (int)rd->backend_info.chunk_size;
          pthread_mutex_unlock(&rd->thread.mutex);
 
-         /* Buffer has decreased, signal fill_buffer */
+         /* Buffer has decreased, signal fill_buffer() */
          pthread_cond_signal(&rd->thread.cond);
                           
       }
 
+      /* If we're still good to go, sleep. We are waiting for fill_buffer() to fill up some data. */
       pthread_testcancel();
       if ( rd->thread_active )
       {
@@ -531,6 +593,7 @@ static void* rsnd_thread ( void * thread_data )
          pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
          pthread_mutex_unlock(&rd->thread.cond_mutex);
       }
+      /* Abort request, chap. */
       else
       {
          pthread_cond_signal(&rd->thread.cond);
@@ -545,6 +608,8 @@ static int rsnd_reset(rsound_t *rd)
    close(rd->conn.socket);
    close(rd->conn.ctl_socket);
 
+   /* Pristine stuff, baby! */
+   pthread_mutex_lock(&rd->thread.mutex);
    rd->conn.socket = -1;
    rd->conn.ctl_socket = -1;
    rd->total_written = 0;
@@ -557,18 +622,21 @@ static int rsnd_reset(rsound_t *rd)
    pthread_cond_signal(&rd->thread.cond);
    pthread_mutex_unlock(&rd->thread.mutex);
    pthread_mutex_unlock(&rd->thread.cond_mutex);
-  
-  return 0;
+
+   return 0;
 }
 
 
 int rsd_stop(rsound_t *rd)
 {
    assert(rd != NULL);
-//   const char buf[] = "CLOSE";
    rsnd_stop_thread(rd);
    
-   //send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
+/* This might be part of a control interface to the server later. */
+/*   
+   const char buf[] = "CLOSE";
+   send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
+*/
    
    rsnd_reset(rd);
    return 0;
@@ -588,7 +656,7 @@ size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
    size_t written = 0;
    size_t write_size;
 
-// Makes sure that we can handle arbitrary large write sizes
+/* Makes sure that we can handle arbitrary large write sizes */
    
    while ( written < size )
    {
@@ -650,13 +718,42 @@ int rsd_set_param(rsound_t *rd, int option, void* param)
          rd->buffer_size = *((int*)param);
          break;
       case RSD_LATENCY:
-         rd->min_latency = *((int*)param);
+         rd->max_latency = *((int*)param);
          break;
       default:
          return -1;
    }
    return 0;
          
+}
+
+void rsd_delay_wait(rsound_t *rd)
+{
+
+   /* When called, we make sure that the latency never goes over the time designated in RSD_LATENCY.
+      Useful for certain blocking I/O designs where the latency still needs to be quite low.
+      Without this, the latency of the stream will depend on how big the network buffers are.
+      ( We simulate that we're a low latency sound card ) */
+
+   /* Should we bother with checking latency at all? */
+   if ( rd->max_latency > 0 )
+   {
+      /* Latency of stream in ms */
+      int latency_ms = rsd_delay_ms(rd);
+
+      /* Should we sleep for a while to keep the latency low? */
+      if ( rd->max_latency < latency_ms )
+      {
+         int64_t sleep_ms = latency_ms - rd->max_latency;
+         const struct timespec tv = {
+            .tv_sec = sleep_ms / 1000,
+            .tv_nsec = (sleep_ms * 1000000)%1000000000
+         };
+
+         /* Sleepy time */
+         nanosleep(&tv, NULL);
+      }
+   }
 }
 
 size_t rsd_pointer(rsound_t *rsound)
@@ -700,6 +797,8 @@ int rsd_init(rsound_t** rsound)
 {
    assert(rsound != NULL);
    *rsound = calloc(1, sizeof(rsound_t));
+   if ( *rsound == NULL )
+      return -1;
    
    (*rsound)->conn.socket = -1;
    (*rsound)->conn.ctl_socket = -1;
@@ -707,6 +806,19 @@ int rsd_init(rsound_t** rsound)
    pthread_mutex_init(&(*rsound)->thread.mutex, NULL);
    pthread_mutex_init(&(*rsound)->thread.cond_mutex, NULL);
    pthread_cond_init(&(*rsound)->thread.cond, NULL);
+
+   /* Checks if environment variable RSD_SERVER and RSD_PORT are set */
+   char *rsdhost = getenv("RSD_SERVER");
+   char *rsdport = getenv("RSD_PORT");
+   if ( rsdhost != NULL )
+      rsd_set_param(*rsound, RSD_HOST, rsdhost);
+   else
+      rsd_set_param(*rsound, RSD_HOST, RSD_DEFAULT_HOST);
+
+   if ( rsdport != NULL )
+      rsd_set_param(*rsound, RSD_PORT, rsdport);
+   else
+      rsd_set_param(*rsound, RSD_PORT, RSD_DEFAULT_PORT);
 
    return 0;
 }

@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2009 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -18,8 +18,12 @@
 #include <poll.h>
 #include <signal.h>
 #include <time.h>
+#include <netinet/in.h>
 
 /* Default values */
+
+/* Global variables for use in modules */
+
 char device[128] = "default";
 char port[128] = "12345";
 int verbose = 0;
@@ -42,8 +46,11 @@ int main(int argc, char ** argv)
    char *valid_addr[2];
    char timestring[64] = {0};
    
+
+   /* Parses input and sets the global variables */
    parse_input(argc, argv);
    
+   /* Should we fork and kill our parent? :p */
    if ( daemonize )
    {
       if ( debug )
@@ -81,11 +88,18 @@ int main(int argc, char ** argv)
    signal(SIGINT, cleanup);
    signal(SIGTERM, cleanup);
 
+   /* In case our backend API needs some initializing functions */
    initialize_audio();
+
+
+   /* We're accepting two connects after each other, as we have one stream socket for audio data
+      and one for controlling the server. Currently, the control socket is only useful for
+      determining quickly when the client has hung up the connection. In case a control socket
+      isn't supplied in a short time window (nmap, port scanners, etc),
+      we shut down the connection. The connection, if accepted, will be handled in a new thread. */
+
    while(1)
    {
-      /* Accepts, and creates new sound thread */
-           
       addr_size = sizeof (their_addr[0]);
       s_new = accept(s, (struct sockaddr*)&their_addr[0], &addr_size);
 
@@ -115,7 +129,9 @@ int main(int argc, char ** argv)
       }
       else
       {
-         fprintf(stderr, "CTL-socket timed out.\n");
+         if ( debug )
+            fprintf(stderr, "CTL-socket timed out.\n");
+
          close(s_new); s_new = -1; s_ctl = -1;
          continue;
       }
@@ -127,7 +143,7 @@ int main(int argc, char ** argv)
          continue;
       }
 
-      /* Checks if they are from same source */
+      /* Checks if they are from same source, if not, close the connection. */
       valid_addr[0] = (char*)inet_ntop(their_addr[0].ss_family, 
          get_addr((struct sockaddr*)&their_addr[0]),
             remoteIP[0], INET6_ADDRSTRLEN);
@@ -147,6 +163,7 @@ int main(int argc, char ** argv)
 
       else if ( valid_addr[0] && valid_addr[1] )
       {
+         /* Prints a logging message to the screen. */
          if ( verbose )
          {
             time_t cur_time;
@@ -156,6 +173,7 @@ int main(int argc, char ** argv)
          }
       }
 
+      /* Currently, legal_ip always returns 1 */
       if ( !legal_ip( remoteIP[0] ) )
       {
          close(s_new); s_new = -1;
@@ -175,6 +193,8 @@ int main(int argc, char ** argv)
    
 static void* get_addr(struct sockaddr *sa)
 {
+      /* Gotta love those & 'n * :D */
+
       if ( sa->sa_family == AF_INET ) 
       {
          return &(((struct sockaddr_in*)sa)->sin_addr);
@@ -186,7 +206,7 @@ static void* get_addr(struct sockaddr *sa)
       return NULL;
 }
 
-// For now, just accept the IP blindly
+/* For now, just accept the IP blindly (tinfoil hat off) */
 static int legal_ip( const char* remoteIP )
 {
    return 1;

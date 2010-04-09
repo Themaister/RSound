@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2009 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -36,7 +36,6 @@ static void ao_rsd_shutdown(void)
 
 static int ao_rsd_init(void** data)
 {
-   int default_driver = ao_default_driver_id();
    ao_t *sound = calloc(1, sizeof(ao_t));
    if ( sound == NULL )
       return -1;
