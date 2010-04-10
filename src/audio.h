@@ -35,9 +35,9 @@
 #include <unistd.h>
 
 // Defines audio formats supported by rsound. Might be extended in the future :)
-typedef uint16_t rsd_format_t;
-enum formats
+enum 
 {
+   RSD_UNSPEC = 0x0000,
    RSD_S16_LE = 0x0001,
    RSD_S16_BE = 0x0002,
    RSD_U16_LE = 0x0004,
@@ -45,8 +45,6 @@ enum formats
    RSD_U8     = 0x0010,
    RSD_S8     = 0x0020
 };
-
-
 
 
 typedef struct wav_header 
@@ -65,8 +63,8 @@ typedef struct wav_header
    uint32_t subChunkId2;
 //   uint32_t subChunkSize2; <-- This is supposed to be in the WAV header, 
 //                               but we're taking its place for something more useful. :')
-   uint16_t dummy;
-   uint16_t rsd_format;
+   uint16_t dummy; // :V Might be used for something great and awesome later on!
+   uint16_t rsd_format; // What audio format?
 } wav_header_t;
 
 typedef struct backend_info

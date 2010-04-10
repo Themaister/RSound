@@ -395,7 +395,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
 #define BITS_PER_SAMPLE 34
 
 /* This is not part of the WAV standard, but since we're ignoring these useless bytes at the end to begin with, why not?
-   If this is 0, we assume the default of S16_LE. (We can assume that the client is using an old version of librsound since it sets 0
+   If this is 0 (RSD_UNSPEC), we assume the default of S16_LE. (We can assume that the client is using an old version of librsound since it sets 0
    by default in the header. */
 #define FORMAT 42
 
@@ -419,6 +419,8 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    if (!i)
       swap_endian_16 ( &temp16 );
    head->rsd_format = temp16;
+   if ( head->rsd_format == RSD_UNSPEC )
+      head->rsd_format = RSD_S16_LE;
 
    /* Checks some basic sanity of header file */
    if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 || head->bitsPerSample == 0 )

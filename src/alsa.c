@@ -51,15 +51,39 @@ static int alsa_open(void *data, wav_header_t *w)
       return -1;
    }
 
+   /* Prefer a small frame count for this, with a high buffer/framesize ratio. */
    unsigned int buffer_time = BUFFER_TIME;
    snd_pcm_uframes_t frames = 256;
-   snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
-   /* Prefer a small frame count for this, with a high buffer/framesize. */
+   
+   /* Determines format to use */   
+   snd_pcm_format_t format;
+   switch ( w->rsd_format )
+   {
+      case RSD_S16_LE:
+         format = SND_PCM_FORMAT_S16_LE;
+         break;
+      case RSD_U16_LE:
+         format = SND_PCM_FORMAT_U16_LE;
+         break;
+      case RSD_S16_BE:
+         format = SND_PCM_FORMAT_S16_BE;
+         break;
+      case RSD_U16_BE:
+         format = SND_PCM_FORMAT_U16_BE;
+         break;
+      case RSD_U8:
+         format = SND_PCM_FORMAT_U8;
+         break;
+      case RSD_S8:
+         format = SND_PCM_FORMAT_S8;
+         break;
+
+      default:
+         return -1;
+   }
 
    snd_pcm_hw_params_malloc(&interface->params);
 
-   snd_pcm_sw_params_t *sw_params;
-   snd_pcm_sw_params_malloc(&sw_params);
 
    if ( snd_pcm_hw_params_any(interface->handle, interface->params) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ) return -1;
@@ -78,6 +102,9 @@ static int alsa_open(void *data, wav_header_t *w)
       return -1;
    }
 
+   snd_pcm_sw_params_t *sw_params;
+   snd_pcm_sw_params_malloc(&sw_params);
+   
    if ( snd_pcm_sw_params_current(interface->handle, sw_params) < 0 )
    {
       snd_pcm_sw_params_free(sw_params);
