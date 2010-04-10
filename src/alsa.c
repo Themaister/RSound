@@ -16,7 +16,7 @@
 #include "alsa.h"
 #include "rsound.h"
 
-#define LATENCY_BUFFERS 2
+#define LATENCY_BUFFERS 4
 
 static void alsa_close(void* data)
 {
