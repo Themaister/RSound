@@ -13,6 +13,9 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef ENDIAN_H
+#define ENDIAN_H
+
 #include <stdint.h>
 
 inline int is_little_endian()
@@ -33,4 +36,6 @@ inline void swap_endian_32 ( uint32_t* x )
         ((*x>>8) & 0x0000FF00) |
         (*x<<24);
 }
+
+#endif
 
