@@ -162,25 +162,8 @@ static int rsnd_send_header_info(rsound_t *rd)
    uint32_t sample_rate_temp = rd->rate;
    uint16_t channels_temp = rd->channels;
 
-   uint16_t framesize_temp;
+   uint16_t framesizebits_temp = 8 * rsnd_format_to_framesize(rd->format);
    uint16_t format_temp = rd->format;
-   switch(rd->format)
-   {
-      case RSD_S16_LE:
-      case RSD_U16_LE:
-      case RSD_S16_BE:
-      case RSD_U16_BE:
-         framesize_temp = 16;
-         break;
-
-      case RSD_U8:
-      case RSD_S8:
-         framesize_temp = 8;
-         break;
-
-      default:
-         framesize_temp = 16;
-   }
 
    /* Since the values in the wave header we are interested in, are little endian (>_<), we need
       to determine whether we're running it or not, so we can byte swap accordingly. 
@@ -189,14 +172,14 @@ static int rsnd_send_header_info(rsound_t *rd)
    {
       rsnd_swap_endian_32(&sample_rate_temp);
       rsnd_swap_endian_16(&channels_temp);
-      rsnd_swap_endian_16(&framesize_temp);
+      rsnd_swap_endian_16(&framesizebits_temp);
       rsnd_swap_endian_16(&format_temp);
    }
 
    /* Not being able to use structs ftw >_< */
    *((uint32_t*)(buffer+RATE)) = sample_rate_temp;
    *((uint16_t*)(buffer+CHANNEL)) = channels_temp;
-   *((uint16_t*)(buffer+FRAMESIZE)) = framesize_temp;
+   *((uint16_t*)(buffer+FRAMESIZE)) = framesizebits_temp;
    *((uint16_t*)(buffer+FORMAT)) = format_temp;
 
    fd.fd = rd->conn.socket;

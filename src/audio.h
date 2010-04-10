@@ -91,4 +91,26 @@ typedef struct
    int ctl_socket;
 } connection_t;
 
+
+inline const char* rsnd_format_to_string( uint16_t format )
+{
+   switch(format)
+   {
+      case RSD_S16_LE:
+         return "Signed 16-bit little-endian";
+      case RSD_S16_BE:
+         return "Signed 16-bit big-endian";
+      case RSD_U16_LE:
+         return "Unsigned 16-bit little-endian";
+      case RSD_U16_BE:
+         return "Unsigned 16-bit big-endian";
+      case RSD_U8:
+         return "Unsigned 8-bit";
+      case RSD_S8:
+         return "Signed 8-bit";
+   }
+   return "Unknown format";
+}
+
+
 #endif

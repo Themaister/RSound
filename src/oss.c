@@ -48,7 +48,33 @@ static int oss_open(void *data, wav_header_t *w)
       return -1;
    }
    
-   int format = AFMT_S16_LE;
+   int format;
+   switch ( w->rsd_format )
+   {
+      case RSD_S16_LE:
+         format = AFMT_S16_LE;
+         break;
+      case RSD_U16_LE:
+         format = AFMT_U16_LE;
+         break;
+      case RSD_S16_BE:
+         format = AFMT_S16_BE;
+         break;
+      case RSD_U16_BE:
+         format = AFMT_U16_BE;
+         break;
+      case RSD_U8:
+         format = AFMT_U8;
+         break;
+      case RSD_S8:
+         format = AFMT_S8;
+         break;
+
+      default:
+         return -1;
+   }
+   int oldfmt = format;
+   
    int stereo; 
    int sampleRate = w->sampleRate;
    
@@ -58,9 +84,9 @@ static int oss_open(void *data, wav_header_t *w)
       return -1;
    }
    
-   if ( format != AFMT_S16_LE )
+   if ( format != oldfmt )
    {
-      fprintf(stderr, "Sound card doesn't support S16LE sampling format.\n");
+      fprintf(stderr, "Sound card doesn't support %s sampling format.\n", rsnd_format_to_string(w->rsd_format) );
       return -1;
    }
    
