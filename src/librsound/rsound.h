@@ -27,18 +27,38 @@ extern "C" {
 #include <unistd.h>
 #include <assert.h>
 
+#ifdef HAVE_CONFIG_H
+#include "../config.h"
+#define LIBRSOUND_VERSION PACKAGE_VERSION
+#else
+#define LIBRSOUND_VERSION "0.8"
+#endif
+
 #define RSD_DEFAULT_HOST "localhost"
 #define RSD_DEFAULT_PORT "12345"
-#define LIBRSOUND_VERSION "0.8"
+
+
+/* Defines sample formats available. Defaults to S16_LE should it never be set. */
+enum format
+{
+   RSD_S16_LE = 0x0001,
+   RSD_S16_BE = 0x0002,
+   RSD_U16_LE = 0x0004,
+   RSD_U16_BE = 0x0008,
+   RSD_U8     = 0x0010,
+   RSD_S8     = 0x0020
+};
 
 /* Defines operations that can be used with rsd_set_param() */
-enum {
+enum settings
+{
    RSD_SAMPLERATE = 0,
    RSD_CHANNELS,
    RSD_HOST,
    RSD_PORT,
    RSD_BUFSIZE,
-   RSD_LATENCY /* <<--- Not implemented correctly yet */
+   RSD_LATENCY, /* <<--- Not implemented correctly yet */
+   RSD_FORMAT
 };
 
 /* Do not use directly */
@@ -89,6 +109,8 @@ typedef struct rsound
 
    uint32_t rate;
    uint32_t channels;
+   uint16_t format;
+   int framesize;
 
    rsound_thread_t thread;
 } rsound_t;
@@ -121,8 +143,10 @@ int rsd_init (rsound_t **rd);
    RSD_SAMPLERATE: Set samplerate of audio stream. Expects (int *) in param. Mandatory.
    RSD_BUFSIZE: Sets internal buffersize for the stream. Might be overridden if too small. 
    Expects (int *) in param. Optional.
-   RSD_LATENCY: (!NOT PROPERLY IMPLEMENTED YET!) Sets maximum audio latency in milliseconds. Most applications
-   do not need this. Might be overridden if too small. Expects (int *) in param. Optional.
+   RSD_LATENCY: (!NOT PROPERLY IMPLEMENTED YET!) Sets maximum audio latency in milliseconds, (must be used with rsd_delay_wait() or this will have no effect). 
+   Most applications do not need this. Might be overridden if too small. Expects (int *) in param. Optional.
+   RSD_FORMAT: Sets sample format. It defaults to S16_LE, so you probably will not use this. Expects (int *) in param, with
+   available values found in the format enum. If invalid format is given, param might be changed to reflect the sample format the library will use.
 */
 int rsd_set_param (rsound_t *rd, int option, void* param);
 

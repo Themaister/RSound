@@ -40,6 +40,7 @@
 static inline int rsnd_is_little_endian(void);
 static inline void rsnd_swap_endian_16 ( uint16_t * x );
 static inline void rsnd_swap_endian_32 ( uint32_t * x );
+static inline int rsnd_format_to_framesize( uint16_t format );
 static int rsnd_connect_server( rsound_t *rd );
 static int rsnd_send_header_info(rsound_t *rd);
 static int rsnd_get_backend_info ( rsound_t *rd );
@@ -72,6 +73,26 @@ static inline void rsnd_swap_endian_32 ( uint32_t * x )
          ((*x>>8) & 0x0000FF00) |
          (*x << 24);
 }
+
+static inline int rsnd_format_to_framesize ( uint16_t format )
+{
+   switch(format)
+   {
+      case RSD_S16_LE:
+      case RSD_U16_LE:
+      case RSD_S16_BE:
+      case RSD_U16_BE:
+         return 2;
+
+      case RSD_U8:
+      case RSD_S8:
+         return 1;
+
+      default:
+         return -1;
+   }
+}
+
 
 /* Creates sockets and attempts to connect to the server. Returns -1 when failed, and 0 when success. */
 static int rsnd_connect_server( rsound_t *rd )
@@ -135,12 +156,31 @@ static int rsnd_send_header_info(rsound_t *rd)
 #define RATE 24
 #define CHANNEL 22
 #define FRAMESIZE 34
+#define FORMAT 42
 
 
    uint32_t sample_rate_temp = rd->rate;
    uint16_t channels_temp = rd->channels;
-   /* So far, librsound only support S16_LE samples */
-   uint16_t framesize_temp = 16;
+
+   uint16_t framesize_temp;
+   uint16_t format_temp = rd->format;
+   switch(rd->format)
+   {
+      case RSD_S16_LE:
+      case RSD_U16_LE:
+      case RSD_S16_BE:
+      case RSD_U16_BE:
+         framesize_temp = 16;
+         break;
+
+      case RSD_U8:
+      case RSD_S8:
+         framesize_temp = 8;
+         break;
+
+      default:
+         framesize_temp = 16;
+   }
 
    /* Since the values in the wave header we are interested in, are little endian (>_<), we need
       to determine whether we're running it or not, so we can byte swap accordingly. 
@@ -150,12 +190,14 @@ static int rsnd_send_header_info(rsound_t *rd)
       rsnd_swap_endian_32(&sample_rate_temp);
       rsnd_swap_endian_16(&channels_temp);
       rsnd_swap_endian_16(&framesize_temp);
+      rsnd_swap_endian_16(&format_temp);
    }
 
    /* Not being able to use structs ftw >_< */
    *((uint32_t*)(buffer+RATE)) = sample_rate_temp;
    *((uint16_t*)(buffer+CHANNEL)) = channels_temp;
    *((uint16_t*)(buffer+FRAMESIZE)) = framesize_temp;
+   *((uint16_t*)(buffer+FORMAT)) = format_temp;
 
    fd.fd = rd->conn.socket;
    fd.events = POLLOUT;
@@ -383,11 +425,10 @@ static void rsnd_drain(rsound_t *rd)
       
       temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_nsec.tv_sec;
 
-      /* Multiplies by 2 since we're still only supporting S16_LE samples. */
-      temp *= rd->rate * rd->channels * 2;
+      temp *= rd->rate * rd->channels * rd->framesize;
 
       temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv_nsec.tv_nsec;
-      temp2 *= rd->rate * rd->channels * 2;
+      temp2 *= rd->rate * rd->channels * rd->framesize;
       temp2 /= 1000000000;
       temp += temp2;
 #else
@@ -395,10 +436,10 @@ static void rsnd_drain(rsound_t *rd)
       gettimeofday(&now_tv, NULL);
       
       temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_usec.tv_sec;
-      temp *= rd->rate * rd->channels * 2;
+      temp *= rd->rate * rd->channels * rd->framesize;
 
       temp2 = (int64_t)now_tv.tv_usec - (int64_t)rd->start_tv_usec.tv_usec;
-      temp2 *= rd->rate * rd->channels * 2;
+      temp2 *= rd->rate * rd->channels * rd->framesize;
       temp2 /= 1000000;
       temp += temp2;
 #endif
@@ -726,6 +767,18 @@ int rsd_set_param(rsound_t *rd, int option, void* param)
       case RSD_LATENCY:
          rd->max_latency = *((int*)param);
          break;
+      
+      // Checks if format is valid.   
+      case RSD_FORMAT:
+         rd->format = (uint16_t)(*((int*)param));
+         if ( (rd->framesize = rsnd_format_to_framesize(rd->format)) == -1 )
+         {
+            rd->format = RSD_S16_LE;
+            rd->framesize = rsnd_format_to_framesize(RSD_S16_LE);
+            *((int*)param) = (int)RSD_S16_LE;
+         }
+         break;
+      
       default:
          return -1;
    }
@@ -813,7 +866,11 @@ int rsd_init(rsound_t** rsound)
    pthread_mutex_init(&(*rsound)->thread.cond_mutex, NULL);
    pthread_cond_init(&(*rsound)->thread.cond, NULL);
 
-   /* Checks if environment variable RSD_SERVER and RSD_PORT are set */
+   // Assumes default of S16_LE samples.
+   (*rsound)->format = RSD_S16_LE;
+   (*rsound)->framesize = rsnd_format_to_framesize(RSD_S16_LE);
+
+   /* Checks if environment variable RSD_SERVER and RSD_PORT are set, and valid */
    char *rsdhost = getenv("RSD_SERVER");
    char *rsdport = getenv("RSD_PORT");
    if ( rsdhost != NULL && strlen(rsdhost) )
