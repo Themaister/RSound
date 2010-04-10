@@ -131,7 +131,7 @@ static int alsa_open(void *data, wav_header_t *w)
 
    /* Force small packet sizes */
    interface->frames = 128;
-   interface->size = 128 * w->numChannels * 2;
+   interface->size = 128 * w->numChannels * rsnd_format_to_bytes(w->rsd_format);
    /* */
 
    return 0;

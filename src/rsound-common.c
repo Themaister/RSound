@@ -361,7 +361,7 @@ static void pheader(wav_header_t *w)
       fprintf(stderr, "  Multichannel | ");
 
    fprintf(stderr, "%d / ", w->sampleRate);
-   fprintf(stderr, "%d\n", w->bitsPerSample);
+   fprintf(stderr, "%s\n", rsnd_format_to_string(w->rsd_format));
 
    fprintf(stderr, "============================================\n\n");
 }

@@ -78,10 +78,10 @@ static int ao_rsd_open(void* data, wav_header_t *w)
 
 
    ao_sample_format format = {
-      .bits = 16,
+      .bits = bits,
       .channels = w->numChannels,
       .rate = w->sampleRate,
-      .byte_format = AO_FMT_LITTLE
+      .byte_format = endian
    };
    
    int default_driver = ao_default_driver_id();

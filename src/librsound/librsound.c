@@ -496,7 +496,8 @@ static int rsnd_stop_thread(rsound_t *rd)
    if ( rd->thread_active )
    {
       rd->thread_active = 0;
-      /* Being really forceful with this unlock, but ... who knows. Better safe than sorry. */
+      
+      /* Being really forceful with this unlocking, but ... who knows. Better safe than sorry. */
 
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
@@ -850,8 +851,8 @@ int rsd_init(rsound_t** rsound)
    pthread_cond_init(&(*rsound)->thread.cond, NULL);
 
    // Assumes default of S16_LE samples.
-   (*rsound)->format = RSD_S16_LE;
-   (*rsound)->framesize = rsnd_format_to_framesize(RSD_S16_LE);
+   int format = RSD_S16_LE;
+   rsd_set_param(*rsound, RSD_FORMAT, &format);
 
    /* Checks if environment variable RSD_SERVER and RSD_PORT are set, and valid */
    char *rsdhost = getenv("RSD_SERVER");

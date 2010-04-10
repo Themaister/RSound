@@ -82,9 +82,9 @@ static int porta_open(void *data, wav_header_t *w)
    params.suggestedLatency = Pa_GetDeviceInfo( params.device )->defaultLowOutputLatency;
    params.hostApiSpecificStreamInfo = NULL;
    
-   sound->size = FRAMES_PER_BUFFER * 2 * w->numChannels;
+   sound->size = FRAMES_PER_BUFFER * rsnd_format_to_bytes(w->rsd_format) * w->numChannels;
    sound->frames = FRAMES_PER_BUFFER;
-   sound->bps = 2 * w->numChannels * w->sampleRate;
+   sound->bps = rsnd_format_to_bytes(w->rsd_format) * w->numChannels * w->sampleRate;
    
    err = Pa_OpenStream (
          &sound->stream,

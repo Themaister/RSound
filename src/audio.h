@@ -113,5 +113,22 @@ inline const char* rsnd_format_to_string( uint16_t format )
    return "Unknown format";
 }
 
+inline int rsnd_format_to_bytes( uint16_t format )
+{
+   switch(format)
+   {
+      case RSD_S16_LE:
+      case RSD_S16_BE:
+      case RSD_U16_LE:
+      case RSD_U16_BE:
+         return 2;
+      case RSD_U8:
+      case RSD_S8:
+         return 1;
+   }
+   return -1;
+}
+
+
 
 #endif
