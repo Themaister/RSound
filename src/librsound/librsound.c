@@ -816,12 +816,12 @@ int rsd_init(rsound_t** rsound)
    /* Checks if environment variable RSD_SERVER and RSD_PORT are set */
    char *rsdhost = getenv("RSD_SERVER");
    char *rsdport = getenv("RSD_PORT");
-   if ( rsdhost != NULL )
+   if ( rsdhost != NULL && strlen(rsdhost) )
       rsd_set_param(*rsound, RSD_HOST, rsdhost);
    else
       rsd_set_param(*rsound, RSD_HOST, RSD_DEFAULT_HOST);
 
-   if ( rsdport != NULL )
+   if ( rsdport != NULL && strlen(rsdport) )
       rsd_set_param(*rsound, RSD_PORT, rsdport);
    else
       rsd_set_param(*rsound, RSD_PORT, RSD_DEFAULT_PORT);
