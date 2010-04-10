@@ -47,4 +47,4 @@ AM_CONDITIONAL(HAVE_AL, test x$enable_al = xyes)
 
 AM_PROG_LIBTOOL
 
-AC_OUTPUT(Makefile)
+AC_OUTPUT(Makefile rsound.pc)

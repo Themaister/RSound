@@ -8,6 +8,9 @@ src_librsound_librsound_la_LDFLAGS = -version-info 0:1 -lpthread -lrt
 src_librsound_librsound_includedir = $(includedir)
 src_librsound_librsound_include_HEADERS = src/librsound/rsound.h
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = rsound.pc
+
 sources_serv = 
 AM_CFLAGS = -Wall -O2 -fno-strict-aliasing
 
