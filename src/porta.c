@@ -56,7 +56,29 @@ static int porta_open(void *data, wav_header_t *w)
 
    params.device = Pa_GetDefaultOutputDevice();
    params.channelCount = w->numChannels;
-   params.sampleFormat = paInt16;
+
+   switch ( w->rsd_format )
+   {
+      case RSD_S16_LE:
+         params.sampleFormat = paInt16;
+         break;
+      case RSD_U16_LE:
+      case RSD_S16_BE:
+      case RSD_U16_BE:
+         fprintf(stderr, "Format not supported: %s\n", rsnd_format_to_string(w->rsd_format));
+         return -1;
+      case RSD_U8:
+         params.sampleFormat = paUInt8;
+         break;
+      case RSD_S8:
+         params.sampleFormat = paInt8;
+         break;
+
+      default:
+         return -1;
+   }
+
+
    params.suggestedLatency = Pa_GetDeviceInfo( params.device )->defaultLowOutputLatency;
    params.hostApiSpecificStreamInfo = NULL;
    

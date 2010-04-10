@@ -92,6 +92,7 @@ typedef struct
 } connection_t;
 
 
+// Returns a string. Used for error reporting mostly should the format not be supported.
 inline const char* rsnd_format_to_string( uint16_t format )
 {
    switch(format)
