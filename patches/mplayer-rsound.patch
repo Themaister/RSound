@@ -93,7 +93,7 @@ index cd48fe0..bcab2ce 100755
  $def_nas
 diff --git a/libao2/ao_rsound.c b/libao2/ao_rsound.c
 new file mode 100644
-index 0000000..aaa4566
+index 0000000..5376c80
 --- /dev/null
 +++ b/libao2/ao_rsound.c
 @@ -0,0 +1,144 @@
@@ -171,19 +171,18 @@ index 0000000..aaa4566
 +      return 0;
 +   }
 +
-+   // Defaults
-+   if ( !host )
-+      host = strdup("localhost");
-+   if ( !port )
-+      port = strdup("12345");
-+
 +   if ( rsd_init(&rd) < 0 )
 +      return 0;
 +
++   // Defaults
++   if ( host != NULL )
++      rsd_set_param(rd, RSD_HOST, host);
++
++   if ( port != NULL )
++      rsd_set_param(rd, RSD_PORT, port);
++
 +   rsd_set_param(rd, RSD_SAMPLERATE, &rate);
 +   rsd_set_param(rd, RSD_CHANNELS, &channels);
-+   rsd_set_param(rd, RSD_HOST, host);
-+   rsd_set_param(rd, RSD_PORT, port);
 +   ao_data.channels = channels;
 +   ao_data.samplerate = rate;
 +   ao_data.format = AF_FORMAT_S16_LE;
@@ -191,6 +190,7 @@ index 0000000..aaa4566
 +
 +   if ( rsd_start(rd) < 0 )
 +      return 0;
++   
 +   ao_data.outburst = rd->backend_info.chunk_size;
 +   ao_data.buffersize = rd->buffer_size;
 +   
@@ -233,8 +233,8 @@ index 0000000..aaa4566
 +
 +static float get_delay(void)
 +{
-+   int ptr = rsd_delay(rd);
-+   return (float)ptr / (float)ao_data.bps;
++   int ptr = rsd_delay_ms(rd);
++   return (float)ptr / 1000.0;
 +}
 +
 +
