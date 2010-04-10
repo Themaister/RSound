@@ -1,7 +1,9 @@
 AC_INIT(RSound, 0.8, maister@archlinux.us)
 
 AM_INIT_AUTOMAKE
+AC_CONFIG_SRCDIR([src/daemon.c])
 AC_CONFIG_MACRO_DIR([m4])
+AM_CONFIG_HEADER(src/config.h)
 
 AC_ARG_ENABLE( alsa,       [  --disable-alsa          Disables alsa support], enable_alsa=no, enable_alsa=yes)
 AC_ARG_ENABLE( oss,        [  --disable-oss           Disables oss support], enable_oss=no, enable_oss=yes)
@@ -9,7 +11,7 @@ AC_ARG_ENABLE( portaudio,  [  --disable-portaudio     Disables portaudio support
 AC_ARG_ENABLE( libao,      [  --disable-libao         Disables libao support], enable_ao=no, enable_ao=yes)
 AC_ARG_ENABLE( openal,     [  --disable-openal        Disables openal support], enable_al=no, enable_al=yes)
 
-AC_PROG_CC
+AC_PROG_CC_C99
 AM_PROG_CC_C_O
 
 SERV_LIBS="-lpthread"
@@ -33,8 +35,7 @@ AC_CHECK_LIB(asound, snd_pcm_open, ,enable_alsa=no)
 AC_CHECK_LIB(ao, ao_open_live, ,enable_ao=no)
 AC_CHECK_LIB(portaudio, Pa_OpenStream, ,enable_porta=no)
 AC_CHECK_LIB(openal, alcOpenDevice, ,enable_al=no)
-AC_CHECK_LIB(pthread, pthread_create, , ,)
-AC_CHECK_LIB(rt, clock_gettime, , ,)
+AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR([Could not find pthread]),)
 
 AC_SUBST(SERV_LIBS)
 
@@ -46,4 +47,4 @@ AM_CONDITIONAL(HAVE_AL, test x$enable_al = xyes)
 
 AM_PROG_LIBTOOL
 
-AC_OUTPUT(Makefile)
+AC_OUTPUT(Makefile rsound.pc)

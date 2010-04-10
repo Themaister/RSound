@@ -16,6 +16,8 @@
 #include "alsa.h"
 #include "rsound.h"
 
+#define LATENCY_BUFFERS 4
+
 static void alsa_close(void* data)
 {
    alsa_t *sound = data;
@@ -55,6 +57,10 @@ static int alsa_open(void *data, wav_header_t *w)
    /* Prefer a small frame count for this, with a high buffer/framesize. */
 
    snd_pcm_hw_params_malloc(&interface->params);
+
+   snd_pcm_sw_params_t *sw_params;
+   snd_pcm_sw_params_malloc(&sw_params);
+
    if ( snd_pcm_hw_params_any(interface->handle, interface->params) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_format(interface->handle, interface->params, format) < 0) return -1;
@@ -72,6 +78,30 @@ static int alsa_open(void *data, wav_header_t *w)
       return -1;
    }
 
+   if ( snd_pcm_sw_params_current(interface->handle, sw_params) < 0 )
+   {
+      snd_pcm_sw_params_free(sw_params);
+      return -1;
+   }
+
+   /* Makes sure that ALSA doesn't start playing too early, which might lead to a
+      buffer underrun at the start of the stream. */
+   snd_pcm_uframes_t latency;
+   snd_pcm_hw_params_get_period_size(interface->params, &latency, NULL);
+   if ( snd_pcm_sw_params_set_start_threshold(interface->handle, sw_params, latency * LATENCY_BUFFERS) < 0 )
+   {
+      snd_pcm_sw_params_free(sw_params);
+      return -1;
+   }
+
+   if ( snd_pcm_sw_params(interface->handle, sw_params) < 0 )
+   {
+      snd_pcm_sw_params_free(sw_params);
+      return -1;
+   }
+
+   snd_pcm_sw_params_free(sw_params);
+
    /* Force small packet sizes */
    interface->frames = 128;
    interface->size = 128 * w->numChannels * 2;
@@ -86,7 +116,7 @@ static void alsa_get_backend (void *data, backend_info_t* backend_info)
    snd_pcm_uframes_t latency;
    snd_pcm_hw_params_get_period_size(sound->params, &latency,
          NULL);
-   backend_info->latency = latency * snd_pcm_samples_to_bytes(sound->handle, 1);
+   backend_info->latency = latency * LATENCY_BUFFERS * snd_pcm_samples_to_bytes(sound->handle, 1);
    backend_info->chunk_size = sound->size;
 }
 
