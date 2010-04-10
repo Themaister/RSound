@@ -22,6 +22,7 @@
 #include "audio.h"
 #include <fcntl.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 
 /* Pulls in callback structs depending on compilation options. */
