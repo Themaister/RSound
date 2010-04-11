@@ -182,7 +182,13 @@ inline size_t rsd_delay_ms (rsound_t *rd)
    assert (rd);
    assert (rd->rate > 0 && rd->channels > 0 );
 
-   return (rsd_delay(rd) * 1000) / ( rd->rate * rd->channels * 2 );
+   return (rsd_delay(rd) * 1000) / ( rd->rate * rd->channels * rd->framesize );
+}
+
+/* Returns bytes per sample */
+inline int rsd_samplesize( rsound_t *rd )
+{
+   return rd->framesize;
 }
 
 /* Will sleep until latency of stream reaches maximum allowed latency defined earlier by rsd_set_param - RSD_LATENCY 
