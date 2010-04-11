@@ -34,6 +34,19 @@
 #include <time.h>
 #include <unistd.h>
 
+// Defines audio formats supported by rsound. Might be extended in the future :)
+enum 
+{
+   RSD_UNSPEC = 0x0000,
+   RSD_S16_LE = 0x0001,
+   RSD_S16_BE = 0x0002,
+   RSD_U16_LE = 0x0004,
+   RSD_U16_BE = 0x0008,
+   RSD_U8     = 0x0010,
+   RSD_S8     = 0x0020
+};
+
+
 typedef struct wav_header 
 {
    uint32_t chunkId;
@@ -48,7 +61,10 @@ typedef struct wav_header
    uint16_t blockAlign;
    uint16_t bitsPerSample;
    uint32_t subChunkId2;
-   uint32_t subChunkSize2;
+//   uint32_t subChunkSize2; <-- This is supposed to be in the WAV header, 
+//                               but we're taking its place for something more useful. :')
+   uint16_t dummy; // :V Might be used for something great and awesome later on!
+   uint16_t rsd_format; // What audio format?
 } wav_header_t;
 
 typedef struct backend_info
@@ -74,5 +90,45 @@ typedef struct
    int socket;
    int ctl_socket;
 } connection_t;
+
+
+// Returns a string. Used for error reporting mostly should the format not be supported.
+inline const char* rsnd_format_to_string( uint16_t format )
+{
+   switch(format)
+   {
+      case RSD_S16_LE:
+         return "Signed 16-bit little-endian";
+      case RSD_S16_BE:
+         return "Signed 16-bit big-endian";
+      case RSD_U16_LE:
+         return "Unsigned 16-bit little-endian";
+      case RSD_U16_BE:
+         return "Unsigned 16-bit big-endian";
+      case RSD_U8:
+         return "Unsigned 8-bit";
+      case RSD_S8:
+         return "Signed 8-bit";
+   }
+   return "Unknown format";
+}
+
+inline int rsnd_format_to_bytes( uint16_t format )
+{
+   switch(format)
+   {
+      case RSD_S16_LE:
+      case RSD_S16_BE:
+      case RSD_U16_LE:
+      case RSD_U16_BE:
+         return 2;
+      case RSD_U8:
+      case RSD_S8:
+         return 1;
+   }
+   return -1;
+}
+
+
 
 #endif

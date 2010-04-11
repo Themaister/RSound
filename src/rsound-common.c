@@ -17,6 +17,7 @@
 *   This file defines some backend independent functions      *
 ***************************************************************/
 
+#include "config.h"
 #include "endian.h"
 #include "rsound.h"
 #include "audio.h"
@@ -138,7 +139,6 @@ error:
 /* getopt command-line parsing. Sets the variables declared in daemon.c */
 void parse_input(int argc, char **argv)
 {
-   char *program_name;
 	FILE *pidfile;
 	int pid;
 
@@ -158,13 +158,6 @@ void parse_input(int argc, char **argv)
    };
 
    char optstring[] = "d:b:p:Dvh";
-   program_name = malloc(strlen(argv[0]) + 1);
-   if ( program_name == NULL )
-   {
-      fprintf(stderr, "Error allocating memory.\n");
-      exit(1);
-   }
-   strcpy(program_name, argv[0]);
 
    for(;;)
    {
@@ -187,12 +180,10 @@ void parse_input(int argc, char **argv)
          
          case '?':
             print_help();
-            free(program_name);
             exit(1);
 
          case 'h':
             print_help();
-            free(program_name);
             exit(0);
 
          case 'T':
@@ -370,7 +361,7 @@ static void pheader(wav_header_t *w)
       fprintf(stderr, "  Multichannel | ");
 
    fprintf(stderr, "%d / ", w->sampleRate);
-   fprintf(stderr, "%d\n", w->bitsPerSample);
+   fprintf(stderr, "%s\n", rsnd_format_to_string(w->rsd_format));
 
    fprintf(stderr, "============================================\n\n");
 }
@@ -395,12 +386,19 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
       return -1;
    }
 
+/* Since we can't really rely on that the compiler doesn't pad our structs in funny ways (portability ftw), we need to do it this
+   horrid way. :v */
+
+// Defines Positions in the WAVE header 
 #define CHANNELS 22
 #define RATE 24
 #define BITS_PER_SAMPLE 34
 
-/* Since we can't really rely on that the compiler doesn't pad our structs in funny ways (portability ftw), we need to do it this
-   horrid way. :v */
+/* This is not part of the WAV standard, but since we're ignoring these useless bytes at the end to begin with, why not?
+   If this is 0 (RSD_UNSPEC), we assume the default of S16_LE. (We can assume that the client is using an old version of librsound since it sets 0
+   by default in the header. */
+#define FORMAT 42
+
 
    temp16 = *((uint16_t*)(header+CHANNELS));
    if (!i)
@@ -416,6 +414,13 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    if (!i)
       swap_endian_16 ( &temp16 );
    head->bitsPerSample = temp16;
+
+   temp16 = *((uint16_t*)(header+FORMAT));
+   if (!i)
+      swap_endian_16 ( &temp16 );
+   head->rsd_format = temp16;
+   if ( head->rsd_format == RSD_UNSPEC )
+      head->rsd_format = RSD_S16_LE;
 
    /* Checks some basic sanity of header file */
    if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 || head->bitsPerSample == 0 )

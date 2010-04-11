@@ -47,11 +47,41 @@ static int ao_rsd_open(void* data, wav_header_t *w)
 {
    ao_t* interface = data;
 
+   int bits = 0;
+   int endian = 0;
+
+   switch ( w->rsd_format )
+   {
+      case RSD_S16_LE:
+         bits = 16;
+         endian = AO_FMT_LITTLE;
+         break;
+
+      case RSD_U16_LE:
+      case RSD_U16_BE:
+         return -1;
+
+      case RSD_S16_BE:
+         bits = 16;
+         endian = AO_FMT_BIG;
+         break;
+      case RSD_U8:
+         bits = 8;
+         break;
+      case RSD_S8:
+         bits = 8;
+         break;
+
+      default:
+         return -1;
+   }
+
+
    ao_sample_format format = {
-      .bits = 16,
+      .bits = bits,
       .channels = w->numChannels,
       .rate = w->sampleRate,
-      .byte_format = AO_FMT_LITTLE
+      .byte_format = endian
    };
    
    int default_driver = ao_default_driver_id();
