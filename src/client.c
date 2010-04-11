@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "endian.h"
 
 #define READ_SIZE 1024
 #define HEADER_SIZE 44
@@ -30,6 +31,7 @@
 static int raw_mode = 0;
 static uint32_t raw_rate = 44100;
 static uint16_t channel = 2;
+static int format = 0;
 
 static char port[128] = "";
 static char host[1024] = "";
@@ -103,7 +105,9 @@ quit:
       
 static int set_other_params(rsound_t *rd)
 {
-   int rate, channels;
+   int rate, channels, bits;
+   uint16_t temp_channels, temp_bits;
+   uint32_t temp_rate;
 
    int rc;
    int read_in = 0;
@@ -111,6 +115,7 @@ static int set_other_params(rsound_t *rd)
 
 #define RATE 24
 #define CHANNEL 22
+#define BITS_PER_SAMPLE 34
    
    if ( !raw_mode )
    {  
@@ -122,8 +127,32 @@ static int set_other_params(rsound_t *rd)
          read_in += rc;
       }
 
-      channels = (int)(*((uint16_t*)(buf+CHANNEL)));
-      rate = (int)(*((uint32_t*)(buf+RATE)));
+      temp_channels = *((uint16_t*)(buf+CHANNEL));
+      temp_rate = *((uint32_t*)(buf+RATE));
+      temp_bits = *((uint16_t*)(buf+BITS_PER_SAMPLE));
+      if ( !is_little_endian() )
+      {
+         swap_endian_16(&temp_channels);
+         swap_endian_16(&temp_bits);
+         swap_endian_32(&temp_rate);
+      }
+      
+      rate = (int)temp_rate;
+      channels = (int)temp_channels;
+      bits = (int)temp_bits;
+
+      // Assuming too much, but hey. Not sure how to find big-endian or little-endian in wave files.
+      if ( bits == 16 )
+         format = RSD_S16_LE;
+      else if ( bits == 8 )
+         format = RSD_U8;
+      else
+      {
+         fprintf(stderr, "Only 8 or 16 bit WAVE files supported.\n");
+         rsd_free(rd);
+         exit(1);
+      }
+         
    }
    else
    {
@@ -133,6 +162,7 @@ static int set_other_params(rsound_t *rd)
 
    rsd_set_param(rd, RSD_SAMPLERATE, &rate);
    rsd_set_param(rd, RSD_CHANNELS, &channels);
+   rsd_set_param(rd, RSD_FORMAT, &format);
    return 0;
 }
 
@@ -140,7 +170,7 @@ static void print_help()
 {
    printf("rsdplay (librsound) version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", LIBRSOUND_VERSION);
    printf("=========================================================================\n");
-   printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels | -f/--file ]\n");
+   printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels | -B/--bits | -f/--file ]\n");
    
    printf("\nrsdplay reads PCM data (S16_LE only currently) only through stdin (default) or a file, and sends this data directly to an rsound server.\n"); 
    printf("Unless specified with --raw, rsdplay expects a valid WAV header to be present in the input stream.\n\n");
@@ -155,6 +185,8 @@ static void print_help()
    printf("\tExample: -r 48000. Defaults to 44100\n");
    printf("-c/--channel: Specifies number of sound channels (raw PCM)\n");
    printf("\tExample: -c 1. Defaults to stereo (2)\n");
+   printf("-B: Specifies sample format in raw PCM stream\n");
+   printf("\tSupported formats are: S16LE, S16BE, U16LE, U16BE, S8, U8.\n");
    printf("-h/--help: Prints this help\n");
    printf("-f/--file: Uses file rather than stdin\n\n");
 }
@@ -173,7 +205,7 @@ static void parse_input(int argc, char **argv)
       { NULL, 0, NULL, 0 }
    };
 
-   char optstring[] = "r:p:hc:f:";
+   char optstring[] = "r:p:hc:f:B:";
    while ( 1 )
    {
       c = getopt_long ( argc, argv, optstring, opts, &option_index );
@@ -216,6 +248,28 @@ static void parse_input(int argc, char **argv)
          case 'h':
             print_help();
             exit(0);
+
+         case 'B':
+            if ( strcmp("S16LE", optarg) == 0 || strcmp("16", optarg) == 0 )
+               format = RSD_S16_LE;
+            else if ( strcmp("S16BE", optarg) == 0 )
+               format = RSD_S16_BE;
+            else if ( strcmp("U16LE", optarg) == 0 )
+               format = RSD_U16_LE;
+            else if ( strcmp("U16BE", optarg) == 0 )
+               format = RSD_U16_BE;
+            else if ( strcmp("S8", optarg) == 0 )
+               format = RSD_S8;
+            else if ( strcmp("U8", optarg) == 0 || strcmp("8", optarg) == 0 )
+               format = RSD_U8;
+            else
+            {
+               fprintf(stderr, "Invalid bit format.\n");
+               print_help();
+               exit(1);
+            }
+            break;
+
 
          default:
             fprintf(stderr, "Error in parsing arguments.\n");
