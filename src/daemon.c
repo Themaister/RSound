@@ -34,6 +34,8 @@ int no_threading = 0;
 
 static void* get_addr(struct sockaddr*);
 static int legal_ip(const char*);
+static int valid_ips(struct sockaddr_storage *their_addr);
+static void log_message(const char* ip);
 
 int main(int argc, char ** argv)
 {
@@ -42,10 +44,6 @@ int main(int argc, char ** argv)
    struct sockaddr_storage their_addr[2];
    socklen_t addr_size;
    struct pollfd fd;
-   char remoteIP[2][INET6_ADDRSTRLEN] = { "", "" };
-   char *valid_addr[2];
-   char timestring[64] = {0};
-   
 
    /* Parses input and sets the global variables */
    parse_input(argc, argv);
@@ -145,50 +143,19 @@ int main(int argc, char ** argv)
 
       /* Checks if they are from same source, if not, close the connection. */
       /* TODO: Security here is *retarded* :D */
-      valid_addr[0] = (char*)inet_ntop(their_addr[0].ss_family, 
-         get_addr((struct sockaddr*)&their_addr[0]),
-            remoteIP[0], INET6_ADDRSTRLEN);
-      valid_addr[1] = (char*)inet_ntop(their_addr[1].ss_family, 
-         get_addr((struct sockaddr*)&their_addr[1]),
-            remoteIP[1], INET6_ADDRSTRLEN);
-
-
-      if ( strcmp( remoteIP[0], remoteIP[1] ) && valid_addr[0] && valid_addr[1] )
-      {
-         fprintf(stderr, "*** Warning: Got two connections from different sources. ***\n");
-         fprintf(stderr, "*** %s :: %s ***\n", remoteIP[0], remoteIP[1]);
-         close(s_new); s_new = -1;
-         close(s_ctl); s_ctl = -1;
-         continue;
-      }
-
-      else if ( valid_addr[0] && valid_addr[1] )
-      {
-         /* Prints a logging message to the screen. */
-         if ( verbose )
-         {
-            time_t cur_time;
-            time(&cur_time);
-            strftime(timestring, 63, "%F - %H:%M:%S", localtime(&cur_time)); 
-            fprintf(stderr, "Connection :: [ %s ] [ %s ] ::\n", timestring, remoteIP[1]);
-         }
-      }
-
-      /* Currently, legal_ip always returns 1 */
-      if ( !legal_ip( remoteIP[0] ) )
+      if ( valid_ips(their_addr) < 0 )
       {
          close(s_new); s_new = -1;
          close(s_ctl); s_ctl = -1;
-         continue;
       }
-      
+   
       conn.socket = s_new;
       conn.ctl_socket = s_ctl;
       new_sound_thread(conn);
       s_new = -1;
       s_ctl = -1;
-   }    
-   
+   }
+
    return 0;
 }
    
@@ -212,5 +179,52 @@ static int legal_ip( const char* remoteIP )
 {
    return 1;
 }
+
+static int valid_ips( struct sockaddr_storage *their_addr )
+{
+
+   char remoteIP[2][INET6_ADDRSTRLEN] = { "", "" };
+
+   inet_ntop(their_addr[0].ss_family, 
+         get_addr((struct sockaddr*)&their_addr[0]),
+         remoteIP[0], INET6_ADDRSTRLEN);
+   inet_ntop(their_addr[1].ss_family, 
+         get_addr((struct sockaddr*)&their_addr[1]),
+         remoteIP[1], INET6_ADDRSTRLEN);
+
+
+   if ( strcmp( remoteIP[0], remoteIP[1] ) != 0  )
+   {
+      fprintf(stderr, "*** Warning: Got two connections from different sources. ***\n");
+      fprintf(stderr, "*** %s :: %s ***\n", remoteIP[0], remoteIP[1]);
+      return -1;
+   }
+
+   log_message(remoteIP[1]);
+
+   /* Currently, legal_ip always returns 1 */
+   if ( !legal_ip( remoteIP[0] ) )
+   {
+      return -1;
+   }
+
+   return 0;
+
+}
+
+static void log_message( const char * ip )
+{
+   char timestring[64] = {0};
+   
+   if ( verbose )
+   {
+      time_t cur_time;
+      time(&cur_time);
+      strftime(timestring, 63, "%F - %H:%M:%S", localtime(&cur_time)); 
+      fprintf(stderr, "Connection :: [ %s ] [ %s ] ::\n", timestring, ip);
+   }
+
+}
+
 
 
