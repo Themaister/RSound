@@ -438,6 +438,8 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
 {
 
 #define RSND_HEADER_SIZE 8
+#define LATENCY 0
+#define CHUNKSIZE 4
    
    int rc;
    struct pollfd fd;
@@ -445,8 +447,8 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
    char header[RSND_HEADER_SIZE];
 
 /* Again, padding ftw */
-   *((uint32_t*)header) = htonl(backend->latency);
-   *((uint32_t*)(header+4)) = htonl(backend->chunk_size);
+   *((uint32_t*)header+LATENCY) = htonl(backend->latency);
+   *((uint32_t*)(header+CHUNKSIZE)) = htonl(backend->chunk_size);
 
    fd.fd = conn.socket;
    fd.events = POLLOUT;

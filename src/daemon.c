@@ -144,6 +144,7 @@ int main(int argc, char ** argv)
       }
 
       /* Checks if they are from same source, if not, close the connection. */
+      /* TODO: Security here is *retarded* :D */
       valid_addr[0] = (char*)inet_ntop(their_addr[0].ss_family, 
          get_addr((struct sockaddr*)&their_addr[0]),
             remoteIP[0], INET6_ADDRSTRLEN);
