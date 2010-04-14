@@ -161,29 +161,17 @@ static int rsnd_send_header_info(rsound_t *rd)
 #define FORMAT 42
 
 
-   uint32_t sample_rate_temp = rd->rate;
-   uint16_t channels_temp = rd->channels;
+   uint32_t temp_rate = rd->rate;
+   uint16_t temp_channels = rd->channels;
 
-   uint16_t framesizebits_temp = 8 * rsnd_format_to_framesize(rd->format);
-   uint16_t format_temp = rd->format;
+   uint16_t temp_bits = 8 * rsnd_format_to_framesize(rd->format);
+   uint16_t temp_format = rd->format;
 
    /* Since the values in the wave header we are interested in, are little endian (>_<), we need
       to determine whether we're running it or not, so we can byte swap accordingly. 
       Could determine this compile time, but it was simpler to do it this way. */
-   if ( !rsnd_is_little_endian() )
-   {
-      rsnd_swap_endian_32(&sample_rate_temp);
-      rsnd_swap_endian_16(&channels_temp);
-      rsnd_swap_endian_16(&framesizebits_temp);
-      rsnd_swap_endian_16(&format_temp);
-   }
 
-   /* Not being able to use structs ftw >_< */
-   *((uint32_t*)(header+RATE)) = sample_rate_temp;
-   *((uint16_t*)(header+CHANNEL)) = channels_temp;
-   *((uint16_t*)(header+FRAMESIZE)) = framesizebits_temp;
-   *((uint16_t*)(header+FORMAT)) = format_temp; // Out of WAV spec, but hey.
-
+// Fancy macros for embedding little endian values into the header.
 #define SET32(buf,offset,x) *((uint32_t*)(buf+offset)) = x
 #define SET16(buf,offset,x) *((uint16_t*)(buf+offset)) = x
 
@@ -206,7 +194,11 @@ static int rsnd_send_header_info(rsound_t *rd)
    SET16(header, 20, temp16);
 
    // Channels here
+   LSB16(&temp_channels);
+   SET16(header, CHANNEL, temp_channels);
    // Samples per sec
+   LSB32(&temp_rate);
+   SET32(header, RATE, temp_rate);
 
    temp32 = rd->rate * rd->channels * rsnd_format_to_framesize(rd->format);
    LSB32(&temp32);
@@ -217,11 +209,16 @@ static int rsnd_send_header_info(rsound_t *rd)
    SET16(header, 32, temp16);
 
    // Bits per sample
+   LSB16(&temp_bits);
+   SET16(header, FRAMESIZE, temp_bits);
 
    strcpy(header+36, "data");
 
    // Do not care about cksize here (impossible to know). It is used by
    // the server for format.
+
+   LSB16(&temp_format);
+   SET16(header, FORMAT, temp_format);
 
    // End static header
 
