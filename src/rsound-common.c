@@ -375,6 +375,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    int i = is_little_endian();
    uint16_t temp16;
    uint32_t temp32;
+   uint16_t temp_format;
 
    int rc = 0;
    char header[HEADER_SIZE] = {0};
@@ -395,7 +396,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
 #define BITS_PER_SAMPLE 34
 
 /* This is not part of the WAV standard, but since we're ignoring these useless bytes at the end to begin with, why not?
-   If this is 0 (RSD_UNSPEC), we assume the default of S16_LE. (We can assume that the client is using an old version of librsound since it sets 0
+   If this is 0 (RSD_UNSPEC) or some undefined value, we assume the default of S16_LE for 16 bit and U8 for 8bit. (We can assume that the client is using an old version of librsound since it sets 0
    by default in the header. */
 #define FORMAT 42
 
@@ -418,9 +419,56 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    temp16 = *((uint16_t*)(header+FORMAT));
    if (!i)
       swap_endian_16 ( &temp16 );
-   head->rsd_format = temp16;
-   if ( head->rsd_format == RSD_UNSPEC )
-      head->rsd_format = RSD_S16_LE;
+   temp_format = temp16;
+
+   switch ( head->bitsPerSample )
+   {
+      case 16:
+         head->rsd_format = RSD_S16_LE;
+         break;
+      case 8:
+         head->rsd_format = RSD_U8;
+         break;
+      default:
+         head->rsd_format = RSD_S16_LE;
+   }
+
+   switch ( temp_format )
+   {
+      case RSD_S16_LE:
+         if ( head->bitsPerSample == 16 )
+            head->rsd_format = RSD_S16_LE;
+         break;
+
+      case RSD_S16_BE:
+         if ( head->bitsPerSample == 16 )
+            head->rsd_format = RSD_S16_BE;
+         break;
+
+      case RSD_U16_LE:
+         if ( head->bitsPerSample == 16 )
+            head->rsd_format = RSD_U16_LE;
+         break;
+
+      case RSD_U16_BE:
+         if ( head->bitsPerSample == 16 )
+            head->rsd_format = RSD_U16_BE;
+         break;
+
+      case RSD_U8:
+         if ( head->bitsPerSample == 8 )
+            head->rsd_format = RSD_U8;
+         break;
+
+      case RSD_S8:
+         if ( head->bitsPerSample == 8 )
+            head->rsd_format = RSD_S8;
+         break;
+
+      default:
+         break;
+   }
+
 
    /* Checks some basic sanity of header file */
    if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 || head->bitsPerSample == 0 )
