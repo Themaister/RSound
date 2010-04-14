@@ -172,7 +172,7 @@ static void print_help()
    printf("=========================================================================\n");
    printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels | -B/--bits | -f/--file ]\n");
    
-   printf("\nrsdplay reads PCM data (S16_LE only currently) only through stdin (default) or a file, and sends this data directly to an rsound server.\n"); 
+   printf("\nrsdplay reads PCM data only through stdin (default) or a file, and sends this data directly to an rsound server.\n"); 
    printf("Unless specified with --raw, rsdplay expects a valid WAV header to be present in the input stream.\n\n");
    printf(" Examples:\n"); 
    printf("\trsdplay foo.net < bar.wav\n");
