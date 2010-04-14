@@ -366,7 +366,7 @@ static void pheader(wav_header_t *w)
    fprintf(stderr, "============================================\n\n");
 }
 
-/* Reads raw 44 bytes WAV header and parses this */
+/* Reads raw 44 bytes WAV header from client and parses this (naive approach) */
 static int get_wav_header(connection_t conn, wav_header_t* head)
 {
 
@@ -421,6 +421,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
       swap_endian_16 ( &temp16 );
    temp_format = temp16;
 
+   // Checks bits to get a default should the format not be set.
    switch ( head->bitsPerSample )
    {
       case 16:
@@ -433,6 +434,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
          head->rsd_format = RSD_S16_LE;
    }
 
+   // If format is set to some defined value, use that instead.
    switch ( temp_format )
    {
       case RSD_S16_LE:
@@ -485,6 +487,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
 static int send_backend_info(connection_t conn, backend_info_t *backend )
 {
 
+// Magic 8 bytes that server sends to the client.
 #define RSND_HEADER_SIZE 8
 #define LATENCY 0
 #define CHUNKSIZE 4
@@ -495,8 +498,11 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
    char header[RSND_HEADER_SIZE];
 
 /* Again, padding ftw */
-   *((uint32_t*)header+LATENCY) = htonl(backend->latency);
+   // Client uses server side latency for delay calculations.
+   *((uint32_t*)header+LATENCY) = htonl(backend->latency);  
+   // Preferred TCP packet size. (Fragsize for audio backend. Might be ignored by client.)
    *((uint32_t*)(header+CHUNKSIZE)) = htonl(backend->chunk_size);
+
 
    fd.fd = conn.socket;
    fd.events = POLLOUT;
