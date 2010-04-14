@@ -175,8 +175,8 @@ static int rsnd_send_header_info(rsound_t *rd)
 #define SET32(buf,offset,x) *((uint32_t*)(buf+offset)) = x
 #define SET16(buf,offset,x) *((uint16_t*)(buf+offset)) = x
 
-#define LSB16(x) *x = htons(*x); rsnd_swap_endian_16(x);
-#define LSB32(x) *x = htonl(*x); rsnd_swap_endian_32(x);
+#define LSB16(x) if ( !is_little_endian() ) { rsnd_swap_endian_16(x); }
+#define LSB32(x) if ( !is_little_endian() ) { rsnd_swap_endian_32(x); }
 
    // Here we embed in the rest of the WAV header for it to be somewhat valid
 
@@ -194,10 +194,14 @@ static int rsnd_send_header_info(rsound_t *rd)
    SET16(header, 20, temp16);
 
    // Channels here
+   fprintf(stderr, "Channels: %d\n", (int)temp_channels);
    LSB16(&temp_channels);
+   fprintf(stderr, "Channels: %d\n", (int)temp_channels);
    SET16(header, CHANNEL, temp_channels);
    // Samples per sec
+   fprintf(stderr, "Rate: %d\n", (int)temp_rate);
    LSB32(&temp_rate);
+   fprintf(stderr, "Rate: %d\n", (int)temp_rate);
    SET32(header, RATE, temp_rate);
 
    temp32 = rd->rate * rd->channels * rsnd_format_to_framesize(rd->format);
@@ -209,7 +213,9 @@ static int rsnd_send_header_info(rsound_t *rd)
    SET16(header, 32, temp16);
 
    // Bits per sample
+   fprintf(stderr, "Bits: %d\n", (int)temp_bits);
    LSB16(&temp_bits);
+   fprintf(stderr, "Bits: %d\n", (int)temp_bits);
    SET16(header, FRAMESIZE, temp_bits);
 
    strcpy(header+36, "data");

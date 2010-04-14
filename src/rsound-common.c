@@ -104,10 +104,13 @@ void new_sound_thread ( connection_t connection )
       goto error;
    }
 
-   if ( fcntl(conn->ctl_socket, F_SETFL, O_NONBLOCK) < 0)
+   if ( conn->ctl_socket )
    {
-      fprintf(stderr, "Setting non-blocking socket failed.\n");
-      goto error;
+      if ( fcntl(conn->ctl_socket, F_SETFL, O_NONBLOCK) < 0)
+      {
+         fprintf(stderr, "Setting non-blocking socket failed.\n");
+         goto error;
+      }
    }
 
    /* If we're not using serveral threads, we must wait for the last thread to join. */
