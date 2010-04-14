@@ -120,12 +120,15 @@ int main(int argc, char ** argv)
          exit(1);
       }
 
+      /* Accepts the connection if there's one pending */
       if (fd.revents & POLLIN)
       {
          addr_size = sizeof (their_addr[0]);
          s_ctl = accept(s, (struct sockaddr*)&their_addr[1], &addr_size);
       }
-      else
+      /* We didn't get a control socket, so we don't care about it :) 
+       If s_ctl is 0, the backend will not perform any operations on it. */
+      else 
       {
          if ( debug )
             fprintf(stderr, "CTL-socket timed out. Ignoring CTL-socket. \n");
@@ -152,7 +155,7 @@ int main(int argc, char ** argv)
       conn.socket = s_new;
       conn.ctl_socket = s_ctl;
       new_sound_thread(conn);
-      s_new = -1;
+      s_new = -1; // Makes sure that we cannot clutter the backend connection in any way.
       s_ctl = -1;
    }
 
