@@ -143,7 +143,7 @@ int main(int argc, char ** argv)
       /* Checks if they are from same source, if not, close the connection. */
       /* Check will be ignored if there is no ctl-socket active. */
       /* TODO: Security here is *retarded* :D */
-      if ( s_ctl && valid_ips(their_addr) < 0 )
+      if ( (s_ctl > 0) && valid_ips(their_addr) < 0 )
       {
          close(s_new); s_new = -1;
          close(s_ctl); s_ctl = -1;

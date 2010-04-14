@@ -30,10 +30,10 @@
 #include <assert.h>
 
 /* 
-   *************************************************************************************************   
-   *  Naming convention. Functions for use in API are called rsd_*(), internal function are called *
-   *  rsnd_*()                                                                                     *
-   *************************************************************************************************
+   ****************************************************************************   
+      Naming convention. Functions for use in API are called rsd_*(),         *
+      internal function are called rsnd_*()                                   *
+   ****************************************************************************
 */
 
 
@@ -194,14 +194,10 @@ static int rsnd_send_header_info(rsound_t *rd)
    SET16(header, 20, temp16);
 
    // Channels here
-   fprintf(stderr, "Channels: %d\n", (int)temp_channels);
    LSB16(&temp_channels);
-   fprintf(stderr, "Channels: %d\n", (int)temp_channels);
    SET16(header, CHANNEL, temp_channels);
    // Samples per sec
-   fprintf(stderr, "Rate: %d\n", (int)temp_rate);
    LSB32(&temp_rate);
-   fprintf(stderr, "Rate: %d\n", (int)temp_rate);
    SET32(header, RATE, temp_rate);
 
    temp32 = rd->rate * rd->channels * rsnd_format_to_framesize(rd->format);
@@ -213,14 +209,12 @@ static int rsnd_send_header_info(rsound_t *rd)
    SET16(header, 32, temp16);
 
    // Bits per sample
-   fprintf(stderr, "Bits: %d\n", (int)temp_bits);
    LSB16(&temp_bits);
-   fprintf(stderr, "Bits: %d\n", (int)temp_bits);
    SET16(header, FRAMESIZE, temp_bits);
 
    strcpy(header+36, "data");
 
-   // Do not care about cksize here (impossible to know). It is used by
+   // Do not care about cksize here (impossible to know beforehand). It is used by
    // the server for format.
 
    LSB16(&temp_format);

@@ -595,15 +595,21 @@ static int recieve_data(connection_t conn, char* buffer, size_t size)
    fd[1].events = POLLIN;
    
    // Will not check ctl_socket if it's never used.
-   int fds = (conn.ctl_socket) ? 2 : 1;
+   int fds; 
+   if ( conn.ctl_socket > 0 )
+      fds = 2;
+   else
+      fds = 1;
+
    while ( read < size )
    {
       if ( poll(fd, fds, 50) < 0)
          return 0;
 
-      if ( conn.ctl_socket )
+      // If POLLIN is active on ctl socket, or POLLHUP, shut the stream down.
+      if ( fds == 2 )
       {
-         if ( fd[1].revents & POLLIN )
+         if ( fd[1].revents & (POLLIN | POLLHUP) )
             return 0;
       }
 
