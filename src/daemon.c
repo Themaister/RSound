@@ -128,10 +128,9 @@ int main(int argc, char ** argv)
       else
       {
          if ( debug )
-            fprintf(stderr, "CTL-socket timed out.\n");
+            fprintf(stderr, "CTL-socket timed out. Ignoring CTL-socket. \n");
 
-         close(s_new); s_new = -1; s_ctl = -1;
-         continue;
+         s_ctl = 0;
       }
 
       if ( s_ctl == -1 )
@@ -142,8 +141,9 @@ int main(int argc, char ** argv)
       }
 
       /* Checks if they are from same source, if not, close the connection. */
+      /* Check will be ignored if there is no ctl-socket active. */
       /* TODO: Security here is *retarded* :D */
-      if ( valid_ips(their_addr) < 0 )
+      if ( s_ctl && valid_ips(their_addr) < 0 )
       {
          close(s_new); s_new = -1;
          close(s_ctl); s_ctl = -1;

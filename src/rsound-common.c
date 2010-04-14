@@ -537,13 +537,18 @@ static int recieve_data(connection_t conn, char* buffer, size_t size)
    fd[1].fd = conn.ctl_socket;
    fd[1].events = POLLIN;
    
+   // Will not check ctl_socket if it's never used.
+   int fds = (conn.ctl_socket) ? 2 : 1;
    while ( read < size )
    {
-      if ( poll(fd, 2, 50) < 0)
+      if ( poll(fd, fds, 50) < 0)
          return 0;
 
-      if ( fd[1].revents & POLLIN )
-         return 0;
+      if ( conn.ctl_socket )
+      {
+         if ( fd[1].revents & POLLIN )
+            return 0;
+      }
 
       if ( fd[0].revents & POLLHUP )
          return 0;
