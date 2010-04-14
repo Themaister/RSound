@@ -379,6 +379,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    uint16_t temp16;
    uint32_t temp32;
    uint16_t temp_format;
+   uint16_t pcm;
 
    int rc = 0;
    char header[HEADER_SIZE] = {0};
@@ -393,7 +394,8 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
 /* Since we can't really rely on that the compiler doesn't pad our structs in funny ways (portability ftw), we need to do it this
    horrid way. :v */
 
-// Defines Positions in the WAVE header 
+// Defines Positions in the WAVE header
+#define PCM 20
 #define CHANNELS 22
 #define RATE 24
 #define BITS_PER_SAMPLE 34
@@ -424,6 +426,11 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
       swap_endian_16 ( &temp16 );
    temp_format = temp16;
 
+   temp16 = *((uint16_t*)(header+PCM));
+   if (!i)
+      swap_endian_16 ( &temp16 );
+   pcm = temp16;
+
    // Checks bits to get a default should the format not be set.
    switch ( head->bitsPerSample )
    {
@@ -437,41 +444,34 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
          head->rsd_format = RSD_S16_LE;
    }
 
-   // If format is set to some defined value, use that instead.
-   switch ( temp_format )
+   if ( !pcm ) // Are we out of spec?
    {
-      case RSD_S16_LE:
-         if ( head->bitsPerSample == 16 )
-            head->rsd_format = RSD_S16_LE;
-         break;
+   // If format is set to some defined value, use that instead.
+      switch ( temp_format )
+      {
+         case RSD_S16_BE:
+            if ( head->bitsPerSample == 16 )
+               head->rsd_format = RSD_S16_BE;
+            break;
 
-      case RSD_S16_BE:
-         if ( head->bitsPerSample == 16 )
-            head->rsd_format = RSD_S16_BE;
-         break;
+         case RSD_U16_LE:
+            if ( head->bitsPerSample == 16 )
+               head->rsd_format = RSD_U16_LE;
+            break;
 
-      case RSD_U16_LE:
-         if ( head->bitsPerSample == 16 )
-            head->rsd_format = RSD_U16_LE;
-         break;
+         case RSD_U16_BE:
+            if ( head->bitsPerSample == 16 )
+               head->rsd_format = RSD_U16_BE;
+            break;
 
-      case RSD_U16_BE:
-         if ( head->bitsPerSample == 16 )
-            head->rsd_format = RSD_U16_BE;
-         break;
+         case RSD_U8:
+            if ( head->bitsPerSample == 8 )
+               head->rsd_format = RSD_U8;
+            break;
 
-      case RSD_U8:
-         if ( head->bitsPerSample == 8 )
-            head->rsd_format = RSD_U8;
-         break;
-
-      case RSD_S8:
-         if ( head->bitsPerSample == 8 )
-            head->rsd_format = RSD_S8;
-         break;
-
-      default:
-         break;
+         default:
+            break;
+      }
    }
 
 
