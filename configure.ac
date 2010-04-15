@@ -1,4 +1,4 @@
-AC_INIT(RSound, 0.8, maister@archlinux.us)
+AC_INIT(RSound, 0.9alpha, maister@archlinux.us)
 
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/daemon.c])
