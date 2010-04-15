@@ -71,10 +71,16 @@ static int al_open(void* data, wav_header_t *w)
    al_t *al = data;
 
    // Crude
-   if ( w->numChannels == 2 )
+   if ( w->numChannels == 2 && w->bitsPerSample == 16 )
       al->format = AL_FORMAT_STEREO16;
-   else
+   else if ( w->numChannels == 1 && w->bitsPerSample == 16 )
       al->format = AL_FORMAT_MONO16;
+   else if ( w->numChannels == 2 && w->bitsPerSample == 8 )
+      al->format = AL_FORMAT_STEREO8;
+   else if ( w->numChannels == 1 && w->bitsPerSample == 8 )
+      al->format = AL_FORMAT_MONO8;
+   else
+      al->format = AL_FORMAT_STEREO16; // Oh what the hell :D
 
    al->rate = w->sampleRate;
 

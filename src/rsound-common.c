@@ -104,10 +104,13 @@ void new_sound_thread ( connection_t connection )
       goto error;
    }
 
-   if ( fcntl(conn->ctl_socket, F_SETFL, O_NONBLOCK) < 0)
+   if ( conn->ctl_socket )
    {
-      fprintf(stderr, "Setting non-blocking socket failed.\n");
-      goto error;
+      if ( fcntl(conn->ctl_socket, F_SETFL, O_NONBLOCK) < 0)
+      {
+         fprintf(stderr, "Setting non-blocking socket failed.\n");
+         goto error;
+      }
    }
 
    /* If we're not using serveral threads, we must wait for the last thread to join. */
@@ -366,7 +369,7 @@ static void pheader(wav_header_t *w)
    fprintf(stderr, "============================================\n\n");
 }
 
-/* Reads raw 44 bytes WAV header and parses this */
+/* Reads raw 44 bytes WAV header from client and parses this (naive approach) */
 static int get_wav_header(connection_t conn, wav_header_t* head)
 {
 
@@ -375,6 +378,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    int i = is_little_endian();
    uint16_t temp16;
    uint32_t temp32;
+   uint16_t temp_format;
 
    int rc = 0;
    char header[HEADER_SIZE] = {0};
@@ -395,7 +399,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
 #define BITS_PER_SAMPLE 34
 
 /* This is not part of the WAV standard, but since we're ignoring these useless bytes at the end to begin with, why not?
-   If this is 0 (RSD_UNSPEC), we assume the default of S16_LE. (We can assume that the client is using an old version of librsound since it sets 0
+   If this is 0 (RSD_UNSPEC) or some undefined value, we assume the default of S16_LE for 16 bit and U8 for 8bit. (We can assume that the client is using an old version of librsound since it sets 0
    by default in the header. */
 #define FORMAT 42
 
@@ -418,9 +422,58 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    temp16 = *((uint16_t*)(header+FORMAT));
    if (!i)
       swap_endian_16 ( &temp16 );
-   head->rsd_format = temp16;
-   if ( head->rsd_format == RSD_UNSPEC )
-      head->rsd_format = RSD_S16_LE;
+   temp_format = temp16;
+
+   // Checks bits to get a default should the format not be set.
+   switch ( head->bitsPerSample )
+   {
+      case 16:
+         head->rsd_format = RSD_S16_LE;
+         break;
+      case 8:
+         head->rsd_format = RSD_U8;
+         break;
+      default:
+         head->rsd_format = RSD_S16_LE;
+   }
+
+   // If format is set to some defined value, use that instead.
+   switch ( temp_format )
+   {
+      case RSD_S16_LE:
+         if ( head->bitsPerSample == 16 )
+            head->rsd_format = RSD_S16_LE;
+         break;
+
+      case RSD_S16_BE:
+         if ( head->bitsPerSample == 16 )
+            head->rsd_format = RSD_S16_BE;
+         break;
+
+      case RSD_U16_LE:
+         if ( head->bitsPerSample == 16 )
+            head->rsd_format = RSD_U16_LE;
+         break;
+
+      case RSD_U16_BE:
+         if ( head->bitsPerSample == 16 )
+            head->rsd_format = RSD_U16_BE;
+         break;
+
+      case RSD_U8:
+         if ( head->bitsPerSample == 8 )
+            head->rsd_format = RSD_U8;
+         break;
+
+      case RSD_S8:
+         if ( head->bitsPerSample == 8 )
+            head->rsd_format = RSD_S8;
+         break;
+
+      default:
+         break;
+   }
+
 
    /* Checks some basic sanity of header file */
    if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 || head->bitsPerSample == 0 )
@@ -437,7 +490,10 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
 static int send_backend_info(connection_t conn, backend_info_t *backend )
 {
 
+// Magic 8 bytes that server sends to the client.
 #define RSND_HEADER_SIZE 8
+#define LATENCY 0
+#define CHUNKSIZE 4
    
    int rc;
    struct pollfd fd;
@@ -445,8 +501,11 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
    char header[RSND_HEADER_SIZE];
 
 /* Again, padding ftw */
-   *((uint32_t*)header) = htonl(backend->latency);
-   *((uint32_t*)(header+4)) = htonl(backend->chunk_size);
+   // Client uses server side latency for delay calculations.
+   *((uint32_t*)header+LATENCY) = htonl(backend->latency);  
+   // Preferred TCP packet size. (Fragsize for audio backend. Might be ignored by client.)
+   *((uint32_t*)(header+CHUNKSIZE)) = htonl(backend->chunk_size);
+
 
    fd.fd = conn.socket;
    fd.events = POLLOUT;
@@ -535,13 +594,24 @@ static int recieve_data(connection_t conn, char* buffer, size_t size)
    fd[1].fd = conn.ctl_socket;
    fd[1].events = POLLIN;
    
+   // Will not check ctl_socket if it's never used.
+   int fds; 
+   if ( conn.ctl_socket > 0 )
+      fds = 2;
+   else
+      fds = 1;
+
    while ( read < size )
    {
-      if ( poll(fd, 2, 50) < 0)
+      if ( poll(fd, fds, 50) < 0)
          return 0;
 
-      if ( fd[1].revents & POLLIN )
-         return 0;
+      // If POLLIN is active on ctl socket, or POLLHUP, shut the stream down.
+      if ( fds == 2 )
+      {
+         if ( fd[1].revents & (POLLIN | POLLHUP) )
+            return 0;
+      }
 
       if ( fd[0].revents & POLLHUP )
          return 0;

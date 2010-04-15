@@ -46,31 +46,21 @@ enum
    RSD_S8     = 0x0020
 };
 
-
+// The header that is sent from client to server
 typedef struct wav_header 
 {
-   uint32_t chunkId;
-   uint32_t chunkSize;
-   uint32_t format;
-   uint32_t subChunkId;
-   uint32_t subChunkSize;
-   uint16_t audioFormat;
    uint16_t numChannels;
    uint32_t sampleRate;
-   uint32_t byteRate;
-   uint16_t blockAlign;
    uint16_t bitsPerSample;
-   uint32_t subChunkId2;
-//   uint32_t subChunkSize2; <-- This is supposed to be in the WAV header, 
-//                               but we're taking its place for something more useful. :')
-   uint16_t dummy; // :V Might be used for something great and awesome later on!
-   uint16_t rsd_format; // What audio format?
+   uint16_t rsd_format;
+   char *stream_name;
 } wav_header_t;
 
+// Info that is sent from server to client
 typedef struct backend_info
 {
-   uint32_t latency;
-   uint32_t chunk_size;
+   uint32_t latency;    // Is used by client to calculate latency 
+   uint32_t chunk_size; // Preferred TCP packet size. Might just be ignored completely :)
 } backend_info_t;
 
 typedef struct rsd_backend_callback

@@ -30,10 +30,10 @@
 #include <assert.h>
 
 /* 
-   *************************************************************************************************   
-   *  Naming convention. Functions for use in API are called rsd_*(), internal function are called *
-   *  rsnd_*()                                                                                     *
-   *************************************************************************************************
+   ****************************************************************************   
+      Naming convention. Functions for use in API are called rsd_*(),         *
+      internal function are called rsnd_*()                                   *
+   ****************************************************************************
 */
 
 
@@ -143,9 +143,11 @@ static int rsnd_send_header_info(rsound_t *rd)
 
 /* Defines the size of a wave header */
 #define HEADER_SIZE 44
-   char buffer[HEADER_SIZE] = {0};
+   char header[HEADER_SIZE] = {0};
    int rc = 0;
    struct pollfd fd;
+   uint16_t temp16;
+   uint32_t temp32;
 
 
 /* These magic numbers represent the position of the elements in the wave header. 
@@ -159,28 +161,69 @@ static int rsnd_send_header_info(rsound_t *rd)
 #define FORMAT 42
 
 
-   uint32_t sample_rate_temp = rd->rate;
-   uint16_t channels_temp = rd->channels;
+   uint32_t temp_rate = rd->rate;
+   uint16_t temp_channels = rd->channels;
 
-   uint16_t framesizebits_temp = 8 * rsnd_format_to_framesize(rd->format);
-   uint16_t format_temp = rd->format;
+   uint16_t temp_bits = 8 * rsnd_format_to_framesize(rd->format);
+   uint16_t temp_format = rd->format;
 
    /* Since the values in the wave header we are interested in, are little endian (>_<), we need
       to determine whether we're running it or not, so we can byte swap accordingly. 
       Could determine this compile time, but it was simpler to do it this way. */
-   if ( !rsnd_is_little_endian() )
-   {
-      rsnd_swap_endian_32(&sample_rate_temp);
-      rsnd_swap_endian_16(&channels_temp);
-      rsnd_swap_endian_16(&framesizebits_temp);
-      rsnd_swap_endian_16(&format_temp);
-   }
 
-   /* Not being able to use structs ftw >_< */
-   *((uint32_t*)(buffer+RATE)) = sample_rate_temp;
-   *((uint16_t*)(buffer+CHANNEL)) = channels_temp;
-   *((uint16_t*)(buffer+FRAMESIZE)) = framesizebits_temp;
-   *((uint16_t*)(buffer+FORMAT)) = format_temp;
+// Fancy macros for embedding little endian values into the header.
+#define SET32(buf,offset,x) (*((uint32_t*)(buf+offset)) = x)
+#define SET16(buf,offset,x) (*((uint16_t*)(buf+offset)) = x)
+
+#define LSB16(x) if ( !is_little_endian() ) { rsnd_swap_endian_16(&(x)); }
+#define LSB32(x) if ( !is_little_endian() ) { rsnd_swap_endian_32(&(x)); }
+
+   // Here we embed in the rest of the WAV header for it to be somewhat valid
+
+   strcpy(header, "RIFF");
+   SET32(header, 4, 0);
+   strcpy(header+8, "WAVE");
+   strcpy(header+12, "fmt ");
+   
+   temp32 = 16;
+   LSB32(temp32);
+   SET32(header, 16, temp32);
+
+   temp16 = 0; // PCM data
+
+   if ( rd->format == RSD_S16_LE || rd->format == RSD_U8 )
+      temp16 = 1;
+   LSB16(temp16);
+   SET16(header, 20, temp16);
+
+   // Channels here
+   LSB16(temp_channels);
+   SET16(header, CHANNEL, temp_channels);
+   // Samples per sec
+   LSB32(temp_rate);
+   SET32(header, RATE, temp_rate);
+
+   temp32 = rd->rate * rd->channels * rsnd_format_to_framesize(rd->format);
+   LSB32(temp32);
+   SET32(header, 28, temp32);
+
+   temp16 = rd->channels * rsnd_format_to_framesize(rd->format);
+   LSB16(temp16);
+   SET16(header, 32, temp16);
+
+   // Bits per sample
+   LSB16(temp_bits);
+   SET16(header, FRAMESIZE, temp_bits);
+
+   strcpy(header+36, "data");
+
+   // Do not care about cksize here (impossible to know beforehand). It is used by
+   // the server for format.
+
+   LSB16(temp_format);
+   SET16(header, FORMAT, temp_format);
+
+   // End static header
 
    fd.fd = rd->conn.socket;
    fd.events = POLLOUT;
@@ -200,7 +243,7 @@ static int rsnd_send_header_info(rsound_t *rd)
          return -1;
       }
 
-      rc = send ( rd->conn.socket, buffer + written, HEADER_SIZE - written, 0);
+      rc = send ( rd->conn.socket, header + written, HEADER_SIZE - written, 0);
       if ( rc <= 0 )
       {
          return -1;

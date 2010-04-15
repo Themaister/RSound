@@ -143,7 +143,7 @@ static void alsa_get_backend (void *data, backend_info_t* backend_info)
    snd_pcm_uframes_t latency;
    snd_pcm_hw_params_get_period_size(sound->params, &latency,
          NULL);
-   backend_info->latency = latency * LATENCY_BUFFERS * snd_pcm_samples_to_bytes(sound->handle, 1);
+   backend_info->latency = latency * LATENCY_BUFFERS * snd_pcm_frames_to_bytes(sound->handle, 1);
    backend_info->chunk_size = sound->size;
 }
 
