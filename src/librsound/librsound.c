@@ -17,6 +17,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -28,6 +29,12 @@
 #include <errno.h> 
 #include <time.h>
 #include <assert.h>
+
+// DECnet
+#if defined(HAVE_NETDNET_DNETDB_H) && defined(HAVE_NETDNET_DN_H)
+#include <netdnet/dn.h>
+#include <netdnet/dnetdb.h>
+#endif
 
 /* 
    ****************************************************************************   
@@ -98,11 +105,53 @@ static inline int rsnd_format_to_framesize ( uint16_t format )
 static int rsnd_connect_server( rsound_t *rd )
 {
    struct addrinfo hints, *res;
+   struct sockaddr_un un;
+#ifdef HAVE_DECNET
+   char * object;
+   char * delm;
+#endif
+
    memset(&hints, 0, sizeof( hints ));
    hints.ai_family = AF_UNSPEC;
    hints.ai_socktype = SOCK_STREAM;
    
-   getaddrinfo(rd->host, rd->port, &hints, &res);
+
+   if ( rd->host[0] == '/' )
+   {
+      res = &hints;
+      res->ai_family = AF_UNIX;
+      res->ai_protocol = 0;
+      res->ai_addr = (struct sockaddr*)&un;
+      res->ai_addrlen = sizeof(un);
+      un.sun_family = res->ai_family;
+      strcpy(un.sun_path, rd->host); // Should use strncpy
+   }
+#ifdef HAVE_DECNET
+   else if ( (delm = strstr(rd->host, "::")) != NULL )
+   {
+      object = delm;
+
+      if ( object[2] == 0 ) /* We have no object info, use default object name */
+         object = RSD_DEFAULT_OBJECT;
+      else
+         object += 2; /* jump over the delm. */
+
+      *delm = 0;
+
+      rd->conn.socket = dnet_conn(rd->host, object, SOCK_STREAM, NULL, 0, NULL, 0);
+      rd->conn.ctl_socket = dnet_conn(rd->host, object, SOCK_STREAM, NULL, 0, NULL, 0);
+
+      *delm = ':';
+
+      if ( rd->conn.socket <= 0 || rd->conn.ctl_socket <= 0 )
+         return -1;
+
+      /* TODO: set nonblocking mode here */
+      return 0;
+   }
+#endif
+   else
+      getaddrinfo(rd->host, rd->port, &hints, &res);
 
    rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -127,13 +176,16 @@ static int rsnd_connect_server( rsound_t *rd )
    }
 #endif /* Cygwin doesn't seem to like non-blocking I/O ... */
 
-   freeaddrinfo(res);
+   if ( res->ai_family != AF_UNIX )
+      freeaddrinfo(res);
    return 0;
 
    /* Cleanup for errors. */
 error:
    fprintf(stderr, "Connecting to server failed.\n");
-   freeaddrinfo(res);
+
+   if ( res->ai_family != AF_UNIX )
+      freeaddrinfo(res);
    return -1;
 }
 
@@ -684,8 +736,11 @@ static void* rsnd_thread ( void * thread_data )
 
 static int rsnd_reset(rsound_t *rd)
 {
-   close(rd->conn.socket);
-   close(rd->conn.ctl_socket);
+   if ( rd->conn.socket != -1 )
+      close(rd->conn.socket);
+
+   if ( rd->conn.socket != 1 )
+      close(rd->conn.ctl_socket);
 
    /* Pristine stuff, baby! */
    pthread_mutex_lock(&rd->thread.mutex);

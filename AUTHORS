@@ -1,3 +1,8 @@
 Contributors:
 
 Hans-Kristian Arntzen - maister < at > archlinux < dot > us
+   Main code, maintainer
+
+Phillip Schafft:
+   librsound - Unix domain socket and DECnet support.
+

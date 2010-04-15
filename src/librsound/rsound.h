@@ -36,6 +36,7 @@ extern "C" {
 
 #define RSD_DEFAULT_HOST "localhost"
 #define RSD_DEFAULT_PORT "12345"
+#define RSD_DEFAULT_OBJECT "rsound"
 
 
 /* Defines sample formats available. Defaults to S16_LE should it never be set. */
