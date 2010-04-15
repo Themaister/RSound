@@ -1,2 +1,20 @@
-[RSound 0.2] - 06.02.2010:
+[RSound 0.9alpha] - 2010-04-15:
+
+-  No ctl socket really needed. rsd will now ignore a missing ctl socket. 
+   Can netcat a riff wave file to rsd :)
+
+-  Support for more sound formats. Now supports:
+   S16LE
+   S16BE
+   U16LE
+   U16BE
+   U8
+   S8
+
+   Support for anything else than S16LE and U8 is a bit hacky, 
+   as the format specs need to be hacked in useless spots in the wave header.
+
+- librsound now creates a valid RIFF header, making it easier to support on different audio systems.
+
+- Cleanups.
 
