@@ -493,18 +493,26 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
 // Magic 8 bytes that server sends to the client.
 #define RSND_HEADER_SIZE 8
 #define LATENCY 0
-#define CHUNKSIZE 4
+#define CHUNKSIZE 1
    
    int rc;
    struct pollfd fd;
-
-   char header[RSND_HEADER_SIZE];
+   
+   // 8 byte header
+   uint32_t header[2] = {0};
 
 /* Again, padding ftw */
    // Client uses server side latency for delay calculations.
-   *((uint32_t*)header+LATENCY) = htonl(backend->latency);  
+   header[LATENCY] = backend->latency;
    // Preferred TCP packet size. (Fragsize for audio backend. Might be ignored by client.)
-   *((uint32_t*)(header+CHUNKSIZE)) = htonl(backend->chunk_size);
+   header[CHUNKSIZE] = backend->chunk_size;
+
+   // For some reason, htonl was borked. :<
+   if ( is_little_endian() )
+   {
+      swap_endian_32(&header[LATENCY]);
+      swap_endian_32(&header[CHUNKSIZE]);
+   }
 
 
    fd.fd = conn.socket;

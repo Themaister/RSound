@@ -32,6 +32,7 @@
 
 // DECnet
 #if defined(HAVE_NETDNET_DNETDB_H) && defined(HAVE_NETDNET_DN_H)
+#define HAVE_DECNET
 #include <netdnet/dn.h>
 #include <netdnet/dnetdb.h>
 #endif
@@ -309,11 +310,15 @@ static int rsnd_send_header_info(rsound_t *rd)
 /* Recieves backend info from server that is of interest to the client. (This mini-protocol might be extended later on.) */
 static int rsnd_get_backend_info ( rsound_t *rd )
 {
-   #define RSND_HEADER_SIZE 8
+#define RSND_HEADER_SIZE 8
+#define LATENCY 0
+#define CHUNKSIZE 1
+
 
    size_t recieved = 0;
 
-   char rsnd_header[RSND_HEADER_SIZE] = {0};
+   // Header is 2 uint32_t's. = 8 bytes.
+   uint32_t rsnd_header[2] = {0};
    int rc;
 
    struct pollfd fd;
@@ -334,7 +339,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
          return -1;
       }
 
-      rc = recv(rd->conn.socket, rsnd_header + recieved, RSND_HEADER_SIZE - recieved, 0);
+      rc = recv(rd->conn.socket, (char*)rsnd_header + recieved, RSND_HEADER_SIZE - recieved, 0);
       if ( rc <= 0)
       {
          return -1;
@@ -343,9 +348,25 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       recieved += rc;
    }
 
+   for ( int x = 0; x < 8; x++ )
+   {
+      fprintf(stderr, "%d, ", ((char*)rsnd_header)[x]);
+   }
+   putchar('\n');
+
    /* Again, we can't be 100% certain that sizeof(backend_info_t) is equal on every system */
-   rd->backend_info.latency = ntohl(*((uint32_t*)(rsnd_header)));
-   rd->backend_info.chunk_size = ntohl(*((uint32_t*)(rsnd_header+4)));
+
+   if ( is_little_endian() )
+   {
+      swap_endian_32(&rsnd_header[LATENCY]);
+      swap_endian_32(&rsnd_header[CHUNKSIZE]);
+   }
+   
+   fprintf(stderr, "Latency: %u\n", rsnd_header[LATENCY]);
+   fprintf(stderr, "Chunk: %u\n", rsnd_header[CHUNKSIZE]);
+
+   rd->backend_info.latency = rsnd_header[LATENCY];
+   rd->backend_info.chunk_size = rsnd_header[CHUNKSIZE];
 
 
 #define MAX_CHUNK_SIZE 1024 // We do not want larger chunk sizes than this.
