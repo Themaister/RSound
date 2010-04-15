@@ -1,4 +1,4 @@
-AC_INIT(RSound, 0.8, maister@archlinux.us)
+AC_INIT(RSound, 0.9alpha, maister@archlinux.us)
 
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/daemon.c])
@@ -16,7 +16,7 @@ AM_PROG_CC_C_O
 
 SERV_LIBS="-lpthread"
 
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h getopt.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h getopt.h netdnet/dn.h netdnet/dnetdb.h])
 AC_C_INLINE
 AC_TYPE_SIZE_T
 AC_TYPE_UINT16_T
@@ -37,8 +37,11 @@ AC_CHECK_LIB(portaudio, Pa_OpenStream, ,enable_porta=no)
 AC_CHECK_LIB(openal, alcOpenDevice, ,enable_al=no)
 AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR([Could not find pthread]),)
 
+AC_CHECK_LIB(dnet, dnet_conn, , enable_decnet=no ,enable_decnet=yes)
+
 AC_SUBST(SERV_LIBS)
 
+AM_CONDITIONAL(HAVE_DECNET, test x$enable_decnet = xyes)
 AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
 AM_CONDITIONAL(HAVE_OSS, test x$enable_oss = xyes)
 AM_CONDITIONAL(HAVE_PORTA, test x$enable_porta = xyes)
