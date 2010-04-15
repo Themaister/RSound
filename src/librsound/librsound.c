@@ -348,12 +348,6 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       recieved += rc;
    }
 
-   for ( int x = 0; x < 8; x++ )
-   {
-      fprintf(stderr, "%d, ", ((char*)rsnd_header)[x]);
-   }
-   putchar('\n');
-
    /* Again, we can't be 100% certain that sizeof(backend_info_t) is equal on every system */
 
    if ( is_little_endian() )
@@ -362,9 +356,6 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       swap_endian_32(&rsnd_header[CHUNKSIZE]);
    }
    
-   fprintf(stderr, "Latency: %u\n", rsnd_header[LATENCY]);
-   fprintf(stderr, "Chunk: %u\n", rsnd_header[CHUNKSIZE]);
-
    rd->backend_info.latency = rsnd_header[LATENCY];
    rd->backend_info.chunk_size = rsnd_header[CHUNKSIZE];
 
