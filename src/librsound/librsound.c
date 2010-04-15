@@ -295,6 +295,11 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    rd->backend_info.latency = ntohl(*((uint32_t*)(rsnd_header)));
    rd->backend_info.chunk_size = ntohl(*((uint32_t*)(rsnd_header+4)));
 
+
+#define MAX_CHUNK_SIZE 1024 // We do not want larger chunk sizes than this.
+   if ( rd->backend_info.chunk_size > MAX_CHUNK_SIZE || rd->backend_info.chunk_size <= 0 )
+      rd->backend_info.chunk_size = MAX_CHUNK_SIZE;
+
    /* Assumes a default buffer size should it cause problems of being too small */
    if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size )
       rd->buffer_size = rd->backend_info.chunk_size * 32;
@@ -303,11 +308,11 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    rd->buffer = realloc ( rd->buffer, rd->buffer_size );
    rd->buffer_pointer = 0;
 
+// Sets output network buffer size.
 /////////
    int bufsiz = rd->buffer_size;
    setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
 /////////
-
 
    return 0;
 }
