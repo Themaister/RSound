@@ -1,0 +1,57 @@
+.\" rsdplay.1:
+
+.TH "RSDPLAY" "1" "April 2010" "RSound" "System Manager's Manual: rsdplay"
+
+.SH NAME
+
+rsdplay \- Simple PCM audio player for librsound
+
+.SH SYNOPSIS
+
+\fBrsdplay\fR hostname [OPTIONS]...
+
+.SH "DESCRIPTION"
+
+\fBrsdplay\fR is a simple program designed to stream raw PCM audio, or valid RIFF wave files to an RSound server, using \fBlibrsound\fR. It primarily recieves audio data from \fBstdin\fR.
+
+.SH "GENERAL OPTIONS"
+
+.TP
+\fB--help, -h\fR
+Prints help text.
+
+.TP
+\fB--port PORT, -p PORT\fR
+Defines which port to connect to. Defaults to \fB12345\fR.
+
+.TP
+\fB--raw\fR
+Treats input data as raw PCM. Parameters like sample format, audio channels and sample rate will need to be set using \fB--bits\fR, \fB--channels\fR and \fB--rate\fR respectively.
+
+.TP
+\fB--bits FORMAT, -B FORMAT\fR
+Defines which sample format raw PCM should be treated as. Possible values are: \fBS16LE\fR, \fBS16BE\fR, \fBU16LE\fR, \fBU16BE\fR, \fBS8\fR, \fBU8\fR. Defaults to \fBS16LE\fR. Requires \fB--raw\fR to be set.
+
+.TP
+\fB--channels CHANNELS, -c CHANNELS\fR
+Defines the number of audio channels in a raw PCM stream. Defaults to \fB2\fR (stereo). Requires \fB--raw\fR to be set.
+
+.TP
+\fB--rate RATE, -r RATE\fR
+Defines the sample rate of a raw input stream. Requires \fB--raw\fR to be set.
+
+.TP
+\fB--file FILE, -f FILE\fR
+Uses FILE as input source, rather than \fBstdin\fR.
+
+.SH "AUTHORS"
+Hans-Kristian Arntzen - <maister@archlinux.us>
+
+.SH "BUGS"
+If you find a bug, please report it to <\fBmaister@archlinux.us\fR>.
+
+
+.SH "SEE ALSO"
+\fBrsd\fR(1)
+
+.\"
