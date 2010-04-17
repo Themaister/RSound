@@ -36,6 +36,7 @@ void initialize_audio(void);
 
 extern char device[];
 extern char port[];
+extern char unix_sock[];
 extern int verbose;
 extern int no_threading;
 extern const rsd_backend_callback_t *backend;

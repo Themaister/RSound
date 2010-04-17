@@ -26,11 +26,13 @@
 
 char device[128] = "default";
 char port[128] = "12345";
+char unix_sock[128] = "";
 int verbose = 0;
 int debug = 0;
 const rsd_backend_callback_t *backend = NULL;
 int daemonize = 0;
 int no_threading = 0;
+int listen_socket = 0;
 
 static void* get_addr(struct sockaddr*);
 static int legal_ip(const char*);
@@ -67,6 +69,9 @@ int main(int argc, char ** argv)
       fprintf(stderr, "Couldn't set up listening socket. Exiting ...\n");
       exit(1);
    }
+
+   // Need to have a global socket so that we can cleanly close the socket in the signal handling routines.
+   listen_socket = s;
 
    if ( debug )
       fprintf(stderr, "Listening for connection ...\n");
