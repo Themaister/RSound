@@ -12,7 +12,7 @@ rsd \- RSound sound server
 
 .SH "DESCRIPTION"
 
-\fBrsd\fR is a TCP/IP sound server that plays back audio as recieved from any valid source, accepting any stream that contains a valid RIFF WAVE header. It will act as a network proxy for audio, and will not perform any mixing or modify the audio before it is sent to the sound card. For multiple streams, the audio driver needs to support audio mixing.
+\fBrsd\fR is a sound server that plays back audio as recieved from any valid source, accepting any stream that contains a valid RIFF WAVE header. It will act as a network proxy for audio, and will not perform any mixing or modify the audio before it is sent to the sound card. For multiple streams, the audio driver needs to support audio mixing. \fBrsd\fR can accept connections on TCP/IP and Unix domain sockets.
 
 .SH "GENERAL OPTIONS"
 
@@ -35,6 +35,10 @@ Uses a spesific backend. Refer to \fB--help\fR for information on which backends
 .TP
 \fB--port PORT\fR
 Defines which port the server should listen on. Default is \fB12345\fR.
+
+.TP
+\fB--sock PATH\fR
+Listens on a Unix domain socket, rather than TCP/IP.
 
 .TP
 \fB--verbose\fR

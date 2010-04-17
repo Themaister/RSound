@@ -44,6 +44,16 @@ Defines the sample rate of a raw input stream. Requires \fB--raw\fR to be set.
 \fB--file FILE, -f FILE\fR
 Uses FILE as input source, rather than \fBstdin\fR.
 
+.SH "ENVIRONMENTAL VARIABLES"
+
+.TP
+\fBRSD_SERVER\fR
+When no hostname is explicitly stated on the command line, \fBRSD_SERVER\fR will be used if it is defined.
+
+.TP
+\fBRSD_PORT\fR
+When no port is explicitly stated on the command line, \fBRSD_PORT\fR will be used for TCP connections if it is defined.
+
 .SH "AUTHORS"
 Hans-Kristian Arntzen - <maister@archlinux.us>
 
