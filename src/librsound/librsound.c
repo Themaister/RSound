@@ -372,11 +372,12 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    rd->buffer = realloc ( rd->buffer, rd->buffer_size );
    rd->buffer_pointer = 0;
 
-// Sets output network buffer size.
-/////////
-   int bufsiz = rd->buffer_size;
-   setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
-/////////
+   // Only bother with setting network buffer size if we're doing TCP.
+   if ( rd->host[0] != '/' )
+   {
+      int bufsiz = rd->buffer_size;
+      setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
+   }
 
    return 0;
 }
