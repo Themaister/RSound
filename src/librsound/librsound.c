@@ -375,6 +375,9 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
    /* Reallocs memory each time in case we have changes the buffer size from last time */
    rd->buffer = realloc ( rd->buffer, rd->buffer_size );
+   if ( rd->buffer == NULL )
+      return -1;
+
    rd->buffer_pointer = 0;
 
    // Only bother with setting network buffer size if we're doing TCP.
