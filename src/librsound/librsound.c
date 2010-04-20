@@ -119,6 +119,7 @@ static int rsnd_connect_server( rsound_t *rd )
 
    if ( rd->host[0] == '/' )
    {
+      rd->conn_type = RSD_CONN_UNIX;
       res = &hints;
       res->ai_family = AF_UNIX;
       res->ai_protocol = 0;
@@ -130,6 +131,7 @@ static int rsnd_connect_server( rsound_t *rd )
 #ifdef HAVE_DECNET
    else if ( (delm = strstr(rd->host, "::")) != NULL )
    {
+      rd->conn_type = RSD_CONN_DECNET;
       object = delm;
 
       if ( object[2] == 0 ) /* We have no object info, use default object name */
@@ -152,7 +154,10 @@ static int rsnd_connect_server( rsound_t *rd )
    }
 #endif
    else
+   {
+      rd->conn_type = RSD_CONN_TCP;
       getaddrinfo(rd->host, rd->port, &hints, &res);
+   }
 
    rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -375,10 +380,13 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
    /* Reallocs memory each time in case we have changes the buffer size from last time */
    rd->buffer = realloc ( rd->buffer, rd->buffer_size );
+   if ( rd->buffer == NULL )
+      return -1;
+
    rd->buffer_pointer = 0;
 
    // Only bother with setting network buffer size if we're doing TCP.
-   if ( rd->host[0] != '/' )
+   if ( rd->conn_type == RSD_CONN_TCP )
    {
       int bufsiz = rd->buffer_size;
       setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));

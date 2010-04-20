@@ -50,6 +50,14 @@ enum format
    RSD_S8     = 0x0020
 };
 
+/* Defines connection types */
+enum conn_type
+{
+   RSD_CONN_TCP = 0x0000,
+   RSD_CONN_UNIX = 0x0001,
+   RSD_CONN_DECNET = 0x0002
+};
+
 /* Defines operations that can be used with rsd_set_param() */
 enum settings
 {
@@ -93,6 +101,7 @@ typedef struct rsound
    char *host;
    char *port;
    char *buffer;
+   int conn_type;
 
    volatile int buffer_pointer;
    size_t buffer_size;

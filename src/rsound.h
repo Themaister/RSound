@@ -26,7 +26,6 @@
 #endif
 
 
-
 void parse_input(int, char**);
 void new_sound_thread(connection_t);
 int set_up_socket();
@@ -42,5 +41,6 @@ extern int no_threading;
 extern const rsd_backend_callback_t *backend;
 extern int daemonize;
 extern int debug;
+extern int rsd_conn_type;
 
 #endif 
