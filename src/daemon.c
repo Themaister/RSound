@@ -33,6 +33,7 @@ const rsd_backend_callback_t *backend = NULL;
 int daemonize = 0;
 int no_threading = 0;
 int listen_socket = 0;
+int rsd_conn_type = RSD_CONN_TCP;
 
 static void* get_addr(struct sockaddr*);
 static int legal_ip(const char*);

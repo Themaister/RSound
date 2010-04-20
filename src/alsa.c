@@ -22,7 +22,7 @@ static void alsa_close(void* data)
 {
    alsa_t *sound = data;
 
-   if ( sound->handle )
+   if ( sound != NULL && sound->handle != NULL )
    {
       snd_pcm_hw_params_free(sound->params);
       snd_pcm_drop(sound->handle);
@@ -82,28 +82,32 @@ static int alsa_open(void *data, wav_header_t *w)
          return -1;
    }
 
-   snd_pcm_hw_params_malloc(&interface->params);
+   if ( snd_pcm_hw_params_malloc(&interface->params) < 0)
+      return -1;
+
+   unsigned int rate = w->sampleRate;
+   unsigned int channels = w->numChannels;
 
 
    if ( snd_pcm_hw_params_any(interface->handle, interface->params) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_format(interface->handle, interface->params, format) < 0) return -1;
-   if ( snd_pcm_hw_params_set_channels(interface->handle, interface->params, w->numChannels) < 0 ) return -1;
-   if ( snd_pcm_hw_params_set_rate_near(interface->handle, interface->params, &w->sampleRate, NULL) < 0 ) return -1;
+   if ( snd_pcm_hw_params_set_channels(interface->handle, interface->params, channels) < 0 ) return -1;
+   if ( snd_pcm_hw_params_set_rate(interface->handle, interface->params, rate, 0) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_buffer_time_near(interface->handle, interface->params, &buffer_time, NULL) < 0 ) return -1; 
    if ( snd_pcm_hw_params_set_period_size_near(interface->handle, interface->params, &frames, NULL) < 0 ) return -1;
 
    rc = snd_pcm_hw_params(interface->handle, interface->params);
    if (rc < 0) 
    {
-      fprintf(stderr,
-            "unable to set hw parameters: %s\n",
-            snd_strerror(rc));
+      fprintf(stderr, "unable to set hw parameters: %s\n", snd_strerror(rc));
       return -1;
    }
 
    snd_pcm_sw_params_t *sw_params;
-   snd_pcm_sw_params_malloc(&sw_params);
+   if ( snd_pcm_sw_params_malloc(&sw_params) < 0 )
+      return -1;
+   
    
    if ( snd_pcm_sw_params_current(interface->handle, sw_params) < 0 )
    {
@@ -129,7 +133,7 @@ static int alsa_open(void *data, wav_header_t *w)
 
    snd_pcm_sw_params_free(sw_params);
 
-   /* Force small packet sizes */
+   /* Force small packet sizes. */
    interface->frames = 128;
    interface->size = 128 * w->numChannels * rsnd_format_to_bytes(w->rsd_format);
    /* */
@@ -163,9 +167,7 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
    
    else if (rc < 0) 
    {
-      fprintf(stderr,
-            "Error from writei: %s\n",
-            snd_strerror(rc));
+      fprintf(stderr, "Error from writei: %s\n", snd_strerror(rc));
       return 0;
    }  
 

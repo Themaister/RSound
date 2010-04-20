@@ -46,6 +46,13 @@ enum
    RSD_S8     = 0x0020
 };
 
+// Defines connection types the server can handle.
+enum
+{
+   RSD_CONN_TCP = 0x0000,
+   RSD_CONN_UNIX = 0x0001
+};
+
 // The header that is sent from client to server
 typedef struct wav_header 
 {

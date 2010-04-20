@@ -89,7 +89,7 @@ void cleanup( int signal )
    fprintf(stderr, " --- Recieved signal, cleaning up ---\n");
    unlink(PIDFILE);
 
-   if ( strlen(unix_sock) > 0 )
+   if ( rsd_conn_type == RSD_CONN_UNIX )
       unlink(unix_sock);
 
    if ( backend->shutdown )
@@ -113,7 +113,7 @@ void new_sound_thread ( connection_t connection )
       goto error;
    }
 
-   if ( conn->ctl_socket )
+   if ( conn->ctl_socket > 0 )
    {
       if ( fcntl(conn->ctl_socket, F_SETFL, O_NONBLOCK) < 0)
       {
@@ -278,6 +278,7 @@ void parse_input(int argc, char **argv)
          case 'S':
             strncpy(unix_sock, optarg, 127);
             unix_sock[127] = '\0';
+            rsd_conn_type = RSD_CONN_UNIX;
             break;
 
          default:
@@ -563,7 +564,7 @@ int set_up_socket()
    hints.ai_socktype = SOCK_STREAM;
    hints.ai_flags = AI_PASSIVE;
 
-   if ( strlen(unix_sock) > 0 )
+   if ( rsd_conn_type == RSD_CONN_UNIX )
    {
       servinfo = &hints;
       servinfo->ai_family = AF_UNIX;
@@ -739,7 +740,7 @@ static void* rsd_thread(void *thread_data)
    }
 
    // We only bother with setting buffer size if we're doing TCP.
-   if ( strlen(unix_sock) == 0 )
+   if ( rsd_conn_type != RSD_CONN_UNIX )
    {
       int bufsiz = backend_info.chunk_size * 32;
       setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
