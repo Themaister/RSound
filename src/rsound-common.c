@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/un.h>
 
 
 /* Pulls in callback structs depending on compilation options. */
@@ -81,8 +82,16 @@ void initialize_audio ( void )
 
 void cleanup( int signal )
 {
+   extern int listen_socket;
+   if ( listen_socket > 0 );
+      close(listen_socket);
+
    fprintf(stderr, " --- Recieved signal, cleaning up ---\n");
    unlink(PIDFILE);
+
+   if ( strlen(unix_sock) > 0 )
+      unlink(unix_sock);
+
    if ( backend->shutdown )
       backend->shutdown();
    exit(0);
@@ -157,6 +166,7 @@ void parse_input(int argc, char **argv)
       { "single", 0, NULL, 'T' },
 		{ "kill", 0, NULL, 'K' },
       { "debug", 0, NULL, 'B' },
+      { "sock", 1, NULL, 'S' },
       { NULL, 0, NULL, 0 }
    };
 
@@ -263,6 +273,11 @@ void parse_input(int argc, char **argv)
          case 'B':
             debug = 1;
             verbose = 1;
+            break;
+
+         case 'S':
+            strncpy(unix_sock, optarg, 127);
+            unix_sock[127] = '\0';
             break;
 
          default:
@@ -535,6 +550,7 @@ int set_up_socket()
    int rc;
    int s;
    struct addrinfo hints, *servinfo;
+   struct sockaddr_un un;
    int yes = 1;
 
    memset(&hints, 0, sizeof (struct addrinfo));
@@ -547,14 +563,31 @@ int set_up_socket()
    hints.ai_socktype = SOCK_STREAM;
    hints.ai_flags = AI_PASSIVE;
 
+   if ( strlen(unix_sock) > 0 )
+   {
+      servinfo = &hints;
+      servinfo->ai_family = AF_UNIX;
+      servinfo->ai_protocol = 0;
+      servinfo->ai_addr = (struct sockaddr*)&un;
+      servinfo->ai_addrlen = sizeof(un);
+      un.sun_family = servinfo->ai_family;
+      strcpy(un.sun_path, unix_sock); // Should use strncpy
+   }
+   else
+   {
+      if ((rc = getaddrinfo(NULL, port, &hints, &servinfo)) != 0)
+      {
+         fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(rc));
+         return -1;
+      }
+   }
+
    if ( debug )
    {
-      fprintf(stderr, "Binding on port %s\n", port);
-   }
-   if ((rc = getaddrinfo(NULL, port, &hints, &servinfo)) != 0)
-   {
-      fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(rc));
-      return -1;
+      if ( servinfo->ai_family == AF_UNIX )
+         fprintf(stderr, "Creating domain socket: %s\n", unix_sock);
+      else
+         fprintf(stderr, "Binding on port %s\n", port);
    }
 
    s = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
@@ -564,25 +597,33 @@ int set_up_socket()
       goto error;
    }
    
-   if ( setsockopt(s,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) 
+   if ( servinfo->ai_family != AF_UNIX )
    {
-      perror("setsockopt");
-      goto error;
+      if ( setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) 
+      {
+         perror("setsockopt");
+         goto error;
+      }
    }
    
    rc = bind(s, servinfo->ai_addr, servinfo->ai_addrlen);
    if ( rc == -1 )
    {
-      fprintf(stderr, "Error binding on port %s.\n", port);
+      if ( servinfo->ai_family == AF_UNIX )
+         fprintf(stderr, "Error creating domain socket: %s\n", unix_sock);
+      else
+         fprintf(stderr, "Error binding on port %s.\n", port);
       goto error;
    }
 
-   freeaddrinfo(servinfo);
+   if ( servinfo->ai_family != AF_UNIX )
+      freeaddrinfo(servinfo);
    return s;
 
    /* In case something goes to hell. */
 error:
-   freeaddrinfo(servinfo);
+   if ( servinfo->ai_family != AF_UNIX )
+      freeaddrinfo(servinfo);
    return -1;
 
 }
@@ -697,11 +738,12 @@ static void* rsd_thread(void *thread_data)
       goto rsd_exit;
    }
 
-///////////////////
-   int bufsiz = backend_info.chunk_size * 32;
-   setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
-///////////////////
-
+   // We only bother with setting buffer size if we're doing TCP.
+   if ( strlen(unix_sock) == 0 )
+   {
+      int bufsiz = backend_info.chunk_size * 32;
+      setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
+   }
 
    /* Now we can send backend info to client. */
    if ( send_backend_info(conn, &backend_info) < 0 )

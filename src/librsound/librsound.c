@@ -228,8 +228,8 @@ static int rsnd_send_header_info(rsound_t *rd)
 #define SET32(buf,offset,x) (*((uint32_t*)(buf+offset)) = x)
 #define SET16(buf,offset,x) (*((uint16_t*)(buf+offset)) = x)
 
-#define LSB16(x) if ( !is_little_endian() ) { rsnd_swap_endian_16(&(x)); }
-#define LSB32(x) if ( !is_little_endian() ) { rsnd_swap_endian_32(&(x)); }
+#define LSB16(x) if ( !rsnd_is_little_endian() ) { rsnd_swap_endian_16(&(x)); }
+#define LSB32(x) if ( !rsnd_is_little_endian() ) { rsnd_swap_endian_32(&(x)); }
 
    // Here we embed in the rest of the WAV header for it to be somewhat valid
 
@@ -350,10 +350,10 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
    /* Again, we can't be 100% certain that sizeof(backend_info_t) is equal on every system */
 
-   if ( is_little_endian() )
+   if ( rsnd_is_little_endian() )
    {
-      swap_endian_32(&rsnd_header[LATENCY]);
-      swap_endian_32(&rsnd_header[CHUNKSIZE]);
+      rsnd_swap_endian_32(&rsnd_header[LATENCY]);
+      rsnd_swap_endian_32(&rsnd_header[CHUNKSIZE]);
    }
    
    rd->backend_info.latency = rsnd_header[LATENCY];
@@ -377,11 +377,12 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    rd->buffer = realloc ( rd->buffer, rd->buffer_size );
    rd->buffer_pointer = 0;
 
-// Sets output network buffer size.
-/////////
-   int bufsiz = rd->buffer_size;
-   setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
-/////////
+   // Only bother with setting network buffer size if we're doing TCP.
+   if ( rd->host[0] != '/' )
+   {
+      int bufsiz = rd->buffer_size;
+      setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
+   }
 
    return 0;
 }

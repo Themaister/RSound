@@ -65,3 +65,5 @@ src_rsd_SOURCES =   src/daemon.c \
 src_rsd_LDADD = $(SERV_LIBS)
 src_rsdplay_LDADD = -lpthread -lrt src/librsound/librsound.la
 
+### Docs ###
+man_MANS = doc/rsd.1 doc/rsdplay.1

@@ -1,0 +1,68 @@
+.\" rsd.1:
+
+.TH "RSD" "1" "April 2010" "RSound" "System Manager's Manual: rsd"
+
+.SH NAME
+
+rsd \- RSound sound server
+
+.SH SYNOPSIS
+
+\fBrsd\fR [OPTIONS]...
+
+.SH "DESCRIPTION"
+
+\fBrsd\fR is a sound server that plays back audio as recieved from any valid source, accepting any stream that contains a valid RIFF WAVE header. It will act as a network proxy for audio, and will not perform any mixing or modify the audio before it is sent to the sound card. For multiple streams, the audio driver needs to support audio mixing. \fBrsd\fR can accept connections on TCP/IP and Unix domain sockets.
+
+.SH "GENERAL OPTIONS"
+
+.TP
+\fB--help, -h\fR
+Prints help text.
+
+.TP
+\fB--daemon, -D\fR
+Go into background after startup.
+
+.TP
+\fB--device DEVICE, -d DEVICE\fR
+For the audio drivers that support it, define which device is to be used.
+
+.TP
+\fB--backend BACKEND, -b BACKEND\fR
+Uses a spesific backend. Refer to \fB--help\fR for information on which backends are supported.
+
+.TP
+\fB--port PORT\fR
+Defines which port the server should listen on. Default is \fB12345\fR.
+
+.TP
+\fB--sock PATH\fR
+Listens on a Unix domain socket, rather than TCP/IP.
+
+.TP
+\fB--verbose\fR
+Enables verbose output to \fBstderr\fR.
+
+.TP
+\fB--debug\fR
+Very verbose output. Implies \fB--verbose\fR.
+
+.TP
+\fB--single\fR
+Will only allow a single connection to be active at any time. Useful when you have an audio driver that does not support audio mixing.
+
+.TP
+\fB--kill\fR
+Attempts to cleanly kill a currently running \fBrsd\fR process.
+
+.SH "AUTHORS"
+Hans-Kristian Arntzen - <maister@archlinux.us>
+
+.SH "BUGS"
+If you find a bug, please report it to <\fBmaister@archlinux.us\fR>.
+
+.SH "SEE ALSO"
+\fBrsdplay\fR(1)
+
+.\"
