@@ -59,6 +59,11 @@ static int rsnd_stop_thread(rsound_t *rd);
 static size_t rsnd_get_delay(rsound_t *rd);
 static size_t rsnd_get_ptr(rsound_t *rd);
 static int rsnd_reset(rsound_t *rd);
+
+// Recieving delay information from server
+static int rsnd_send_info_query(rsound_t *rd);
+static int rsnd_update_server_info(rsound_t *rd);
+
 static void* rsnd_thread ( void * thread_data );
 
 /* Determine whether we're running big- or little endian */
@@ -176,6 +181,12 @@ static int rsnd_connect_server( rsound_t *rd )
 /* Uses non-blocking IO since it performed more deterministic with poll()/send() */   
 #ifndef __CYGWIN__
    if ( fcntl(rd->conn.socket, F_SETFL, O_NONBLOCK) < 0)
+   {
+      fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
+      goto error;
+   }
+
+   if ( fcntl(rd->conn.ctl_socket, F_SETFL, O_NONBLOCK) < 0 )
    {
       fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
       goto error;
@@ -675,6 +686,83 @@ static size_t rsnd_get_ptr(rsound_t *rd)
    return ptr;
 }
 
+// Sends delay info request to server.
+static int rsnd_send_info_query(rsound_t *rd)
+{
+   char tmpbuf[256];
+   char sendbuf[256];
+   
+   snprintf(tmpbuf, 255, " INFO %lld", (long long int)rd->total_written);
+   tmpbuf[255] = '\0';
+   snprintf(sendbuf, 255, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
+   sendbuf[255] = '\0';
+
+   send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0);
+   return 0;
+}
+
+static int rsnd_update_server_info(rsound_t *rd)
+{
+
+   // We only bother to send info if we're not blocking.
+   struct pollfd fd = {
+      .fd = rd->conn.ctl_socket,
+      .events = POLLIN
+   };
+   
+   if ( poll(&fd, 1, 0) < 0 )
+   {
+      perror("poll");
+      return -1;
+   }
+
+   if ( fd.revents & POLLIN )
+   {
+      const char *substr;
+      char *tmpstr;
+
+      char temp[256];
+      if ( recv(rd->conn.ctl_socket, temp, 8, 0) < 8 )
+         return -1;
+
+      temp[8] = '\0';
+
+      if ( (substr = strstr(temp, "RSD")) == NULL )
+         return -1;
+
+      // Jump over "RSD" in header
+      substr += 3;
+
+      long int len = strtol(substr, NULL, 0);
+      if ( recv(rd->conn.ctl_socket, temp, len, 0) < len )
+         return -1;
+
+      substr = strstr(temp, "INFO");
+      if ( substr == NULL )
+         return -1;
+
+      // Jump over "INFO" in header
+      substr += 4;
+
+      long long int client_ptr = strtoull(substr, &tmpstr, 0);
+      if ( client_ptr == 0 || *tmpstr == '\0' )
+         return -1;
+      
+      substr = tmpstr;
+      long long int serv_ptr = strtoull(substr, NULL, 0);
+
+
+      int delay = rsd_delay(rd);
+      int delta = (int)(client_ptr - serv_ptr);
+      delta += rd->buffer_pointer;
+      fprintf(stderr, "rsd_delay(): %10d, Delta: %10d\n", delay, delta);
+      return 0;
+   }
+   return 0;
+}
+
+
+
 /* Ze thread */
 static void* rsnd_thread ( void * thread_data )
 {
@@ -690,11 +778,9 @@ static void* rsnd_thread ( void * thread_data )
       for(;;)
       {
          
-         /////////// Lol test //////////////
-         char buf[] = "RSD    9 INFO 100";
-         send(rd->conn.ctl_socket, buf, strlen(buf), 0);
-         //////////////////////////////////
-         
+         // We ask the server to send its latest backend data.
+         rsnd_send_info_query(rd); 
+         rsnd_update_server_info(rd);
          
          /* If the buffer is empty or we've stopped the stream. Jump out of this for loop */
          pthread_mutex_lock(&rd->thread.mutex);

@@ -52,8 +52,6 @@ int handle_ctl_request(connection_t conn, void *data)
          return -1;
       }
 
-      fprintf(stderr, "Recieved header: \"%s\"\n", rsd_proto_header); 
-
       char *substr;
       // Makes sure we have a valid header before reading any more.
       if ( (substr = strstr(rsd_proto_header, "RSD")) == NULL )
@@ -68,14 +66,12 @@ int handle_ctl_request(connection_t conn, void *data)
       long int len = strtol(substr, NULL, 0);
       if ( len > RSD_PROTO_MAXSIZE )
       {
-         fprintf(stderr, "Wat? :V\n");
          continue;
       }
 
       memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
       rc = recv(conn.ctl_socket, rsd_proto_header, len, 0);
 
-      fprintf(stderr, "Recieved arg: \"%s\"\n", rsd_proto_header);
 
       if ( rc <= 0 )
          return -1;
@@ -95,7 +91,6 @@ int handle_ctl_request(connection_t conn, void *data)
       switch ( proto.proto )
       {
          case RSD_PROTO_NULL:
-            fprintf(stderr, "Recieved NULL proto!\n");
             break;
          case RSD_PROTO_STOP:
             return -1;
@@ -141,13 +136,11 @@ static int get_proto(rsd_proto_t *proto, char *rsd_proto_header)
 
    else if ( (substr = strstr(rsd_proto_header, "INFO ")) != NULL )
    {
-      fprintf(stderr, "Got info proto!\n");
       proto->proto = RSD_PROTO_INFO;
       // Jump forward after INFO
       rsd_proto_header += 5;
       int64_t client_ptr;
       client_ptr = strtoull(rsd_proto_header, NULL, 10);
-      fprintf(stderr, "Recieved INFO ptr: %d\n", (int)client_ptr);
       proto->client_ptr = client_ptr;
       return 0;
    }
@@ -163,7 +156,7 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto)
       case RSD_PROTO_INFO:
          snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld %lld", (long long int)proto->client_ptr, (long long int)proto->serv_ptr);
          snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tempbuf), tempbuf);
-         fprintf(stderr, "Sent info: \"%s\"\n", sendbuf);
+         //fprintf(stderr, "Sent info: \"%s\"\n", sendbuf);
          int rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
          if ( rc < 0 )
             return -1;
