@@ -792,11 +792,8 @@ int rsd_stop(rsound_t *rd)
    assert(rd != NULL);
    rsnd_stop_thread(rd);
    
-/* This might be part of a control interface to the server later. */
-/*   
-   const char buf[] = "CLOSE";
-   send(rd->conn.ctl_socket, buf, strlen(buf) + 1, 0);
-*/
+   const char buf[] = "RSD    5 STOP";
+   send(rd->conn.ctl_socket, buf, strlen(buf), 0);
    
    rsnd_reset(rd);
    return 0;

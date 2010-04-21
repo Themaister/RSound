@@ -401,7 +401,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    int rc = 0;
    char header[HEADER_SIZE] = {0};
 
-   rc = recieve_data(conn, header, HEADER_SIZE);
+   rc = recieve_data(NULL, &conn, header, HEADER_SIZE);
    if ( rc != HEADER_SIZE )
    {
       fprintf(stderr, "Didn't read enough data for WAV header.");
@@ -634,7 +634,7 @@ error:
    If the control socket is set, this is a sign that it has been closed (for some reason),
    which currently means that we should stop the connection immediately. */
 
-static int recieve_data(void* data, connection_t* conn, char* buffer, size_t size)
+static int recieve_data(void *data, connection_t* conn, char* buffer, size_t size)
 {
    int rc;
    size_t read = 0;
@@ -666,8 +666,11 @@ static int recieve_data(void* data, connection_t* conn, char* buffer, size_t siz
          else if ( fd[1].revents & POLLIN )
          {
             // We will handle a ctl request from the client. This request should never block.
-            if ( handle_ctl_request(conn, data) < 0 )
+            if ( data != NULL && handle_ctl_request(conn, data) < 0 )
+            {
                return 0;
+            }
+         }
       }
 
       if ( fd[0].revents & POLLHUP )

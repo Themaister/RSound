@@ -4,18 +4,23 @@
 
 extern const rsd_backend_callback_t *backend;
 
-typedef rsd_proto
+typedef struct rsd_proto
 {
    int proto;
    int64_t client_ptr;
    int64_t serv_ptr;
 } rsd_proto_t;
 
+static int get_proto(rsd_proto_t *proto, char *rsd_proto_header);
+static int send_proto(int ctl_sock, rsd_proto_t *proto);
 
 // Here we handle all requests from the client that are available in the network buffer. We are using non-blocking socket.
 // If recv() returns less than we expect, we bail out as there is not more data to be read.
-int handle_ctl_request(connection_t conn, void *data)
+int handle_ctl_request(connection_t* conn, void *data)
 {
+
+   fprintf(stderr, "Enter handle_ctl_req.\n");
+
    char rsd_proto_header[RSD_PROTO_MAXSIZE + 1];
    rsd_proto_t proto;
 
@@ -23,16 +28,24 @@ int handle_ctl_request(connection_t conn, void *data)
    for(;;)
    {
       memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
-      rc = recv(conn.ctl_sock, rsd_proto_header, RSD_PROTO_CHUNKSIZE, 0);
+      rc = recv(conn->ctl_socket, rsd_proto_header, RSD_PROTO_CHUNKSIZE, 0);
+
+      fprintf(stderr, "Read data.\n");
 
       if ( rc < 0 )
+      {
+         fprintf(stderr, ":<\n");
          return -1;
+      }
 
       else if ( rc == 0 )
       {
+         fprintf(stderr, ":::<\n");
          // We're done here.
          return 0;
       }
+
+      fprintf(stderr, "Recieved small header: \"%s\"\n", rsd_proto_header); 
 
       char *substr;
       // Makes sure we have a valid header before reading any more.
@@ -45,7 +58,7 @@ int handle_ctl_request(connection_t conn, void *data)
          continue;
 
       memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
-      rc = recv(conn.ctl_sock, rsd_proto_header, len, 0);
+      rc = recv(conn->ctl_socket, rsd_proto_header, len, 0);
 
       if ( rc < 0 )
          return -1;
@@ -72,8 +85,8 @@ int handle_ctl_request(connection_t conn, void *data)
 
          case RSD_PROTO_INFO:
             proto.serv_ptr = conn->serv_ptr;
-            proto.serv_ptr -= backend->latency(data);
-            if ( send_proto(conn->ctl_sock, &proto) < 0 )
+            //proto.serv_ptr -= backend->latency(data);
+            if ( send_proto(conn->ctl_socket, &proto) < 0 )
                return -1;
             break;
 
@@ -112,6 +125,7 @@ static int get_proto(rsd_proto_t *proto, char *rsd_proto_header)
       proto->client_ptr = client_ptr;
       return 0;
    }
+   return -1;
 }
 
 static int send_proto(int ctl_sock, rsd_proto_t *proto)
@@ -121,8 +135,8 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto)
    switch ( proto->proto )
    {
       case RSD_PROTO_INFO:
-         snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, "INFO %dll %dll", proto->client_ptr, proto->serv_ptr);
-         snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD %d %s", strlen(tempbuf), tempbuf);
+         snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, "INFO %lld %lld", proto->client_ptr, proto->serv_ptr);
+         snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d %s", (int)strlen(tempbuf), tempbuf);
          int rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
          if ( rc < 0 )
             return -1;
