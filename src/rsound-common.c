@@ -21,6 +21,7 @@
 #include "endian.h"
 #include "rsound.h"
 #include "audio.h"
+#include "proto.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -61,7 +62,7 @@ extern const rsd_backend_callback_t rsd_al;
 
 static void print_help(void);
 static void* rsd_thread(void*);
-static int recieve_data(connection_t, char*, size_t);
+static int recieve_data(void*, connection_t*, char*, size_t);
 
 /* Writes a file with the process id, so that a subsequent --kill can kill it cleanly. */
 void write_pid_file(void)
@@ -102,7 +103,7 @@ void new_sound_thread ( connection_t connection )
    static pthread_t last_thread = 0;
    pthread_t thread;
    
-   connection_t *conn = malloc(sizeof(*conn));
+   connection_t *conn = calloc(1, sizeof(*conn));
    conn->socket = connection.socket;
    conn->ctl_socket = connection.ctl_socket;
 
@@ -633,20 +634,20 @@ error:
    If the control socket is set, this is a sign that it has been closed (for some reason),
    which currently means that we should stop the connection immediately. */
 
-static int recieve_data(connection_t conn, char* buffer, size_t size)
+static int recieve_data(void* data, connection_t* conn, char* buffer, size_t size)
 {
    int rc;
    size_t read = 0;
    struct pollfd fd[2];
    size_t read_size;
-   fd[0].fd = conn.socket;
+   fd[0].fd = conn->socket;
    fd[0].events = POLLIN;
-   fd[1].fd = conn.ctl_socket;
+   fd[1].fd = conn->ctl_socket;
    fd[1].events = POLLIN;
    
    // Will not check ctl_socket if it's never used.
    int fds; 
-   if ( conn.ctl_socket > 0 )
+   if ( conn->ctl_socket > 0 )
       fds = 2;
    else
       fds = 1;
@@ -656,11 +657,17 @@ static int recieve_data(connection_t conn, char* buffer, size_t size)
       if ( poll(fd, fds, 50) < 0)
          return 0;
 
-      // If POLLIN is active on ctl socket, or POLLHUP, shut the stream down.
+      // If POLLIN is active on ctl socket handle this request, or if POLLHUP, shut the stream down.
       if ( fds == 2 )
       {
-         if ( fd[1].revents & (POLLIN | POLLHUP) )
+         if ( fd[1].revents & POLLHUP )
             return 0;
+
+         else if ( fd[1].revents & POLLIN )
+         {
+            // We will handle a ctl request from the client. This request should never block.
+            if ( handle_ctl_request(conn, data) < 0 )
+               return 0;
       }
 
       if ( fd[0].revents & POLLHUP )
@@ -669,7 +676,7 @@ static int recieve_data(connection_t conn, char* buffer, size_t size)
       else if ( fd[0].revents & POLLIN )
       {
          read_size = size - read > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - read;
-         rc = recv(conn.socket, buffer + read, read_size, 0);
+         rc = recv(conn->socket, buffer + read, read_size, 0);
          if ( rc <= 0 )
          return 0;
          
@@ -770,7 +777,7 @@ static void* rsd_thread(void *thread_data)
    {
       memset(buffer, 0, size);
       
-      rc = recieve_data(conn, buffer, size);
+      rc = recieve_data(data, &conn, buffer, size);
       if ( rc == 0 )
       {
          if ( debug )
@@ -789,6 +796,7 @@ static void* rsd_thread(void *thread_data)
          }
 
          written += rc;
+         conn.serv_ptr += rc;
       }
    }
 

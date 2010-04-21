@@ -86,6 +86,7 @@ typedef struct
 {
    int socket;
    int ctl_socket;
+   int64_t serv_ptr;
 } connection_t;
 
 
