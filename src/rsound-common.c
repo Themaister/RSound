@@ -508,15 +508,19 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
 {
 
 // Magic 8 bytes that server sends to the client.
-#define RSND_HEADER_SIZE 8
+// If we send 16 bytes, the first 8 bytes with 8 empty bytes after, 
+// it means that we can accept stuff on the ctl socket, which is used for delay measurements! :D
+// The old version of the server simply closed down the connection when something happened to the control socket.
+// This is mostly a backwards compatible solution.
+#define RSND_HEADER_SIZE 16
 #define LATENCY 0
 #define CHUNKSIZE 1
    
    int rc;
    struct pollfd fd;
    
-   // 8 byte header
-   uint32_t header[2] = {0};
+   // 16 byte header
+   uint32_t header[4] = {0};
 
 /* Again, padding ftw */
    // Client uses server side latency for delay calculations.

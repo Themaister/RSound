@@ -363,6 +363,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
       recieved += rc;
    }
+   
 
    /* Again, we can't be 100% certain that sizeof(backend_info_t) is equal on every system */
 
@@ -397,11 +398,16 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    rd->buffer_pointer = 0;
 
    // Only bother with setting network buffer size if we're doing TCP.
-   if ( rd->conn_type == RSD_CONN_TCP )
+   if ( rd->conn_type & RSD_CONN_TCP )
    {
       int bufsiz = rd->buffer_size;
       setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
    }
+   
+   // Can we read the last 8 bytes so we can use the protocol interface?
+   rc = recv(rd->conn.socket, rsnd_header, 8, 0);
+   if ( rc == 8 )
+      rd->conn_type |= RSD_CONN_PROTO; 
 
    return 0;
 }
@@ -818,8 +824,11 @@ static void* rsnd_thread ( void * thread_data )
       {
          
          // We ask the server to send its latest backend data. Do not really care about errors atm.
-         rsnd_send_info_query(rd); 
-         rsnd_update_server_info(rd);
+         if ( rd->conn_type & RSD_CONN_PROTO )
+         {
+            rsnd_send_info_query(rd); 
+            rsnd_update_server_info(rd);
+         }
          
          /* If the buffer is empty or we've stopped the stream. Jump out of this for loop */
          pthread_mutex_lock(&rd->thread.mutex);

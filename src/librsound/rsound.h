@@ -55,7 +55,9 @@ enum conn_type
 {
    RSD_CONN_TCP = 0x0000,
    RSD_CONN_UNIX = 0x0001,
-   RSD_CONN_DECNET = 0x0002
+   RSD_CONN_DECNET = 0x0002,
+
+   RSD_CONN_PROTO = 0x100
 };
 
 /* Defines operations that can be used with rsd_set_param() */
