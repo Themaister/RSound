@@ -669,7 +669,11 @@ static size_t rsnd_get_delay(rsound_t *rd)
 
 /* Adds the backend latency to the calculated latency. */
    ptr += (size_t)rd->backend_info.latency;
+
+   pthread_mutex_lock(&rd->thread.mutex);
    ptr += (size_t)rd->delay_offset;
+   pthread_mutex_unlock(&rd->thread.mutex);
+
    if ( ptr < 0 )
       ptr = 0;
 
@@ -776,16 +780,21 @@ static int rsnd_update_server_info(rsound_t *rd)
       int delta = (int)(client_ptr - serv_ptr);
       delta += rd->buffer_pointer;
 
-      fprintf(stderr, "rsd_delay(): %10d, Delta: %10d\n", delay, delta);
 
-      int offset_delta = (delta - delay)/100;
-      if ( offset_delta < -100 )
-         offset_delta = -100;
-      else if ( offset_delta > 100 )
-         offset_delta = 100;
+      // We only update the pointer if the data we got is quite recent.
+      if ( rd->total_written - client_ptr <  256 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
+      {
+         int offset_delta = (delta - delay)/200;
+         if ( offset_delta < -50 )
+            offset_delta = -50;
+         else if ( offset_delta > 50 )
+            offset_delta = 50;
 
-      fprintf(stderr, "Offset delta %d\n", offset_delta);
-      rd->delay_offset += offset_delta;
+         pthread_mutex_lock(&rd->thread.mutex);
+         rd->delay_offset += offset_delta;
+         pthread_mutex_unlock(&rd->thread.mutex);
+      }
+
       return 0;
    }
    return 0;
@@ -902,6 +911,7 @@ static int rsnd_reset(rsound_t *rd)
    rd->has_written = 0;
    rd->bytes_in_buffer = 0;
    rd->thread_active = 0;
+   rd->delay_offset = 0;
    pthread_mutex_unlock(&rd->thread.mutex);
    pthread_mutex_unlock(&rd->thread.cond_mutex);
    pthread_cond_signal(&rd->thread.cond);

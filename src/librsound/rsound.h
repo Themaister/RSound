@@ -112,8 +112,8 @@ typedef struct rsound
    struct timeval start_tv_usec;
    volatile int has_written;
    int bytes_in_buffer;
-   int max_latency;
    int delay_offset;
+   int max_latency;
    backend_info_t backend_info;
 
    volatile int ready_for_data;
