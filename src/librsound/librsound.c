@@ -488,6 +488,7 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
          return 0;
       }
 
+
       if ( fd.revents & POLLHUP )
       {
          fprintf(stderr, "*** Remote side hung up! ***\n");
@@ -685,8 +686,16 @@ static void* rsnd_thread ( void * thread_data )
    /* Two (;;) for loops! :3 Beware! */
    for (;;)
    {
+      
       for(;;)
       {
+         
+         /////////// Lol test //////////////
+         char buf[] = "RSD    9 INFO 100";
+         send(rd->conn.ctl_socket, buf, strlen(buf), 0);
+         //////////////////////////////////
+         
+         
          /* If the buffer is empty or we've stopped the stream. Jump out of this for loop */
          pthread_mutex_lock(&rd->thread.mutex);
          if ( rd->buffer_pointer < (int)rd->backend_info.chunk_size || !rd->thread_active )

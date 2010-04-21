@@ -1,6 +1,7 @@
 #include "proto.h"
 #include "endian.h"
 #include "audio.h"
+#include <poll.h>
 
 extern const rsd_backend_callback_t *backend;
 
@@ -16,51 +17,67 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto);
 
 // Here we handle all requests from the client that are available in the network buffer. We are using non-blocking socket.
 // If recv() returns less than we expect, we bail out as there is not more data to be read.
-int handle_ctl_request(connection_t* conn, void *data)
+int handle_ctl_request(connection_t conn, void *data)
 {
-
-   fprintf(stderr, "Enter handle_ctl_req.\n");
 
    char rsd_proto_header[RSD_PROTO_MAXSIZE + 1];
    rsd_proto_t proto;
 
+   struct pollfd fd = {
+      .fd = conn.ctl_socket,
+      .events = POLLIN
+   };
+
    int rc;
    for(;;)
    {
-      memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
-      rc = recv(conn->ctl_socket, rsd_proto_header, RSD_PROTO_CHUNKSIZE, 0);
-
-      fprintf(stderr, "Read data.\n");
-
-      if ( rc < 0 )
+      if ( poll(&fd, 1, 0) < 0 )
       {
-         fprintf(stderr, ":<\n");
+         perror("poll");
          return -1;
       }
 
-      else if ( rc == 0 )
+      if ( !(fd.revents & POLLIN) )
       {
-         fprintf(stderr, ":::<\n");
          // We're done here.
          return 0;
       }
 
-      fprintf(stderr, "Recieved small header: \"%s\"\n", rsd_proto_header); 
+      memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
+      rc = recv(conn.ctl_socket, rsd_proto_header, RSD_PROTO_CHUNKSIZE, 0);
+      
+      if ( rc <= 0 )
+      {
+         fprintf(stderr, "CTL socket is closed.\n");
+         return -1;
+      }
+
+      fprintf(stderr, "Recieved header: \"%s\"\n", rsd_proto_header); 
 
       char *substr;
       // Makes sure we have a valid header before reading any more.
-      if ( (substr = strstr("RSD", rsd_proto_header)) == NULL )
+      if ( (substr = strstr(rsd_proto_header, "RSD")) == NULL )
+      {
          continue;
+      }
+
+      while ( *substr != ' ' && *substr != '\0' )
+         substr++;
 
       // Recieve length on the message from client.
       long int len = strtol(substr, NULL, 0);
       if ( len > RSD_PROTO_MAXSIZE )
+      {
+         fprintf(stderr, "Wat? :V\n");
          continue;
+      }
 
       memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
-      rc = recv(conn->ctl_socket, rsd_proto_header, len, 0);
+      rc = recv(conn.ctl_socket, rsd_proto_header, len, 0);
 
-      if ( rc < 0 )
+      fprintf(stderr, "Recieved arg: \"%s\"\n", rsd_proto_header);
+
+      if ( rc <= 0 )
          return -1;
 
       else if ( rc != len )
@@ -78,15 +95,16 @@ int handle_ctl_request(connection_t* conn, void *data)
       switch ( proto.proto )
       {
          case RSD_PROTO_NULL:
+            fprintf(stderr, "Recieved NULL proto!\n");
             break;
          case RSD_PROTO_STOP:
             return -1;
             break;
 
          case RSD_PROTO_INFO:
-            proto.serv_ptr = conn->serv_ptr;
+            proto.serv_ptr = conn.serv_ptr;
             //proto.serv_ptr -= backend->latency(data);
-            if ( send_proto(conn->ctl_socket, &proto) < 0 )
+            if ( send_proto(conn.ctl_socket, &proto) < 0 )
                return -1;
             break;
 
@@ -99,29 +117,37 @@ int handle_ctl_request(connection_t* conn, void *data)
 
 static int get_proto(rsd_proto_t *proto, char *rsd_proto_header)
 {
-   if ( strcmp("RSD", rsd_proto_header) != 0 )
+   const char *substr;
+
+   // Oops! Looks like we have a broken header.
+   if ( strstr(rsd_proto_header, "RSD") != NULL )
       return -1;
 
+   // Jumps forward in the buffer until we hit a valid character as per protocol.
    while ( *rsd_proto_header == ' ' )
       rsd_proto_header++;
 
-   if ( strcmp("NULL", rsd_proto_header) == 0 )
+   if ( strstr(rsd_proto_header, "NULL") != NULL )
    {
       proto->proto = RSD_PROTO_NULL;
       return 0;
    }
 
-   else if ( strcmp("STOP", rsd_proto_header) == 0 )
+   else if ( strstr(rsd_proto_header, "STOP") != NULL )
    {
       proto->proto = RSD_PROTO_STOP;
       return 0;
    }
 
-   else if ( strcmp("INFO", rsd_proto_header) == 0 )
+   else if ( (substr = strstr(rsd_proto_header, "INFO ")) != NULL )
    {
+      fprintf(stderr, "Got info proto!\n");
       proto->proto = RSD_PROTO_INFO;
+      // Jump forward after INFO
+      rsd_proto_header += 5;
       int64_t client_ptr;
       client_ptr = strtoull(rsd_proto_header, NULL, 10);
+      fprintf(stderr, "Recieved INFO ptr: %d\n", (int)client_ptr);
       proto->client_ptr = client_ptr;
       return 0;
    }
@@ -135,8 +161,9 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto)
    switch ( proto->proto )
    {
       case RSD_PROTO_INFO:
-         snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, "INFO %lld %lld", proto->client_ptr, proto->serv_ptr);
-         snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d %s", (int)strlen(tempbuf), tempbuf);
+         snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld %lld", (long long int)proto->client_ptr, (long long int)proto->serv_ptr);
+         snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tempbuf), tempbuf);
+         fprintf(stderr, "Sent info: \"%s\"\n", sendbuf);
          int rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
          if ( rc < 0 )
             return -1;

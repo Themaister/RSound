@@ -14,6 +14,6 @@ enum
    RSD_PROTO_INFO = 0x0002
 };
 
-int handle_ctl_request(connection_t* conn, void* data);
+int handle_ctl_request(connection_t conn, void* data);
 
 #endif
