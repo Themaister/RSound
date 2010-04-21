@@ -151,6 +151,20 @@ static void alsa_get_backend (void *data, backend_info_t* backend_info)
    backend_info->chunk_size = sound->size;
 }
 
+static int alsa_latency(void *data)
+{
+   alsa_t *sound = data;
+
+   int delay;
+   snd_pcm_sframes_t delay_alsa;
+   if ( snd_pcm_delay(sound->handle, &delay_alsa) < 0 )
+      return -1;
+
+   delay = snd_pcm_frames_to_bytes(sound->handle, delay_alsa);
+
+   return delay;
+}
+
 static size_t alsa_write (void *data, const void* buf, size_t size)
 {
    alsa_t *sound = data;
@@ -178,6 +192,7 @@ const rsd_backend_callback_t rsd_alsa = {
    .init = alsa_init,
    .open = alsa_open,
    .write = alsa_write,
+   .latency = alsa_latency,
    .get_backend_info = alsa_get_backend,
    .close = alsa_close,
    .backend = "ALSA"

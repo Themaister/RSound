@@ -98,7 +98,8 @@ int handle_ctl_request(connection_t conn, void *data)
 
          case RSD_PROTO_INFO:
             proto.serv_ptr = conn.serv_ptr;
-            //proto.serv_ptr -= backend->latency(data);
+            if ( backend->latency != NULL )
+               proto.serv_ptr -= backend->latency(data);
             if ( send_proto(conn.ctl_socket, &proto) < 0 )
                return -1;
             break;

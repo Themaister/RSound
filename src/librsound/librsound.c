@@ -669,6 +669,7 @@ static size_t rsnd_get_delay(rsound_t *rd)
 
 /* Adds the backend latency to the calculated latency. */
    ptr += (size_t)rd->backend_info.latency;
+   ptr += (size_t)rd->delay_offset;
    if ( ptr < 0 )
       ptr = 0;
 
@@ -689,20 +690,39 @@ static size_t rsnd_get_ptr(rsound_t *rd)
 // Sends delay info request to server.
 static int rsnd_send_info_query(rsound_t *rd)
 {
-   char tmpbuf[256];
-   char sendbuf[256];
+#define RSD_PROTO_MAXSIZE 256
+   struct pollfd fd = {
+      .fd = rd->conn.ctl_socket,
+      .events = POLLOUT
+   };
    
-   snprintf(tmpbuf, 255, " INFO %lld", (long long int)rd->total_written);
-   tmpbuf[255] = '\0';
-   snprintf(sendbuf, 255, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
-   sendbuf[255] = '\0';
+   if ( poll(&fd, 1, 0) < 0 )
+   {
+      perror("poll");
+      return -1;
+   }
 
-   send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0);
+   if ( fd.revents & POLLOUT )
+   {
+      char tmpbuf[RSD_PROTO_MAXSIZE];
+      char sendbuf[RSD_PROTO_MAXSIZE];
+
+      snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld", (long long int)rd->total_written);
+      tmpbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
+      snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
+      sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
+
+      if ( send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) < 0 )
+         return -1;
+      return 0;
+   }
+
    return 0;
 }
 
 static int rsnd_update_server_info(rsound_t *rd)
 {
+#define RSD_PROTO_CHUNKSIZE 8
 
    // We only bother to send info if we're not blocking.
    struct pollfd fd = {
@@ -721,11 +741,11 @@ static int rsnd_update_server_info(rsound_t *rd)
       const char *substr;
       char *tmpstr;
 
-      char temp[256];
-      if ( recv(rd->conn.ctl_socket, temp, 8, 0) < 8 )
+      char temp[RSD_PROTO_MAXSIZE];
+      if ( recv(rd->conn.ctl_socket, temp, RSD_PROTO_CHUNKSIZE, 0) < RSD_PROTO_CHUNKSIZE )
          return -1;
 
-      temp[8] = '\0';
+      temp[RSD_PROTO_CHUNKSIZE] = '\0';
 
       if ( (substr = strstr(temp, "RSD")) == NULL )
          return -1;
@@ -755,7 +775,17 @@ static int rsnd_update_server_info(rsound_t *rd)
       int delay = rsd_delay(rd);
       int delta = (int)(client_ptr - serv_ptr);
       delta += rd->buffer_pointer;
+
       fprintf(stderr, "rsd_delay(): %10d, Delta: %10d\n", delay, delta);
+
+      int offset_delta = (delta - delay)/100;
+      if ( offset_delta < -100 )
+         offset_delta = -100;
+      else if ( offset_delta > 100 )
+         offset_delta = 100;
+
+      fprintf(stderr, "Offset delta %d\n", offset_delta);
+      rd->delay_offset += offset_delta;
       return 0;
    }
    return 0;
@@ -778,7 +808,7 @@ static void* rsnd_thread ( void * thread_data )
       for(;;)
       {
          
-         // We ask the server to send its latest backend data.
+         // We ask the server to send its latest backend data. Do not really care about errors atm.
          rsnd_send_info_query(rd); 
          rsnd_update_server_info(rd);
          

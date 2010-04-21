@@ -113,6 +113,7 @@ typedef struct rsound
    volatile int has_written;
    int bytes_in_buffer;
    int max_latency;
+   int delay_offset;
    backend_info_t backend_info;
 
    volatile int ready_for_data;
