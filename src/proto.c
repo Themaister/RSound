@@ -48,7 +48,6 @@ int handle_ctl_request(connection_t conn, void *data)
       
       if ( rc <= 0 )
       {
-         fprintf(stderr, "CTL socket is closed.\n");
          return -1;
       }
 
