@@ -5,7 +5,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 lib_LTLIBRARIES = src/librsound/librsound.la
 src_librsound_librsound_la_SOURCES = src/librsound/librsound.c 
-src_librsound_librsound_la_LDFLAGS = -version-info 0:1 -lpthread -lrt
+src_librsound_librsound_la_LDFLAGS = -version-info 1:1 -lpthread -lrt
 src_librsound_librsound_includedir = $(includedir)
 src_librsound_librsound_include_HEADERS = src/librsound/rsound.h
 

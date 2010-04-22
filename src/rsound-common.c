@@ -707,6 +707,7 @@ static void* rsd_thread(void *thread_data)
    connection_t *temp_conn = thread_data;
    conn.socket = temp_conn->socket;
    conn.ctl_socket = temp_conn->ctl_socket;
+   conn.serv_ptr = 0;
    free(temp_conn);
 
    if ( debug )
