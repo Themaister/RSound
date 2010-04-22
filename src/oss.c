@@ -142,6 +142,15 @@ static void oss_get_backend (void *data, backend_info_t *backend_info)
    backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
 }
 
+static int oss_latency(void* data)
+{
+   oss_t *sound = data;
+   int delay;
+   if ( ioctl( sound->audio_fd, SNDCTL_DSP_GETODELAY, &delay ) < 0 )
+      return DEFAULT_CHUNK_SIZE; // We just return something that's halfway sane.
+   return delay;
+}
+
 static size_t oss_write (void *data, const void* buf, size_t size)
 {
    oss_t *sound = data;
@@ -152,6 +161,7 @@ const rsd_backend_callback_t rsd_oss = {
    .init = oss_init,
    .open= oss_open,
    .write = oss_write,
+   .latency = oss_latency,
    .get_backend_info = oss_get_backend,
    .close = oss_close,
    .backend = "OSS"

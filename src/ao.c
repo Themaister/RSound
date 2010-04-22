@@ -105,6 +105,12 @@ static size_t ao_rsd_write(void *data, const void* buf, size_t size)
    return size;
 }
 
+// We can't measure this accurately, but hey.
+static int ao_rsd_latency(void* data)
+{
+   return DEFAULT_CHUNK_SIZE;
+}
+
 static void ao_rsd_get_backend(void *data, backend_info_t *backend_info)
 {
    backend_info->latency = DEFAULT_CHUNK_SIZE;
@@ -116,6 +122,7 @@ const rsd_backend_callback_t rsd_ao = {
    .initialize = ao_rsd_initialize,
    .shutdown = ao_rsd_shutdown,
    .write = ao_rsd_write,
+   .latency = ao_rsd_latency,
    .close = ao_rsd_close,
    .get_backend_info = ao_rsd_get_backend,
    .open = ao_rsd_open,

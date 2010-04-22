@@ -98,7 +98,9 @@ int handle_ctl_request(connection_t conn, void *data)
          case RSD_PROTO_INFO:
             proto.serv_ptr = conn.serv_ptr;
             if ( backend->latency != NULL )
+            {
                proto.serv_ptr -= backend->latency(data);
+            }
             if ( send_proto(conn.ctl_socket, &proto) < 0 )
                return -1;
             break;
@@ -149,21 +151,37 @@ static int get_proto(rsd_proto_t *proto, char *rsd_proto_header)
 
 static int send_proto(int ctl_sock, rsd_proto_t *proto)
 {
-   char sendbuf[RSD_PROTO_MAXSIZE] = {0};
-   char tempbuf[RSD_PROTO_MAXSIZE] = {0};
-   switch ( proto->proto )
-   {
-      case RSD_PROTO_INFO:
-         snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld %lld", (long long int)proto->client_ptr, (long long int)proto->serv_ptr);
-         snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tempbuf), tempbuf);
-         //fprintf(stderr, "Sent info: \"%s\"\n", sendbuf);
-         int rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
-         if ( rc < 0 )
-            return -1;
-         break;
 
-      default:
-         return -1;
+   struct pollfd fd = {
+      .fd = ctl_sock,
+      .events = POLLOUT
+   };
+
+   if ( poll(&fd, 1, 0) < 0 )
+   {
+      perror("poll");
+      return -1;
+   }
+
+   if ( fd.revents & POLLOUT )
+   {
+
+      char sendbuf[RSD_PROTO_MAXSIZE] = {0};
+      char tempbuf[RSD_PROTO_MAXSIZE] = {0};
+      switch ( proto->proto )
+      {
+         case RSD_PROTO_INFO:
+            snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld %lld", (long long int)proto->client_ptr, (long long int)proto->serv_ptr);
+            snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tempbuf), tempbuf);
+            //fprintf(stderr, "Sent info: \"%s\"\n", sendbuf);
+            int rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
+            if ( rc < 0 )
+               return -1;
+            break;
+
+         default:
+            return -1;
+      }
    }
    return 0;
 }

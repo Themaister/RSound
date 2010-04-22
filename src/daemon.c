@@ -102,7 +102,7 @@ int main(int argc, char ** argv)
       isn't supplied in a short time window (nmap, port scanners, etc),
       we shut down the connection. The connection, if accepted, will be handled in a new thread. */
 
-   while(1)
+   for(;;)
    {
       addr_size = sizeof (their_addr[0]);
       s_new = accept(s, (struct sockaddr*)&their_addr[0], &addr_size);
@@ -156,6 +156,7 @@ int main(int argc, char ** argv)
       {
          close(s_new); s_new = -1;
          close(s_ctl); s_ctl = -1;
+         continue;
       }
    
       conn.socket = s_new;

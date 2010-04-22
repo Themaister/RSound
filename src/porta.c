@@ -121,6 +121,12 @@ static void porta_get_backend(void *data, backend_info_t *backend_info)
    backend_info->chunk_size = sound->size;
 }
 
+static int porta_latency(void *data)
+{
+   porta_t *sound = data;
+   return sound->bps * Pa_GetStreamInfo(sound->stream)->outputLatency;
+}
+
 static size_t porta_write(void *data, const void *buf, size_t size)
 {
    porta_t *sound = data;
@@ -139,6 +145,7 @@ const rsd_backend_callback_t rsd_porta = {
    .init = porta_init,
    .initialize = porta_initialize,
    .close = porta_close,
+   .latency = porta_latency,
    .write = porta_write,
    .get_backend_info = porta_get_backend,
    .open = porta_open,

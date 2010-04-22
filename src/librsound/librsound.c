@@ -803,6 +803,8 @@ static int rsnd_update_server_info(rsound_t *rd)
       int delta = (int)(client_ptr - serv_ptr);
       delta += rd->buffer_pointer;
 
+      fprintf(stderr, "Delay: %d, Delta: %d              \n", delay, delta);
+
       // We only update the pointer if the data we got is quite recent.
       if ( rd->total_written - client_ptr <  16 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
       {
@@ -815,6 +817,7 @@ static int rsnd_update_server_info(rsound_t *rd)
          pthread_mutex_lock(&rd->thread.mutex);
          rd->delay_offset += offset_delta;
          pthread_mutex_unlock(&rd->thread.mutex);
+         fprintf(stderr, "Offset Delta: %d               \n", offset_delta);
       }
    }
 
