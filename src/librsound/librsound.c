@@ -697,7 +697,8 @@ static size_t rsnd_get_ptr(rsound_t *rd)
    return ptr;
 }
 
-// Sends delay info request to server.
+// Sends delay info request to server on the ctl socket. This code section isn't critical, and will work if it works. 
+// It will never block.
 static int rsnd_send_info_query(rsound_t *rd)
 {
 #define RSD_PROTO_MAXSIZE 256
@@ -730,6 +731,8 @@ static int rsnd_send_info_query(rsound_t *rd)
    return 0;
 }
 
+// We check if there's any pending delay information from the server.
+// In that case, we read the packet.
 static int rsnd_update_server_info(rsound_t *rd)
 {
 #define RSD_PROTO_CHUNKSIZE 8
@@ -739,70 +742,82 @@ static int rsnd_update_server_info(rsound_t *rd)
       .fd = rd->conn.ctl_socket,
       .events = POLLIN
    };
+
+   long long int client_ptr = -1;
+   long long int serv_ptr = -1;
+   char temp[RSD_PROTO_MAXSIZE + 1] = {0};
    
-   if ( poll(&fd, 1, 0) < 0 )
+   for (;;)
    {
-      perror("poll");
-      return -1;
+      if ( poll(&fd, 1, 0) < 0 )
+      {
+         perror("poll");
+         return -1;
+      }
+
+      if ( fd.revents & POLLIN )
+      {
+         const char *substr;
+         char *tmpstr;
+         memset(temp, 0, sizeof(temp));
+
+         if ( recv(rd->conn.ctl_socket, temp, RSD_PROTO_CHUNKSIZE, 0) < RSD_PROTO_CHUNKSIZE )
+            return -1;
+
+         temp[RSD_PROTO_CHUNKSIZE] = '\0';
+
+         if ( (substr = strstr(temp, "RSD")) == NULL )
+            return -1;
+
+         // Jump over "RSD" in header
+         substr += 3;
+
+         long int len = strtol(substr, NULL, 0);
+         if ( recv(rd->conn.ctl_socket, temp, len, 0) < len )
+            return -1;
+
+         substr = strstr(temp, "INFO");
+         if ( substr == NULL )
+            return -1;
+
+         // Jump over "INFO" in header
+         substr += 4;
+
+         client_ptr = strtoull(substr, &tmpstr, 0);
+         if ( client_ptr == 0 || *tmpstr == '\0' )
+            return -1;
+
+         substr = tmpstr;
+         serv_ptr = strtoull(substr, NULL, 0);
+         if ( serv_ptr <= 0  )
+            return -1;
+      }
+      else // We've read everything we can.
+         break;
    }
 
-   if ( fd.revents & POLLIN )
+   if ( client_ptr > 0 && serv_ptr > 0 )
    {
-      const char *substr;
-      char *tmpstr;
-
-      char temp[RSD_PROTO_MAXSIZE];
-      if ( recv(rd->conn.ctl_socket, temp, RSD_PROTO_CHUNKSIZE, 0) < RSD_PROTO_CHUNKSIZE )
-         return -1;
-
-      temp[RSD_PROTO_CHUNKSIZE] = '\0';
-
-      if ( (substr = strstr(temp, "RSD")) == NULL )
-         return -1;
-
-      // Jump over "RSD" in header
-      substr += 3;
-
-      long int len = strtol(substr, NULL, 0);
-      if ( recv(rd->conn.ctl_socket, temp, len, 0) < len )
-         return -1;
-
-      substr = strstr(temp, "INFO");
-      if ( substr == NULL )
-         return -1;
-
-      // Jump over "INFO" in header
-      substr += 4;
-
-      long long int client_ptr = strtoull(substr, &tmpstr, 0);
-      if ( client_ptr == 0 || *tmpstr == '\0' )
-         return -1;
-      
-      substr = tmpstr;
-      long long int serv_ptr = strtoull(substr, NULL, 0);
-
 
       int delay = rsd_delay(rd);
       int delta = (int)(client_ptr - serv_ptr);
       delta += rd->buffer_pointer;
 
-
       // We only update the pointer if the data we got is quite recent.
-      if ( rd->total_written - client_ptr <  256 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
+      if ( rd->total_written - client_ptr <  16 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
       {
          int offset_delta = (delta - delay)/200;
-         if ( offset_delta < -50 )
-            offset_delta = -50;
-         else if ( offset_delta > 50 )
-            offset_delta = 50;
+         if ( offset_delta < -100 )
+            offset_delta = -100;
+         else if ( offset_delta > 100 )
+            offset_delta = 100;
 
          pthread_mutex_lock(&rd->thread.mutex);
          rd->delay_offset += offset_delta;
          pthread_mutex_unlock(&rd->thread.mutex);
       }
-
-      return 0;
    }
+
    return 0;
 }
 
