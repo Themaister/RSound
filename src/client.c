@@ -127,6 +127,8 @@ static int set_other_params(rsound_t *rd)
          read_in += rc;
       }
 
+      // We read raw little endian data from the wave input file. This needs to be converted to
+      // host byte order when we pass it to rsd_set_param() later.
       temp_channels = *((uint16_t*)(buf+CHANNEL));
       temp_rate = *((uint32_t*)(buf+RATE));
       temp_bits = *((uint16_t*)(buf+BITS_PER_SAMPLE));

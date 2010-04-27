@@ -161,7 +161,7 @@ int rsd_init (rsound_t **rd);
    RSD_FORMAT: Sets sample format. It defaults to S16_LE, so you probably will not use this. Expects (int *) in param, with
    available values found in the format enum. If invalid format is given, param might be changed to reflect the sample format the library will use.
 */
-int rsd_set_param (rsound_t *rd, int option, void* param);
+int rsd_set_param (rsound_t *rd, enum settings option, void* param);
 
 /* Establishes connection to server. Might fail if connection can't be established or that one of 
    the mandatory options isn't set in rsd_set_param(). This needs to be called after params have been set

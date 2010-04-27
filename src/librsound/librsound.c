@@ -1010,7 +1010,7 @@ int rsd_start(rsound_t *rsound)
 }
 
 /* ioctl()-ish param setting :D */
-int rsd_set_param(rsound_t *rd, int option, void* param)
+int rsd_set_param(rsound_t *rd, enum settings option, void* param)
 {
    assert(rd != NULL);
    assert(param != NULL);
