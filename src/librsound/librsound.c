@@ -115,6 +115,7 @@ static void rsnd_log(enum rsd_logtype type, char *fmt, ...)
    char buf[1024];
    vsnprintf(buf, sizeof(buf), fmt, args);
    buf[1023] = '\0';
+   va_end(args);
 
    // Currently only uses stderr. TODO: Make it more generic.
    fprintf(stderr, "(librsound): PID: %d: [%s] %s\n", (int)getpid(), logtype, buf);
