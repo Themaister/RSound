@@ -40,7 +40,7 @@ extern "C" {
 
 
 /* Defines sample formats available. Defaults to S16_LE should it never be set. */
-enum format
+enum rsd_format
 {
    RSD_S16_LE = 0x0001,
    RSD_S16_BE = 0x0002,
@@ -50,18 +50,8 @@ enum format
    RSD_S8     = 0x0020
 };
 
-/* Defines connection types */
-enum conn_type
-{
-   RSD_CONN_TCP = 0x0000,
-   RSD_CONN_UNIX = 0x0001,
-   RSD_CONN_DECNET = 0x0002,
-
-   RSD_CONN_PROTO = 0x100
-};
-
 /* Defines operations that can be used with rsd_set_param() */
-enum settings
+enum rsd_settings
 {
    RSD_SAMPLERATE = 0,
    RSD_CHANNELS,
@@ -161,7 +151,7 @@ int rsd_init (rsound_t **rd);
    RSD_FORMAT: Sets sample format. It defaults to S16_LE, so you probably will not use this. Expects (int *) in param, with
    available values found in the format enum. If invalid format is given, param might be changed to reflect the sample format the library will use.
 */
-int rsd_set_param (rsound_t *rd, enum settings option, void* param);
+int rsd_set_param (rsound_t *rd, enum rsd_settings option, void* param);
 
 /* Establishes connection to server. Might fail if connection can't be established or that one of 
    the mandatory options isn't set in rsd_set_param(). This needs to be called after params have been set

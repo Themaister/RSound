@@ -45,15 +45,25 @@
    ****************************************************************************
 */
 
-// Logging types
-enum logtype
+// Internal enumerations
+enum rsd_logtype
 {
    RSD_LOG_DEBUG = 0,
    RSD_LOG_WARN,
    RSD_LOG_ERR
 };
 
-static void rsnd_log(enum logtype type, char *fmt, ...); 
+enum rsd_conn_type
+{
+   RSD_CONN_TCP = 0x0000,
+   RSD_CONN_UNIX = 0x0001,
+   RSD_CONN_DECNET = 0x0002,
+
+   RSD_CONN_PROTO = 0x100
+};
+
+// Some logging macros.
+static void rsnd_log(enum rsd_logtype type, char *fmt, ...); 
 #define RSD_DEBUG(fmt, args...) rsnd_log(RSD_LOG_DEBUG, "(%s:%d): " fmt , __FILE__,  __LINE__ , ##args)
 #define RSD_WARN(fmt, args...) rsnd_log(RSD_LOG_WARN, "(%s:%d): " fmt , __FILE__, __LINE__ , ##args)
 #define RSD_ERR(fmt, args...) rsnd_log(RSD_LOG_ERR, "(%s:%d): " fmt , __FILE__, __LINE__ , ##args)
@@ -61,7 +71,7 @@ static void rsnd_log(enum logtype type, char *fmt, ...);
 static inline int rsnd_is_little_endian(void);
 static inline void rsnd_swap_endian_16 ( uint16_t * x );
 static inline void rsnd_swap_endian_32 ( uint32_t * x );
-static inline int rsnd_format_to_framesize( enum format fmt );
+static inline int rsnd_format_to_framesize( enum rsd_format fmt );
 static int rsnd_connect_server( rsound_t *rd );
 static int rsnd_send_header_info(rsound_t *rd);
 static int rsnd_get_backend_info ( rsound_t *rd );
@@ -80,7 +90,7 @@ static int rsnd_update_server_info(rsound_t *rd);
 static void* rsnd_thread ( void * thread_data );
 
 // Does some logging
-static void rsnd_log(enum logtype type, char *fmt, ...)
+static void rsnd_log(enum rsd_logtype type, char *fmt, ...)
 {
    va_list args;
    va_start(args, fmt);
@@ -106,6 +116,7 @@ static void rsnd_log(enum logtype type, char *fmt, ...)
    vsnprintf(buf, sizeof(buf), fmt, args);
    buf[1023] = '\0';
 
+   // Currently only uses stderr. TODO: Make it more generic.
    fprintf(stderr, "(librsound): PID: %d: [%s] %s\n", (int)getpid(), logtype, buf);
 }
 
@@ -130,7 +141,7 @@ static inline void rsnd_swap_endian_32 ( uint32_t * x )
          (*x << 24);
 }
 
-static inline int rsnd_format_to_framesize ( enum format fmt )
+static inline int rsnd_format_to_framesize ( enum rsd_format fmt )
 {
    switch(fmt)
    {
@@ -704,25 +715,24 @@ static int rsnd_stop_thread(rsound_t *rd)
 /* Calculates audio delay in bytes */
 static size_t rsnd_get_delay(rsound_t *rd)
 {
-   size_t ptr;
+   int ptr;
    pthread_mutex_lock(&rd->thread.mutex);
    rsnd_drain(rd);
-   ptr = (size_t)rd->bytes_in_buffer;
+   ptr = rd->bytes_in_buffer;
    pthread_mutex_unlock(&rd->thread.mutex);
 
 /* Adds the backend latency to the calculated latency. */
-   ptr += (size_t)rd->backend_info.latency;
+   ptr += (int)rd->backend_info.latency;
 
    pthread_mutex_lock(&rd->thread.mutex);
-   ptr += (size_t)rd->delay_offset;
+   ptr += rd->delay_offset;
    pthread_mutex_unlock(&rd->thread.mutex);
 
    if ( ptr < 0 )
       ptr = 0;
 
-   return ptr;
+   return (size_t)ptr;
 }
-
 
 static size_t rsnd_get_ptr(rsound_t *rd)
 {
@@ -784,6 +794,7 @@ static int rsnd_update_server_info(rsound_t *rd)
    long long int serv_ptr = -1;
    char temp[RSD_PROTO_MAXSIZE + 1] = {0};
    
+   // We read until we have the last (most recent) data in the network buffer.
    for (;;)
    {
       if ( poll(&fd, 1, 0) < 0 )
@@ -798,6 +809,7 @@ static int rsnd_update_server_info(rsound_t *rd)
          char *tmpstr;
          memset(temp, 0, sizeof(temp));
 
+         // We first recieve the small header. We just use the larger buffer as it is disposable.
          if ( recv(rd->conn.ctl_socket, temp, RSD_PROTO_CHUNKSIZE, 0) < RSD_PROTO_CHUNKSIZE )
             return -1;
 
@@ -809,10 +821,14 @@ static int rsnd_update_server_info(rsound_t *rd)
          // Jump over "RSD" in header
          substr += 3;
 
+         // The length of the argument message is stored in the small 8 byte header.
          long int len = strtol(substr, NULL, 0);
+
+         // Recieve the rest of the data.
          if ( recv(rd->conn.ctl_socket, temp, len, 0) < len )
             return -1;
 
+         // We only bother if this is an INFO message.
          substr = strstr(temp, "INFO");
          if ( substr == NULL )
             return -1;
@@ -840,7 +856,7 @@ static int rsnd_update_server_info(rsound_t *rd)
       int delta = (int)(client_ptr - serv_ptr);
       delta += rd->buffer_pointer;
 
-      //fprintf(stderr, "Delay: %d, Delta: %d              \n", delay, delta);
+      //RSD_DEBUG("Delay: %d, Delta: %d", delay, delta);
 
       // We only update the pointer if the data we got is quite recent.
       if ( rd->total_written - client_ptr <  16 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
@@ -854,14 +870,12 @@ static int rsnd_update_server_info(rsound_t *rd)
          pthread_mutex_lock(&rd->thread.mutex);
          rd->delay_offset += offset_delta;
          pthread_mutex_unlock(&rd->thread.mutex);
-         //fprintf(stderr, "Offset Delta: %d               \n", offset_delta);
+         //RSD_DEBUG("Offset Delta: %d", offset_delta);
       }
    }
 
    return 0;
 }
-
-
 
 /* Ze thread */
 static void* rsnd_thread ( void * thread_data )
@@ -1048,7 +1062,7 @@ int rsd_start(rsound_t *rsound)
 }
 
 /* ioctl()-ish param setting :D */
-int rsd_set_param(rsound_t *rd, enum settings option, void* param)
+int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
 {
    assert(rd != NULL);
    assert(param != NULL);
