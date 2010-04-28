@@ -58,7 +58,7 @@ enum rsd_settings
    RSD_HOST,
    RSD_PORT,
    RSD_BUFSIZE,
-   RSD_LATENCY, /* <<--- Not implemented correctly yet */
+   RSD_LATENCY,
    RSD_FORMAT
 };
 
@@ -146,7 +146,7 @@ int rsd_init (rsound_t **rd);
    RSD_SAMPLERATE: Set samplerate of audio stream. Expects (int *) in param. Mandatory.
    RSD_BUFSIZE: Sets internal buffersize for the stream. Might be overridden if too small. 
    Expects (int *) in param. Optional.
-   RSD_LATENCY: (!NOT PROPERLY IMPLEMENTED YET!) Sets maximum audio latency in milliseconds, (must be used with rsd_delay_wait() or this will have no effect). 
+   RSD_LATENCY: Sets maximum audio latency in milliseconds, (must be used with rsd_delay_wait() or this will have no effect). 
    Most applications do not need this. Might be overridden if too small. Expects (int *) in param. Optional.
    RSD_FORMAT: Sets sample format. It defaults to S16_LE, so you probably will not use this. Expects (int *) in param, with
    available values found in the format enum. If invalid format is given, param might be changed to reflect the sample format the library will use.
