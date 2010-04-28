@@ -84,7 +84,8 @@ void initialize_audio ( void )
 void cleanup( int signal )
 {
    extern int listen_socket;
-   if ( listen_socket > 0 );
+   (void) signal;
+   if ( listen_socket > 0 )
       close(listen_socket);
 
    fprintf(stderr, " --- Recieved signal, cleaning up ---\n");
@@ -793,7 +794,7 @@ static void* rsd_thread(void *thread_data)
          goto rsd_exit;
       }
       
-      for ( written = 0; written < size; )
+      for ( written = 0; written < (int)size; )
       {
          rc = backend->write(data, buffer + written, size - written);
          if ( rc <= 0 )

@@ -108,11 +108,13 @@ static size_t ao_rsd_write(void *data, const void* buf, size_t size)
 // We can't measure this accurately, but hey.
 static int ao_rsd_latency(void* data)
 {
+   (void)data;
    return DEFAULT_CHUNK_SIZE;
 }
 
 static void ao_rsd_get_backend(void *data, backend_info_t *backend_info)
 {
+   (void)data;
    backend_info->latency = DEFAULT_CHUNK_SIZE;
    backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
 }

@@ -17,7 +17,7 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = rsound.pc
 
 sources_serv = 
-AM_CFLAGS = -Wall -O2 -fno-strict-aliasing
+AM_CFLAGS = -Wall -Wextra -O2 -fno-strict-aliasing
 
 if HAVE_ALSA
    sources_serv += src/alsa.c

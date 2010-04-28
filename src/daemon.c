@@ -187,6 +187,7 @@ static void* get_addr(struct sockaddr *sa)
 /* For now, just accept the IP blindly (tinfoil hat off) */
 static int legal_ip( const char* remoteIP )
 {
+   (void)remoteIP;
    return 1;
 }
 
