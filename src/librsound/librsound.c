@@ -636,7 +636,7 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
    {
       /* Should the thread be shut down while we're running, return with error */
       if ( !rd->thread_active )
-         return -1;
+         return 0;
 
       pthread_mutex_lock(&rd->thread.mutex);
       if ( rd->buffer_pointer + (int)size <= (int)rd->buffer_size  )
@@ -1018,7 +1018,7 @@ size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
    assert(rsound != NULL);
    if ( !rsound->ready_for_data )
    {
-      return -1;
+      return 0;
    }
 
    size_t result;
@@ -1037,7 +1037,7 @@ size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
       if ( result <= 0 )
       {
          rsd_stop(rsound);
-         return -1;
+         return 0;
       }
       written += result;
    }
