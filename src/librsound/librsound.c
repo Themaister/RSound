@@ -894,7 +894,7 @@ static void* rsnd_thread ( void * thread_data )
          
          // We ask the server to send its latest backend data. Do not really care about errors atm.
          // We only bother to check after 1 sec of audio has been played, as it might be quite inaccurate in the start of the stream.
-         if ( (rd->conn_type & RSD_CONN_PROTO) && rd->total_written > rd->channels * rd->rate * rd->framesize )
+         if ( (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->framesize) )
          {
             rsnd_send_info_query(rd); 
             rsnd_update_server_info(rd);
