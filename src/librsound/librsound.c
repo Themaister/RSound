@@ -29,6 +29,7 @@
 #include <errno.h> 
 #include <time.h>
 #include <assert.h>
+#include <stdarg.h>
 
 // DECnet
 #if defined(HAVE_NETDNET_DNETDB_H) && defined(HAVE_NETDNET_DN_H)
@@ -44,11 +45,23 @@
    ****************************************************************************
 */
 
+// Logging types
+enum logtype
+{
+   RSD_LOG_DEBUG = 0,
+   RSD_LOG_WARN,
+   RSD_LOG_ERR
+};
+
+static void rsnd_log(enum logtype type, char *fmt, ...); 
+#define RSD_DEBUG(fmt, args...) rsnd_log(RSD_LOG_DEBUG, "(%s:%d): " fmt , __FILE__,  __LINE__ , ##args)
+#define RSD_WARN(fmt, args...) rsnd_log(RSD_LOG_WARN, "(%s:%d): " fmt , __FILE__, __LINE__ , ##args)
+#define RSD_ERR(fmt, args...) rsnd_log(RSD_LOG_ERR, "(%s:%d): " fmt , __FILE__, __LINE__ , ##args)
 
 static inline int rsnd_is_little_endian(void);
 static inline void rsnd_swap_endian_16 ( uint16_t * x );
 static inline void rsnd_swap_endian_32 ( uint32_t * x );
-static inline int rsnd_format_to_framesize( uint16_t format );
+static inline int rsnd_format_to_framesize( enum format fmt );
 static int rsnd_connect_server( rsound_t *rd );
 static int rsnd_send_header_info(rsound_t *rd);
 static int rsnd_get_backend_info ( rsound_t *rd );
@@ -65,6 +78,36 @@ static int rsnd_send_info_query(rsound_t *rd);
 static int rsnd_update_server_info(rsound_t *rd);
 
 static void* rsnd_thread ( void * thread_data );
+
+// Does some logging
+static void rsnd_log(enum logtype type, char *fmt, ...)
+{
+   va_list args;
+   va_start(args, fmt);
+
+   char *logtype;
+   switch ( type )
+   {
+      case RSD_LOG_DEBUG:
+         logtype = "DEBUG";
+         break;
+      case RSD_LOG_WARN:
+         logtype = "WARN";
+         break;
+      case RSD_LOG_ERR:
+         logtype = "ERROR";
+         break;
+      default:
+         logtype = "";
+         break;
+   }
+
+   char buf[1024];
+   vsnprintf(buf, sizeof(buf), fmt, args);
+   buf[1023] = '\0';
+
+   fprintf(stderr, "(librsound): PID: %d: [%s] %s\n", (int)getpid(), logtype, buf);
+}
 
 /* Determine whether we're running big- or little endian */
 static inline int rsnd_is_little_endian(void)
@@ -87,9 +130,9 @@ static inline void rsnd_swap_endian_32 ( uint32_t * x )
          (*x << 24);
 }
 
-static inline int rsnd_format_to_framesize ( uint16_t format )
+static inline int rsnd_format_to_framesize ( enum format fmt )
 {
-   switch(format)
+   switch(fmt)
    {
       case RSD_S16_LE:
       case RSD_U16_LE:
@@ -168,7 +211,7 @@ static int rsnd_connect_server( rsound_t *rd )
    rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    if ( rd->conn.socket < 0 || rd->conn.ctl_socket < 0 )
    {
-      fprintf(stderr, "Getting sockets failed.\n");
+      RSD_ERR("Getting sockets failed.");
       goto error;
    }
 
@@ -182,13 +225,13 @@ static int rsnd_connect_server( rsound_t *rd )
 #ifndef __CYGWIN__
    if ( fcntl(rd->conn.socket, F_SETFL, O_NONBLOCK) < 0)
    {
-      fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
+      RSD_ERR("Couldn't set socket to non-blocking ...");
       goto error;
    }
 
    if ( fcntl(rd->conn.ctl_socket, F_SETFL, O_NONBLOCK) < 0 )
    {
-      fprintf(stderr, "Couldn't set socket to non-blocking ...\n");
+      RSD_ERR("Couldn't set socket to non-blocking ...");
       goto error;
    }
 #endif /* Cygwin doesn't seem to like non-blocking I/O ... */
@@ -199,7 +242,7 @@ static int rsnd_connect_server( rsound_t *rd )
 
    /* Cleanup for errors. */
 error:
-   fprintf(stderr, "Connecting to server failed.\n");
+   RSD_ERR("Connecting to server failed.");
 
    if ( res->ai_family != AF_UNIX )
       freeaddrinfo(res);
@@ -376,12 +419,6 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    rd->backend_info.latency = rsnd_header[LATENCY];
    rd->backend_info.chunk_size = rsnd_header[CHUNKSIZE];
 
-
-#define MAX_CHUNK_SIZE 1024 // We do not want larger chunk sizes than this.
-   if ( rd->backend_info.chunk_size > MAX_CHUNK_SIZE || rd->backend_info.chunk_size <= 0 )
-      rd->backend_info.chunk_size = MAX_CHUNK_SIZE;
-
-
 #define MAX_CHUNK_SIZE 1024 // We do not want larger chunk sizes than this.
    if ( rd->backend_info.chunk_size > MAX_CHUNK_SIZE || rd->backend_info.chunk_size <= 0 )
       rd->backend_info.chunk_size = MAX_CHUNK_SIZE;
@@ -405,6 +442,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    }
    
    // Can we read the last 8 bytes so we can use the protocol interface?
+   // This is non-blocking.
    rc = recv(rd->conn.socket, rsnd_header, 8, 0);
    if ( rc == 8 )
       rd->conn_type |= RSD_CONN_PROTO; 
@@ -508,7 +546,7 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
 
       if ( fd.revents & POLLHUP )
       {
-         fprintf(stderr, "*** Remote side hung up! ***\n");
+         RSD_WARN("*** Remote side hung up! ***");
          return 0;
       }
 
@@ -519,7 +557,7 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
          rc = send(socket, buf + wrote, send_size, 0);
          if ( rc < 0 )
          {
-            fprintf(stderr, "Error sending chunk, %s\n", strerror(errno));
+            RSD_ERR("Error sending chunk, %s\n", strerror(errno));
             return rc;
          }
          wrote += rc;
@@ -624,7 +662,7 @@ static int rsnd_start_thread(rsound_t *rd)
       if ( rc < 0 )
       {
          rd->thread_active = 0;
-         fprintf(stderr, "Failed to create thread.\n");
+         RSD_ERR("Failed to create thread.");
          return -1;
       }
       return 0;
@@ -647,14 +685,14 @@ static int rsnd_stop_thread(rsound_t *rd)
       if ( pthread_cancel(rd->thread.threadId) < 0 )
       {
          pthread_cond_signal(&rd->thread.cond);
-         fprintf(stderr, "*** Warning, failed to cancel playback thread. ***\n");
+         RSD_WARN("*** Warning, failed to cancel playback thread. ***");
          pthread_mutex_unlock(&rd->thread.mutex);
          pthread_mutex_unlock(&rd->thread.cond_mutex);
          return 0;
       }
       pthread_cond_signal(&rd->thread.cond);
       if ( pthread_join(rd->thread.threadId, NULL) < 0 )
-         fprintf(stderr, "*** Warning, did not terminate thread. ***\n");
+         RSD_WARN("*** Warning, did not terminate thread. ***");
       pthread_mutex_unlock(&rd->thread.mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
       return 0;
