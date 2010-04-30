@@ -48,7 +48,7 @@ int handle_ctl_request(connection_t conn, void *data)
       
       if ( rc <= 0 )
       {
-         return -1;
+         return 0;
       }
 
       char *substr;
@@ -73,7 +73,7 @@ int handle_ctl_request(connection_t conn, void *data)
 
 
       if ( rc <= 0 )
-         return -1;
+         return 0;
 
       else if ( rc != len )
       {
