@@ -64,7 +64,12 @@ enum rsd_conn_type
 
 // Some logging macros.
 static void rsnd_log(enum rsd_logtype type, char *fmt, ...); 
+#ifdef DEBUG
 #define RSD_DEBUG(fmt, args...) rsnd_log(RSD_LOG_DEBUG, "(%s:%d): " fmt , __FILE__,  __LINE__ , ##args)
+#else
+#define RSD_DEBUG(fmt, args...) {}
+#endif
+
 #define RSD_WARN(fmt, args...) rsnd_log(RSD_LOG_WARN, "(%s:%d): " fmt , __FILE__, __LINE__ , ##args)
 #define RSD_ERR(fmt, args...) rsnd_log(RSD_LOG_ERR, "(%s:%d): " fmt , __FILE__, __LINE__ , ##args)
 
@@ -727,7 +732,7 @@ static size_t rsnd_get_delay(rsound_t *rd)
 
    pthread_mutex_lock(&rd->thread.mutex);
    ptr += rd->delay_offset;
-   //fprintf(stderr, "Offset: %d\n", rd->delay_offset);
+   RSD_DEBUG("Offset: %d", rd->delay_offset);
    pthread_mutex_unlock(&rd->thread.mutex);
 
    if ( ptr < 0 )
@@ -860,7 +865,7 @@ static int rsnd_update_server_info(rsound_t *rd)
       delta += rd->buffer_pointer;
       pthread_mutex_unlock(&rd->thread.mutex);
 
-      //RSD_DEBUG("Delay: %d, Delta: %d", delay, delta);
+      RSD_DEBUG("Delay: %d, Delta: %d", delay, delta);
 
       // We only update the pointer if the data we got is quite recent.
       if ( rd->total_written - client_ptr <  16 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
@@ -874,7 +879,7 @@ static int rsnd_update_server_info(rsound_t *rd)
          pthread_mutex_lock(&rd->thread.mutex);
          rd->delay_offset += offset_delta;
          pthread_mutex_unlock(&rd->thread.mutex);
-         //RSD_DEBUG("Offset Delta: %d", offset_delta);
+         RSD_DEBUG("Changed offset-delta: %d", offset_delta);
       }
    }
 
