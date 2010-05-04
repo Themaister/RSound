@@ -59,6 +59,8 @@ static int porta_open(void *data, wav_header_t *w)
 
    switch ( w->rsd_format )
    {
+      // This will only work on little endian. (Windows :D)
+      // This driver is mostly for cygwin.
       case RSD_S16_LE:
          params.sampleFormat = paInt16;
          break;
