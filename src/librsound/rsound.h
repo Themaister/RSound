@@ -31,7 +31,7 @@ extern "C" {
 #include "../config.h"
 #define LIBRSOUND_VERSION PACKAGE_VERSION
 #else
-#define LIBRSOUND_VERSION "0.9alpha"
+#define LIBRSOUND_VERSION "0.9"
 #endif
 
 #define RSD_DEFAULT_HOST "localhost"

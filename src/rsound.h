@@ -22,7 +22,7 @@
 #include "config.h"
 #define RSD_VERSION PACKAGE_VERSION
 #else
-#define RSD_VERSION "0.9alpha"
+#define RSD_VERSION "0.9"
 #endif
 
 
