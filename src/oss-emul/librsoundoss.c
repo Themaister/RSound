@@ -27,7 +27,7 @@ struct rsd_oss
    int fd; // Fake fd that is returned to the API caller. This will be duplicated.
    rsound_t *rd;
 //   flags_t flags;
-} _rd[16];
+} _rd[FD_MAX];
 
 // Checks if a file descriptor is an rsound fd.
 static rsound_t* fd2handle(int fd)
