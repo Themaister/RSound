@@ -157,6 +157,8 @@ int open(const char* path, int flags, ...)
 
 ssize_t write(int fd, const void* buf, size_t count)
 {
+   init_lib();
+
    rsound_t *rd;
 
    rd = fd2handle(fd);
@@ -184,6 +186,9 @@ ssize_t read(int fd, void* buf, size_t count)
 
 int close(int fd)
 {
+
+   init_lib();
+
    rsound_t *rd;
 
    rd = fd2handle(fd);
@@ -224,6 +229,8 @@ static int ossfmt2rsd(int format)
 
 int ioctl(int fd, unsigned long int request, ...)
 {
+   init_lib();
+
    va_list args;
    void* argp;
    va_start(args, request);
