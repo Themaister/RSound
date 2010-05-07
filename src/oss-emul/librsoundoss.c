@@ -71,6 +71,8 @@ static int start_rsd(int fd, rsound_t *rd)
 
    if ( fcntl(fd, F_SETFD, flags) < 0 )
       return -1;
+
+   return 0;
 }
 
 
@@ -225,6 +227,7 @@ static int ossfmt2rsd(int format)
       case AFMT_U8:
          return RSD_U8;
    }
+   return -1;
 }
 
 int ioctl(int fd, unsigned long int request, ...)

@@ -2,4 +2,4 @@ TARGET = librsoundoss.so
 SOURCE = librsoundoss.c
 
 all: librsoundoss.c
-	$(CC) -lrsound -fPIC -shared -o $(TARGET) $(SOURCE)
+	$(CC) $(CFLAGS) -g -O2 -Wall -lrsound -fPIC -shared -o $(TARGET) $(SOURCE)
