@@ -148,6 +148,7 @@ int open(const char* path, int flags, ...)
    if ( pipe(fds) < 0 )
    {
       rsd_free(_rd[i].rd);
+      _rd[i].rd = NULL;
       return -1;
    }
 
