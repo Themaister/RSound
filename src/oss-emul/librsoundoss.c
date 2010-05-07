@@ -10,6 +10,7 @@
 #include <sys/soundcard.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #define FD_MAX 16
 
@@ -61,8 +62,14 @@ static int start_rsd(int fd, rsound_t *rd)
          return -1;
    }
 
-   // Now we should dup2 :D
+   // Now we should reroute our socket to fd
+   
+   int flags = fcntl(rd->conn.socket, F_GETFD);
+
    if ( dup2(rd->conn.socket, fd) < 0 )
+      return -1;
+
+   if ( fcntl(fd, F_SETFD, flags) < 0 )
       return -1;
 }
 
@@ -73,6 +80,7 @@ struct os_calls
    int (*close)(int);
    int (*ioctl)(int, unsigned long int, ...);
    ssize_t (*write)(int, const void*, size_t);
+   ssize_t (*read)(int, void*, size_t);
 } _os;
 
 static void init_lib(void)
@@ -95,18 +103,11 @@ static void init_lib(void)
       _os.close = dlsym(REAL_LIBC, "close");
       _os.ioctl = dlsym(REAL_LIBC, "ioctl");
       _os.write = dlsym(REAL_LIBC, "write");
+      _os.read = dlsym(REAL_LIBC, "read");
    
       fd_open++;
    }
 
-}
-
-static void close_lib(void)
-{
-   if ( fd_open == 0 )
-      return;
-
-   fd_open--;
 }
 
 int open(const char* path, int flags, ...)
@@ -173,6 +174,14 @@ ssize_t write(int fd, const void* buf, size_t count)
    return rsd_write(rd, buf, count);
 }
 
+ssize_t read(int fd, void* buf, size_t count)
+{
+   if ( fd2handle(fd) != NULL )
+      return -EBADF; // Can't read from an rsound socket.
+   else
+      return _os.read(fd, buf, count);
+}
+
 int close(int fd)
 {
    rsound_t *rd;
@@ -186,11 +195,10 @@ int close(int fd)
    }
 
    rsd_stop(rd);
+   _os.close(fd);
    rsd_free(rd);
    _rd[i].rd = NULL;
    _rd[i].fd = -1;
-
-   close_lib();
 
    return 0;
 }
