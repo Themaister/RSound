@@ -11,8 +11,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <assert.h>
 
 #define FD_MAX 16
+
+#define OSS_FRAGSIZE 512
 
 #if defined(RTLD_NEXT)
 #define REAL_LIBC RTLD_NEXT
@@ -26,7 +29,7 @@ struct rsd_oss
 {
    int fd; // Fake fd that is returned to the API caller. This will be duplicated.
    rsound_t *rd;
-//   flags_t flags;
+   int nonblock;
 } _rd[FD_MAX];
 
 // Checks if a file descriptor is an rsound fd.
@@ -101,15 +104,46 @@ static void init_lib(void)
 
       // Let's open the real calls from LIBC
       
-      _os.open = dlsym(REAL_LIBC, "open");
-      _os.close = dlsym(REAL_LIBC, "close");
-      _os.ioctl = dlsym(REAL_LIBC, "ioctl");
-      _os.write = dlsym(REAL_LIBC, "write");
-      _os.read = dlsym(REAL_LIBC, "read");
+      assert(_os.open = dlsym(REAL_LIBC, "open"));
+      assert(_os.close = dlsym(REAL_LIBC, "close"));
+      assert(_os.ioctl = dlsym(REAL_LIBC, "ioctl"));
+      assert(_os.write = dlsym(REAL_LIBC, "write"));
+      assert(_os.read = dlsym(REAL_LIBC, "read"));
    
       lib_open++;
    }
 
+}
+
+static int is_oss_path(const char* path)
+{
+   fprintf(stderr, "Checking if OSS path: \"%s\"...\n", path);
+   const char *oss_paths[] = {
+      "/dev/dsp",
+      "/dev/audio",
+      "/dev/sound/dsp",
+      "/dev/sound/audio",
+      NULL
+   };
+
+   int is_path = 0;
+
+   int i;
+   for ( i = 0; oss_paths[i] != NULL ; i++ )
+   {
+      if ( !strcmp(path, oss_paths[i]) )
+      {
+         is_path = 1;
+         break;
+      }
+   }
+   
+   /*if ( !is_path )
+      fprintf(stderr, "Nah...\n");
+   else
+      fprintf(stderr, "Idd. It is OSS path!\n");
+   */
+   return is_path;
 }
 
 int open(const char* path, int flags, ...)
@@ -121,8 +155,9 @@ int open(const char* path, int flags, ...)
 
    init_lib();
 
-   if ( strcmp(path, "/dev/dsp") )
+   if ( !is_oss_path(path) )
       return _os.open(path, flags, mode); // We route the call to the OS.
+
 
    // Let's fake this call! :D
    // Search for a vacant fd
@@ -155,6 +190,20 @@ int open(const char* path, int flags, ...)
    close(fds[1]);
    _rd[i].fd = fds[0];
 
+   // Let's check the flags
+   if ( flags & O_NONBLOCK )
+   {
+      _rd[i].nonblock = 1;
+   }
+
+   if ( flags & O_RDONLY ) // We do not support this.
+   {
+      errno = -EINVAL;
+      rsd_free(_rd[i].rd);
+      _rd[i].rd = NULL;
+      return -1;
+   }
+      
    return fds[0];
 }
 
@@ -165,6 +214,7 @@ ssize_t write(int fd, const void* buf, size_t count)
    rsound_t *rd;
 
    rd = fd2handle(fd);
+   int i = fd2index(fd);
 
    if ( rd == NULL )
    {
@@ -176,7 +226,18 @@ ssize_t write(int fd, const void* buf, size_t count)
       return -1;
 
    // Now we can write.
-   return rsd_write(rd, buf, count);
+
+   // Checks for non-blocking.
+   size_t write_size = count;
+   if ( _rd[i].nonblock )
+   {
+      if ( (size_t)rsd_get_avail(rd) > count )
+         write_size = count;
+      else
+         write_size = (size_t)rsd_get_avail(rd);
+   }
+
+   return rsd_write(rd, buf, write_size);
 }
 
 ssize_t read(int fd, void* buf, size_t count)
@@ -228,7 +289,7 @@ static int ossfmt2rsd(int format)
       case AFMT_U8:
          return RSD_U8;
    }
-   return -1;
+   return RSD_S16_LE;
 }
 
 int ioctl(int fd, unsigned long int request, ...)
@@ -257,6 +318,8 @@ int ioctl(int fd, unsigned long int request, ...)
       case SNDCTL_DSP_SETFMT:
          arg = ossfmt2rsd(*(int*)argp);
          rsd_set_param(rd, RSD_FORMAT, &arg);
+         if ( arg == RSD_S16_LE )
+            *(int*)argp = AFMT_S16_LE;
          break;
 
       case SNDCTL_DSP_STEREO:
@@ -264,14 +327,33 @@ int ioctl(int fd, unsigned long int request, ...)
          rsd_set_param(rd, RSD_CHANNELS, &arg);
          break;
 
+      case SNDCTL_DSP_CHANNELS:
+         arg = *(int*)argp;
+         rsd_set_param(rd, RSD_CHANNELS, &arg);
+         break;
+
+      case SNDCTL_DSP_RESET:
+         rsd_stop(rd);
+         break;
+
+      case SNDCTL_DSP_SYNC:
+         rsd_stop(rd);
+         break;
+
       case SNDCTL_DSP_SPEED:
          arg = *(int*)argp;
          rsd_set_param(rd, RSD_SAMPLERATE, &arg);
          break;
 
+      case SNDCTL_DSP_GETBLKSIZE:
+         *(int*)argp = OSS_FRAGSIZE;
+         break;
+
       case SNDCTL_DSP_GETOSPACE:
          zz = argp;
-         zz->fragsize = 512;
+         zz->fragsize = OSS_FRAGSIZE;
+         zz->fragments = rsd_get_avail(rd) / OSS_FRAGSIZE;
+         zz->bytes = rsd_get_avail(rd);
          break;
 
       case SNDCTL_DSP_GETODELAY:
