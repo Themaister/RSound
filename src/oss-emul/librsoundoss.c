@@ -1,13 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <dlfcn.h>
 #include <rsound.h>
 #include <stdarg.h>
+#include <sys/soundcard.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #define FD_MAX 16
+
+#if defined(RTLD_NEXT)
+#define REAL_LIBC RTLD_NEXT
+#else
+#define REAL_LIBC ((void*) -1L)
+#endif
 
 static int fd_open = 0;
 
@@ -15,7 +25,7 @@ struct rsd_oss
 {
    int fd; // Fake fd that is returned to the API caller. This will be duplicated.
    rsound_t *rd;
-   flags_t flags;
+//   flags_t flags;
 } _rd[16];
 
 // Checks if a file descriptor is an rsound fd.
@@ -59,10 +69,10 @@ static int start_rsd(int fd, rsound_t *rd)
 
 struct os_calls
 {
-   int (*open)(const char*, int, mode_t);
+   int (*open)(const char*, int, ...);
    int (*close)(int);
-   int (*ioctl)(int, int, ...);
-   size_t (*write)(int, const void*, size_t);
+   int (*ioctl)(int, unsigned long int, ...);
+   ssize_t (*write)(int, const void*, size_t);
 } _os;
 
 static void init_lib(void)
@@ -77,7 +87,7 @@ static void init_lib(void)
          _rd[i].fd = -1;
       }
 
-      memset(_os, 0, sizeof(_os));
+      memset(&_os, 0, sizeof(_os));
 
       // Let's open the real calls from LIBC
       
@@ -99,8 +109,13 @@ static void close_lib(void)
    fd_open--;
 }
 
-int open(const char* path, int flags, mode_t mode)
+int open(const char* path, int flags, ...)
 {
+   va_list args;
+   va_start(args, flags);
+   mode_t mode = va_arg(args, mode_t);
+   va_end(args);
+
    init_lib();
 
    if ( strcmp(path, "/dev/dsp") )
@@ -139,7 +154,7 @@ int open(const char* path, int flags, mode_t mode)
    return fds[0];
 }
 
-size_t write(int fd, const void* buf, size_t count)
+ssize_t write(int fd, const void* buf, size_t count)
 {
    rsound_t *rd;
 
@@ -180,13 +195,35 @@ int close(int fd)
    return 0;
 }
 
-int ioctl(int fd, int request, ...)
+static int ossfmt2rsd(int format)
+{
+   switch(format)
+   {
+      case AFMT_S16_LE:
+         return RSD_S16_LE;
+      case AFMT_S16_BE:
+         return RSD_S16_BE;
+      case AFMT_U16_BE:
+         return RSD_U16_BE;
+      case AFMT_U16_LE:
+         return RSD_U16_LE;
+      case AFMT_S8:
+         return RSD_S8;
+      case AFMT_U8:
+         return RSD_U8;
+   }
+}
+
+int ioctl(int fd, unsigned long int request, ...)
 {
    va_list args;
    void* argp;
    va_start(args, request);
    argp = va_arg(args, void*);
    va_end(args);
+
+   int arg;
+   audio_buf_info *zz;
 
    rsound_t *rd;
 
@@ -199,27 +236,30 @@ int ioctl(int fd, int request, ...)
    switch(request)
    {
       case SNDCTL_DSP_SETFMT:
-         int format = ossfmt2rsd(*(int*)argp);
-         rsd_set_param(rd, RSD_FORMAT, &format);
+         arg = ossfmt2rsd(*(int*)argp);
+         rsd_set_param(rd, RSD_FORMAT, &arg);
          break;
 
       case SNDCTL_DSP_STEREO:
-         int channels = (*(int*)argp == 1) ? 2 : 1;
-         rsd_set_param(rd, RSD_CHANNELS, &channels);
+         arg = (*(int*)argp == 1) ? 2 : 1;
+         rsd_set_param(rd, RSD_CHANNELS, &arg);
          break;
 
       case SNDCTL_DSP_SPEED:
-         int rate = *(int*)argp;
-         rsd_set_param(rd, RSD_SAMPLERATE, &rate);
+         arg = *(int*)argp;
+         rsd_set_param(rd, RSD_SAMPLERATE, &arg);
          break;
 
       case SNDCTL_DSP_GETOSPACE:
-         audio_buf_info *zz = argp;
+         zz = argp;
          zz->fragsize = 512;
          break;
 
       case SNDCTL_DSP_GETODELAY:
          *(int*)argp = (int) rsd_delay(rd);
+         break;
+      
+      default:
          break;
 
    }
