@@ -20,7 +20,7 @@
 #define REAL_LIBC ((void*) -1L)
 #endif
 
-static int fd_open = 0;
+static int lib_open = 0;
 
 struct rsd_oss
 {
@@ -86,7 +86,7 @@ struct os_calls
 static void init_lib(void)
 {
    int i;
-   if ( fd_open == 0 ) // We need to init the lib
+   if ( lib_open == 0 ) // We need to init the lib
    {
       memset(_rd, 0, sizeof(_rd));
 
@@ -105,7 +105,7 @@ static void init_lib(void)
       _os.write = dlsym(REAL_LIBC, "write");
       _os.read = dlsym(REAL_LIBC, "read");
    
-      fd_open++;
+      lib_open++;
    }
 
 }
