@@ -1,0 +1,4 @@
+#!/bin/sh
+
+LD_PRELOAD=/usr/lib/librsoundoss.so $*
+

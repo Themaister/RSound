@@ -152,7 +152,7 @@ int open(const char* path, int flags, ...)
       return -1;
    }
    
-   fprintf(stderr, "Opening path: \"%s\"\n", path);
+   //fprintf(stderr, "Opening path: \"%s\"\n", path);
 
    if ( flags & O_CREAT )
    {
