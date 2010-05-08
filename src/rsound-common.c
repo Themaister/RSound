@@ -578,7 +578,8 @@ int set_up_socket()
       servinfo->ai_addr = (struct sockaddr*)&un;
       servinfo->ai_addrlen = sizeof(un);
       un.sun_family = servinfo->ai_family;
-      strcpy(un.sun_path, unix_sock); // Should use strncpy
+      strncpy(un.sun_path, unix_sock, sizeof(un.sun_path)); // Should use strncpy
+      un.sun_path[sizeof(un.sun_path)-1] = '\0';
    }
    else
    {

@@ -191,7 +191,8 @@ static int rsnd_connect_server( rsound_t *rd )
       res->ai_addr = (struct sockaddr*)&un;
       res->ai_addrlen = sizeof(un);
       un.sun_family = res->ai_family;
-      strcpy(un.sun_path, rd->host); // Should use strncpy
+      strncpy(un.sun_path, rd->host, sizeof(un.sun_path)); 
+      un.sun_path[sizeof(un.sun_path)-1] = '\0';
    }
 #ifdef HAVE_DECNET
    else if ( (delm = strstr(rd->host, "::")) != NULL )
