@@ -82,7 +82,7 @@ static int oss_open(void *data, wav_header_t *w)
    }
    int oldfmt = format;
    
-   int stereo; 
+   int channels = w->numChannels, oldchannels = w->numChannels; 
    int sampleRate = w->sampleRate;
    
    if ( ioctl( sound->audio_fd, SNDCTL_DSP_SETFMT, &format) == -1 )
@@ -97,25 +97,15 @@ static int oss_open(void *data, wav_header_t *w)
       return -1;
    }
    
-   if ( w->numChannels == 2 )
-      stereo = 1;
-   else if ( w->numChannels == 1 )
-      stereo = 0;
-   else
+   if ( ioctl( sound->audio_fd, SNDCTL_DSP_CHANNELS, &channels) == -1 )
    {
-      fprintf(stderr, "Multichannel audio not supported.\n");
-      return -1;
-   }
-      
-   if ( ioctl( sound->audio_fd, SNDCTL_DSP_STEREO, &stereo) == -1 )
-   {
-      perror("SNDCTL_DSP_STEREO");
+      perror("SNDCTL_DSP_CHANNELS");
       return -1;
    }
    
-   if ( stereo != 1 && w->numChannels != 1 )
+   if ( channels != oldchannels )
    {
-      fprintf(stderr, "Sound card doesn't support stereo mode.\n");
+      fprintf(stderr, "Number of audio channels (%d) not supported.\n", oldchannels);
       return -1;
    }
    
