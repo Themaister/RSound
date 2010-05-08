@@ -47,6 +47,13 @@ static int oss_open(void *data, wav_header_t *w)
       fprintf(stderr, "Couldn't open device %s.\n", oss_device);
       return -1;
    }
+
+   int frags = (8 << 16) | 10;
+   if ( ioctl(sound->audio_fd, SNDCTL_DSP_SETFRAGMENT, &frags) < 0 )
+   {
+      fprintf(stderr, "Could not set DSP latency settings.\n");
+      return -1;
+   }
    
    int format;
    switch ( w->rsd_format )
