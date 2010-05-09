@@ -172,7 +172,7 @@ static void print_help()
 {
    printf("rsdplay (librsound) version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", LIBRSOUND_VERSION);
    printf("=========================================================================\n");
-   printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels | -B/--bits | -f/--file ]\n");
+   printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels | -B/--bits | -f/--file | -s/--server ]\n");
    
    printf("\nrsdplay reads PCM data only through stdin (default) or a file, and sends this data directly to an rsound server.\n"); 
    printf("Unless specified with --raw, rsdplay expects a valid WAV header to be present in the input stream.\n\n");
@@ -190,7 +190,8 @@ static void print_help()
    printf("-B: Specifies sample format in raw PCM stream\n");
    printf("\tSupported formats are: S16LE, S16BE, U16LE, U16BE, S8, U8.\n");
    printf("-h/--help: Prints this help\n");
-   printf("-f/--file: Uses file rather than stdin\n\n");
+   printf("-f/--file: Uses file rather than stdin\n");
+   printf("-s/--server: More explicit way of assigning hostname\n\n");
 }
 
 static void parse_input(int argc, char **argv)
@@ -204,10 +205,11 @@ static void parse_input(int argc, char **argv)
       { "rate", 1, NULL, 'r'},
       { "channels", 1, NULL, 'c'},
       { "file", 1, NULL, 'f'},
+      { "server", 1, NULL, 's'},
       { NULL, 0, NULL, 0 }
    };
 
-   char optstring[] = "r:p:hc:f:B:";
+   char optstring[] = "r:p:hc:f:B:s:";
    while ( 1 )
    {
       c = getopt_long ( argc, argv, optstring, opts, &option_index );
@@ -250,6 +252,11 @@ static void parse_input(int argc, char **argv)
          case 'h':
             print_help();
             exit(0);
+
+         case 's':
+            strncpy(host, optarg, 1023);
+            host[1023] = '\0';
+            break;
 
          case 'B':
             if ( strcmp("S16LE", optarg) == 0 || strcmp("16", optarg) == 0 )
