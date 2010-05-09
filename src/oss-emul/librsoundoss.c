@@ -82,12 +82,7 @@ static int start_rsd(int fd, rsound_t *rd)
 
    // Now we should reroute our socket to fd
    
-   int flags = fcntl(rd->conn.socket, F_GETFD);
-
    if ( dup2(rd->conn.socket, fd) < 0 )
-      return -1;
-
-   if ( fcntl(fd, F_SETFD, flags) < 0 )
       return -1;
 
    return 0;
