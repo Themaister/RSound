@@ -260,7 +260,7 @@ static int rsnd_connect_server( rsound_t *rd )
 
    /* Cleanup for errors. */
 error:
-   RSD_ERR("Connecting to server failed.");
+   RSD_ERR("Connecting to server failed. \"%s\"", rd->host);
 
    if ( res->ai_family != AF_UNIX )
       freeaddrinfo(res);
