@@ -170,7 +170,7 @@ static inline int rsnd_format_to_framesize ( enum rsd_format fmt )
 /* Creates sockets and attempts to connect to the server. Returns -1 when failed, and 0 when success. */
 static int rsnd_connect_server( rsound_t *rd )
 {
-   struct addrinfo hints, *res;
+   struct addrinfo hints, *res = NULL;
    struct sockaddr_un un;
 #ifdef HAVE_DECNET
    char * object;
