@@ -465,6 +465,12 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    if ( rc == 8 )
       rd->conn_type |= RSD_CONN_PROTO; 
 
+   // We no longer want to read from this socket.
+   if ( shutdown(rd->conn.socket, SHUT_RD) < 0 )
+   {
+      return -1;
+   }
+
    return 0;
 }
 

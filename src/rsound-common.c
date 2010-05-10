@@ -565,6 +565,12 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
    if ( rc != RSND_HEADER_SIZE)
       return -1;
 
+   // RSD will no longer use this for writing
+   if ( shutdown(conn.socket, SHUT_WR) < 0 )
+   {
+      return -1;
+   }
+
    return 0;
 }
 
