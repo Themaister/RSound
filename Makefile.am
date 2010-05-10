@@ -53,6 +53,13 @@ if HAVE_AL
    SERV_LIBS += -lopenal
 endif
 
+if HAVE_MUROAR
+   sources_serv += src/muroar.c
+   sources_serv += src/muroar-internal.h
+   AM_CFLAGS += -D_MUROAR
+   SERV_LIBS += -lmuroar
+endif
+
 src_rsdplay_SOURCES = src/client.c \
                      src/librsound/rsound.h
 

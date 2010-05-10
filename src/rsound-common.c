@@ -50,6 +50,10 @@ extern const rsd_backend_callback_t rsd_porta;
 extern const rsd_backend_callback_t rsd_al;
 #endif
 
+#ifdef _MUROAR
+extern const rsd_backend_callback_t rsd_muroar;
+#endif
+
 #include <getopt.h>
 #include <poll.h>
 #include <signal.h>
@@ -259,6 +263,13 @@ void parse_input(int argc, char **argv)
                break;
             }
 #endif
+#ifdef _MUROAR
+            if ( !strcmp( "muroar", optarg) )
+            {
+               backend = &rsd_muroar;
+               break;
+            }
+#endif
 
             fprintf(stderr, "\nValid backend not given. Exiting ...\n\n");
             print_help();
@@ -316,7 +327,10 @@ void parse_input(int argc, char **argv)
       backend = &rsd_porta;
    #elif _AL
       backend = &rsd_al;
+   #elif _MUROAR
+      backend = &rsd_muroar;
    #endif
+   
 #endif
 
    }
@@ -354,6 +368,9 @@ static void print_help()
 #endif
 #ifdef _AL
    printf("openal ");
+#endif
+#ifdef _MUROAR
+   printf("muroar ");
 #endif
 
    putchar('\n');

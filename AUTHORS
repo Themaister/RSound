@@ -5,4 +5,6 @@ Hans-Kristian Arntzen - maister < at > archlinux < dot > us
 
 Philipp Schafft:
    librsound - Unix domain socket and DECnet support.
+   muRoar - muRoar output driver
+   Various bugfixes
 
