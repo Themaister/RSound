@@ -1,10 +1,10 @@
 Contributors:
 
-Hans-Kristian Arntzen - maister < at > archlinux < dot > us
+Hans-Kristian Arntzen - <maister@archlinux.us>
    Main code, maintainer
 
-Philipp Schafft:
+Philipp Schafft - <lion@lion.leolix.org>
    librsound - Unix domain socket and DECnet support.
-   muRoar - muRoar output driver
+   rsd - muRoar output driver
    Various bugfixes
 
