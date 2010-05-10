@@ -188,7 +188,8 @@ static void print_help()
    printf("-c/--channel: Specifies number of sound channels (raw PCM)\n");
    printf("\tExample: -c 1. Defaults to stereo (2)\n");
    printf("-B: Specifies sample format in raw PCM stream\n");
-   printf("\tSupported formats are: S16LE, S16BE, U16LE, U16BE, S8, U8.\n");
+   printf("\tSupported formats are: S16LE, S16BE, U16LE, U16BE, S8, U8.\n" 
+          "\tYou can pass 8 and 16 also, which is equal to U8 and S16LE respectively.\n");
    printf("-h/--help: Prints this help\n");
    printf("-f/--file: Uses file rather than stdin\n");
    printf("-s/--server: More explicit way of assigning hostname\n\n");
