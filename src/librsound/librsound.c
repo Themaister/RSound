@@ -223,10 +223,7 @@ static int rsnd_connect_server( rsound_t *rd )
    {
       rd->conn_type = RSD_CONN_TCP;
       if ( getaddrinfo(rd->host, rd->port, &hints, &res) != 0 )
-      {
-         res = NULL;
          goto error;
-      }
    }
 
    rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
