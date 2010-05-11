@@ -222,7 +222,11 @@ static int rsnd_connect_server( rsound_t *rd )
    else
    {
       rd->conn_type = RSD_CONN_TCP;
-      getaddrinfo(rd->host, rd->port, &hints, &res);
+      if ( getaddrinfo(rd->host, rd->port, &hints, &res) != 0 )
+      {
+         res = NULL;
+         goto error;
+      }
    }
 
    rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -254,7 +258,7 @@ static int rsnd_connect_server( rsound_t *rd )
    }
 #endif /* Cygwin doesn't seem to like non-blocking I/O ... */
 
-   if ( res->ai_family != AF_UNIX )
+   if ( res != NULL && (res->ai_family != AF_UNIX) )
       freeaddrinfo(res);
    return 0;
 
@@ -262,7 +266,7 @@ static int rsnd_connect_server( rsound_t *rd )
 error:
    RSD_ERR("Connecting to server failed. \"%s\"", rd->host);
 
-   if ( res->ai_family != AF_UNIX )
+   if ( res != NULL && (res->ai_family != AF_UNIX) )
       freeaddrinfo(res);
    return -1;
 }
