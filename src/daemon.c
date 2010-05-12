@@ -182,25 +182,25 @@ int main(int argc, char ** argv)
    
 static void* get_addr(struct sockaddr *sa)
 {
-      union
-      {
-         struct sockaddr *sa;
-         struct sockaddr_in *v4;
-         struct sockaddr_in6 *v6;
-      } u;
+   union
+   {
+      struct sockaddr *sa;
+      struct sockaddr_in *v4;
+      struct sockaddr_in6 *v6;
+   } u;
 
-      u.sa = sa;
-      /* Gotta love those & 'n * :D */
+   u.sa = sa;
+   /* Gotta love those & 'n * :D */
 
-      if ( sa->sa_family == AF_INET ) 
-      {
-         return &((u.v4)->sin_addr);
-      }
-      else if ( sa->sa_family == AF_INET6 )
-      {
-         return &((u.v6)->sin6_addr);
-      }
-      return NULL;
+   if ( sa->sa_family == AF_INET ) 
+   {
+      return &((u.v4)->sin_addr);
+   }
+   else if ( sa->sa_family == AF_INET6 )
+   {
+      return &((u.v6)->sin6_addr);
+   }
+   return NULL;
 }
 
 /* For now, just accept the IP blindly (tinfoil hat off) */
