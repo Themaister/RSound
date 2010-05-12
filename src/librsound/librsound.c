@@ -879,10 +879,10 @@ static int rsnd_update_server_info(rsound_t *rd)
       if ( rd->total_written - client_ptr <  16 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
       {
          int offset_delta = delta - delay;
-         if ( offset_delta < -500 )
-            offset_delta = -500;
-         else if ( offset_delta > 500 )
-            offset_delta = 500;
+         if ( offset_delta < -50 )
+            offset_delta = -50;
+         else if ( offset_delta > 50 )
+            offset_delta = 50;
 
          pthread_mutex_lock(&rd->thread.mutex);
          rd->delay_offset += offset_delta;
