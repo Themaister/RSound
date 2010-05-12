@@ -61,7 +61,7 @@ int main(int argc, char ** argv)
 
    /* Parses input and sets the global variables */
    parse_input(argc, argv);
-   
+
    /* Should we fork and kill our parent? :p */
    if ( daemonize )
    {
@@ -97,7 +97,7 @@ int main(int argc, char ** argv)
       fprintf(stderr, "Couldn't listen for connections \"%s\"...\n", strerror(errno));
       exit(1);
    }
-	
+
    /* Sets up interface for cleanly shutting down the server */
    write_pid_file();
    signal(SIGINT, cleanup);
@@ -124,7 +124,7 @@ int main(int argc, char ** argv)
          fprintf(stderr, "%s\n", strerror( errno ) ); 
          continue;
       }
-            
+
       /* Accepts a ctl socket. They have to come from same source. 
        * Times out very quickly (in case the server is being queried from an unknown source. */
 
@@ -144,7 +144,7 @@ int main(int argc, char ** argv)
          s_ctl = accept(s, u[1].addr, &addr_size);
       }
       /* We didn't get a control socket, so we don't care about it :) 
-       If s_ctl is 0, the backend will not perform any operations on it. */
+         If s_ctl is 0, the backend will not perform any operations on it. */
       else 
       {
          if ( debug )
@@ -169,7 +169,7 @@ int main(int argc, char ** argv)
          close(s_ctl); s_ctl = -1;
          continue;
       }
-   
+
       conn.socket = s_new;
       conn.ctl_socket = s_ctl;
       new_sound_thread(conn);
@@ -179,7 +179,7 @@ int main(int argc, char ** argv)
 
    return 0;
 }
-   
+
 static void* get_addr(struct sockaddr *sa)
 {
    union
@@ -245,7 +245,7 @@ static int valid_ips( struct sockaddr_storage *their_addr )
 static void log_message( const char * ip )
 {
    char timestring[64] = {0};
-   
+
    if ( verbose )
    {
       time_t cur_time;
