@@ -195,6 +195,12 @@ int open(const char* path, int flags, ...)
    if ( rsd_init(&_rd[i].rd) < 0 )
       return -1;
 
+   // Sets some sane defaults
+   int rate = 44100;
+   int channels = 2;
+   rsd_set_param(_rd[i].rd, RSD_SAMPLERATE, &rate);
+   rsd_set_param(_rd[i].rd, RSD_CHANNELS, &channels);
+
    int fds[2];
    if ( pipe(fds) < 0 )
    {
@@ -325,8 +331,10 @@ int ioctl(int fd, unsigned long int request, ...)
    audio_buf_info *zz;
 
    rsound_t *rd;
+   int i;
 
    rd = fd2handle(fd);
+   i = fd2index(fd);
    if ( rd == NULL )
    {
       return _os.ioctl(fd, request, argp);
@@ -334,6 +342,11 @@ int ioctl(int fd, unsigned long int request, ...)
 
    switch(request)
    {
+      case SNDCTL_DSP_GETFMTS:
+         *(int*)argp = AFMT_U8 | AFMT_S8 | AFMT_S16_LE 
+            | AFMT_S16_BE | AFMT_U16_LE | AFMT_U16_BE;
+         break;
+
       case SNDCTL_DSP_SETFMT:
          arg = ossfmt2rsd(*(int*)argp);
          rsd_set_param(rd, RSD_FORMAT, &arg);
@@ -377,6 +390,10 @@ int ioctl(int fd, unsigned long int request, ...)
 
       case SNDCTL_DSP_GETODELAY:
          *(int*)argp = (int) rsd_delay(rd);
+         break;
+
+      case SNDCTL_DSP_NONBLOCK:
+         _rd[i].nonblock = 1;
          break;
 
       default:
