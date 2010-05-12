@@ -14,8 +14,8 @@
  */
 
 /************************************************************** 
-*   This file defines some backend independent functions      *
-***************************************************************/
+ *   This file defines some backend independent functions      *
+ ***************************************************************/
 
 #include "config.h"
 #include "endian.h"
@@ -71,12 +71,12 @@ static int recieve_data(void*, connection_t, char*, size_t);
 /* Writes a file with the process id, so that a subsequent --kill can kill it cleanly. */
 void write_pid_file(void)
 {
-	FILE *pidfile = fopen(PIDFILE, "w");
-	if ( pidfile )
-	{
-		fprintf(pidfile, "%d\n", (int)getpid());
-		fclose(pidfile);
-	}
+   FILE *pidfile = fopen(PIDFILE, "w");
+   if ( pidfile )
+   {
+      fprintf(pidfile, "%d\n", (int)getpid());
+      fclose(pidfile);
+   }
 }
 
 void initialize_audio ( void )
@@ -107,7 +107,7 @@ void new_sound_thread ( connection_t connection )
 {
    static pthread_t last_thread = 0;
    pthread_t thread;
-   
+
    connection_t *conn = calloc(1, sizeof(*conn));
    conn->socket = connection.socket;
    conn->ctl_socket = connection.ctl_socket;
@@ -140,8 +140,8 @@ void new_sound_thread ( connection_t connection )
    }
 
    /* If we're not going to join, we need to detach it. */
-	if ( !no_threading )
-		pthread_detach(thread);
+   if ( !no_threading )
+      pthread_detach(thread);
 
    /* Sets the static variable for use with next new_sound_thread() call. */
    last_thread = thread;
@@ -157,8 +157,8 @@ error:
 /* getopt command-line parsing. Sets the variables declared in daemon.c */
 void parse_input(int argc, char **argv)
 {
-	FILE *pidfile;
-	int pid;
+   FILE *pidfile;
+   int pid;
 
    int c, option_index = 0;
 
@@ -170,7 +170,7 @@ void parse_input(int argc, char **argv)
       { "daemon", 0, NULL, 'D' },
       { "verbose", 0, NULL, 'v' },
       { "single", 0, NULL, 'T' },
-		{ "kill", 0, NULL, 'K' },
+      { "kill", 0, NULL, 'K' },
       { "debug", 0, NULL, 'B' },
       { "sock", 1, NULL, 'S' },
       { NULL, 0, NULL, 0 }
@@ -196,7 +196,7 @@ void parse_input(int argc, char **argv)
             strncpy(port, optarg, 127);
             port[127] = 0;
             break;
-         
+
          case '?':
             print_help();
             exit(1);
@@ -208,25 +208,25 @@ void parse_input(int argc, char **argv)
          case 'T':
             no_threading = 1;
             break;
-			case 'K':
-				pidfile = fopen(PIDFILE, "r");
-				if ( pidfile )
-				{
-					if ( fscanf(pidfile, "%d", &pid) )
-					{
-						kill(pid, SIGTERM);
-						fclose(pidfile);
-						unlink(PIDFILE);
-						exit(0);
-					}
-				}
-				else
-				{
-					fprintf(stderr, "Couldn't open PID file.\n");
-					exit(1);
-				}
+         case 'K':
+            pidfile = fopen(PIDFILE, "r");
+            if ( pidfile )
+            {
+               if ( fscanf(pidfile, "%d", &pid) )
+               {
+                  kill(pid, SIGTERM);
+                  fclose(pidfile);
+                  unlink(PIDFILE);
+                  exit(0);
+               }
+            }
+            else
+            {
+               fprintf(stderr, "Couldn't open PID file.\n");
+               exit(1);
+            }
 
-				break;
+            break;
          case 'b':
 #ifdef _ALSA
             if ( !strcmp( "alsa", optarg ) )
@@ -299,38 +299,38 @@ void parse_input(int argc, char **argv)
             exit(1);
       }
    }
-   
+
    if ( backend == NULL )
    {
 
-/* Select a default backend if nothing was specified on the command line. */
+      /* Select a default backend if nothing was specified on the command line. */
 
 #ifdef __CYGWIN__
-   /* We prefer portaudio if we're in Windows. */
-   #ifdef _PORTA
+      /* We prefer portaudio if we're in Windows. */
+#ifdef _PORTA
       backend = &rsd_porta;
-   #elif _AL
+#elif _AL
       backend = &rsd_al;
-   #elif _AO
+#elif _AO
       backend = &rsd_ao;
-   #elif _OSS
+#elif _OSS
       backend = &rsd_oss;
-   #endif
+#endif
 #else
-   #ifdef _ALSA
+#ifdef _ALSA
       backend = &rsd_alsa;
-   #elif _OSS
+#elif _OSS
       backend = &rsd_oss;
-   #elif _AO
+#elif _AO
       backend = &rsd_ao;
-   #elif _PORTA
+#elif _PORTA
       backend = &rsd_porta;
-   #elif _AL
+#elif _AL
       backend = &rsd_al;
-   #elif _MUROAR
+#elif _MUROAR
       backend = &rsd_muroar;
-   #endif
-   
+#endif
+
 #endif
 
    }
@@ -350,7 +350,7 @@ static void print_help()
    printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
    printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t"
-          "    Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
+         "    Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
 
    printf("\n-b/--backend: Specifies which audio backend to use.\n");
    printf("Supported backends: ");
@@ -426,18 +426,18 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
       return -1;
    }
 
-/* Since we can't really rely on that the compiler doesn't pad our structs in funny ways (portability ftw), we need to do it this
-   horrid way. :v */
+   /* Since we can't really rely on that the compiler doesn't pad our structs in funny ways (portability ftw), we need to do it this
+      horrid way. :v */
 
-// Defines Positions in the WAVE header
+   // Defines Positions in the WAVE header
 #define PCM 20
 #define CHANNELS 22
 #define RATE 24
 #define BITS_PER_SAMPLE 34
 
-/* This is not part of the WAV standard, but since we're ignoring these useless bytes at the end to begin with, why not?
-   If this is 0 (RSD_UNSPEC) or some undefined value, we assume the default of S16_LE for 16 bit and U8 for 8bit. (We can assume that the client is using an old version of librsound since it sets 0
-   by default in the header. */
+   /* This is not part of the WAV standard, but since we're ignoring these useless bytes at the end to begin with, why not?
+      If this is 0 (RSD_UNSPEC) or some undefined value, we assume the default of S16_LE for 16 bit and U8 for 8bit. (We can assume that the client is using an old version of librsound since it sets 0
+      by default in the header. */
 #define FORMAT 42
 
 
@@ -481,7 +481,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
 
    if ( !pcm ) // Are we out of spec?
    {
-   // If format is set to some defined value, use that instead.
+      // If format is set to some defined value, use that instead.
       switch ( temp_format )
       {
          case RSD_S16_BE:
@@ -525,22 +525,22 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
 static int send_backend_info(connection_t conn, backend_info_t *backend )
 {
 
-// Magic 8 bytes that server sends to the client.
-// If we send 16 bytes, the first 8 bytes with 8 empty bytes after, 
-// it means that we can accept stuff on the ctl socket, which is used for delay measurements! :D
-// The old version of the server simply closed down the connection when something happened to the control socket.
-// This is mostly a backwards compatible solution.
+   // Magic 8 bytes that server sends to the client.
+   // If we send 16 bytes, the first 8 bytes with 8 empty bytes after, 
+   // it means that we can accept stuff on the ctl socket, which is used for delay measurements! :D
+   // The old version of the server simply closed down the connection when something happened to the control socket.
+   // This is mostly a backwards compatible solution.
 #define RSND_HEADER_SIZE 16
 #define LATENCY 0
 #define CHUNKSIZE 1
-   
+
    int rc;
    struct pollfd fd;
-   
+
    // 16 byte header
    uint32_t header[4] = {0};
 
-/* Again, padding ftw */
+   /* Again, padding ftw */
    // Client uses server side latency for delay calculations.
    header[LATENCY] = backend->latency;
    // Preferred TCP packet size. (Fragsize for audio backend. Might be ignored by client.)
@@ -627,7 +627,7 @@ int set_up_socket()
       fprintf(stderr, "Error getting socket\n");
       goto error;
    }
-   
+
    if ( servinfo->ai_family != AF_UNIX )
    {
       if ( setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) 
@@ -636,7 +636,7 @@ int set_up_socket()
          goto error;
       }
    }
-   
+
    rc = bind(s, servinfo->ai_addr, servinfo->ai_addrlen);
    if ( rc == -1 )
    {
@@ -673,7 +673,7 @@ static int recieve_data(void *data, connection_t conn, char* buffer, size_t size
    fd[0].events = POLLIN;
    fd[1].fd = conn.ctl_socket;
    fd[1].events = POLLIN;
-   
+
    // Will not check ctl_socket if it's never used.
    int fds; 
    if ( conn.ctl_socket > 0 )
@@ -710,13 +710,13 @@ static int recieve_data(void *data, connection_t conn, char* buffer, size_t size
          read_size = size - read > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - read;
          rc = recv(conn.socket, buffer + read, read_size, 0);
          if ( rc <= 0 )
-         return 0;
-         
+            return 0;
+
          read += rc;
       }
 
    }
-   
+
    return read;
 }
 
@@ -728,7 +728,7 @@ static void* rsd_thread(void *thread_data)
    wav_header_t w;
    int rc, written;
    char *buffer = NULL;
-   
+
    connection_t *temp_conn = thread_data;
    conn.socket = temp_conn->socket;
    conn.ctl_socket = temp_conn->ctl_socket;
@@ -809,7 +809,7 @@ static void* rsd_thread(void *thread_data)
    for(;;)
    {
       memset(buffer, 0, size);
-      
+
       rc = recieve_data(data, conn, buffer, size);
       if ( rc == 0 )
       {
@@ -817,7 +817,7 @@ static void* rsd_thread(void *thread_data)
             fprintf(stderr, "Client closed connection.\n");
          goto rsd_exit;
       }
-      
+
       for ( written = 0; written < (int)size; )
       {
          rc = backend->write(data, buffer + written, size - written);

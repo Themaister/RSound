@@ -54,7 +54,7 @@ static int oss_open(void *data, wav_header_t *w)
       fprintf(stderr, "Could not set DSP latency settings.\n");
       return -1;
    }
-   
+
    int format;
    switch ( w->rsd_format )
    {
@@ -81,46 +81,46 @@ static int oss_open(void *data, wav_header_t *w)
          return -1;
    }
    int oldfmt = format;
-   
+
    int channels = w->numChannels, oldchannels = w->numChannels; 
    int sampleRate = w->sampleRate;
-   
+
    if ( ioctl( sound->audio_fd, SNDCTL_DSP_SETFMT, &format) == -1 )
    {
       perror("SNDCTL_DSP_SETFMT");
       return -1;
    }
-   
+
    if ( format != oldfmt )
    {
       fprintf(stderr, "Sound card doesn't support %s sampling format.\n", rsnd_format_to_string(w->rsd_format) );
       return -1;
    }
-   
+
    if ( ioctl( sound->audio_fd, SNDCTL_DSP_CHANNELS, &channels) == -1 )
    {
       perror("SNDCTL_DSP_CHANNELS");
       return -1;
    }
-   
+
    if ( channels != oldchannels )
    {
       fprintf(stderr, "Number of audio channels (%d) not supported.\n", oldchannels);
       return -1;
    }
-   
+
    if ( ioctl ( sound->audio_fd, SNDCTL_DSP_SPEED, &sampleRate ) == -1 )
    {
       perror("SNDCTL_DSP_SPEED");
       return -1;
    }
-   
+
    if ( sampleRate != (int)w->sampleRate )
    {
       fprintf(stderr, "Sample rate couldn't be set correctly.\n");
       return -1;
    }
-   
+
    return 0;
 }
 
@@ -163,5 +163,5 @@ const rsd_backend_callback_t rsd_oss = {
    .close = oss_close,
    .backend = "OSS"
 };
-   
+
 

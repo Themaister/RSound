@@ -47,7 +47,7 @@ static int porta_init(void **data)
    *data = sound;
    return 0;
 }
-  
+
 static int porta_open(void *data, wav_header_t *w)
 {
    porta_t *sound = data;
@@ -83,11 +83,11 @@ static int porta_open(void *data, wav_header_t *w)
 
    params.suggestedLatency = Pa_GetDeviceInfo( params.device )->defaultLowOutputLatency;
    params.hostApiSpecificStreamInfo = NULL;
-   
+
    sound->size = FRAMES_PER_BUFFER * rsnd_format_to_bytes(w->rsd_format) * w->numChannels;
    sound->frames = FRAMES_PER_BUFFER;
    sound->bps = rsnd_format_to_bytes(w->rsd_format) * w->numChannels * w->sampleRate;
-   
+
    err = Pa_OpenStream (
          &sound->stream,
          NULL,
@@ -120,7 +120,7 @@ static void porta_get_backend(void *data, backend_info_t *backend_info)
 {
    porta_t *sound = data;
    backend_info->latency = (uint32_t)(sound->bps * Pa_GetStreamInfo( sound->stream )->outputLatency),
-   backend_info->chunk_size = sound->size;
+      backend_info->chunk_size = sound->size;
 }
 
 static int porta_latency(void *data)
@@ -133,7 +133,7 @@ static size_t porta_write(void *data, const void *buf, size_t size)
 {
    porta_t *sound = data;
    PaError err;
-   
+
    size_t write_frames = size / (sound->size / sound->frames);
 
    err = Pa_WriteStream( sound->stream, buf, write_frames );

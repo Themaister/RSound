@@ -43,7 +43,7 @@ static int alsa_init(void **data)
 static int alsa_open(void *data, wav_header_t *w)
 {
    alsa_t *interface = data;
-   
+
    int rc = snd_pcm_open(&interface->handle, device, SND_PCM_STREAM_PLAYBACK, 0);
    if ( rc < 0 )
    {
@@ -54,7 +54,7 @@ static int alsa_open(void *data, wav_header_t *w)
    /* Prefer a small frame count for this, with a high buffer/framesize ratio. */
    unsigned int buffer_time = BUFFER_TIME;
    snd_pcm_uframes_t frames = 256;
-   
+
    /* Determines format to use */   
    snd_pcm_format_t format;
    switch ( w->rsd_format )
@@ -107,8 +107,8 @@ static int alsa_open(void *data, wav_header_t *w)
    snd_pcm_sw_params_t *sw_params;
    if ( snd_pcm_sw_params_malloc(&sw_params) < 0 )
       return -1;
-   
-   
+
+
    if ( snd_pcm_sw_params_current(interface->handle, sw_params) < 0 )
    {
       snd_pcm_sw_params_free(sw_params);
@@ -170,7 +170,7 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
    alsa_t *sound = data;
    snd_pcm_sframes_t rc;
    snd_pcm_sframes_t write_size = snd_pcm_bytes_to_frames(sound->handle, size );
-   
+
    rc = snd_pcm_writei(sound->handle, buf, write_size);
    if (rc == -EPIPE || rc == -EINTR || rc == -ESTRPIPE ) 
    {
@@ -178,7 +178,7 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
          return 0;
       return size;
    }
-   
+
    else if (rc < 0) 
    {
       fprintf(stderr, "Error from writei: %s\n", snd_strerror(rc));

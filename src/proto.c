@@ -60,7 +60,7 @@ int handle_ctl_request(connection_t conn, void *data)
 
       memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
       rc = recv(conn.ctl_socket, rsd_proto_header, RSD_PROTO_CHUNKSIZE, 0);
-      
+
       if ( rc <= 0 )
       {
          return 0;
@@ -200,9 +200,9 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto)
    }
    return 0;
 }
-         
-         
 
 
-      
-   
+
+
+
+

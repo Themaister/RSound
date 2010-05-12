@@ -32,9 +32,9 @@ inline void swap_endian_16 ( uint16_t* x )
 inline void swap_endian_32 ( uint32_t* x )
 {
    *x = (*x>>24) | 
-        ((*x<<8) & 0x00FF0000) |
-        ((*x>>8) & 0x0000FF00) |
-        (*x<<24);
+      ((*x<<8) & 0x00FF0000) |
+      ((*x>>8) & 0x0000FF00) |
+      (*x<<24);
 }
 
 #endif

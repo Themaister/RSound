@@ -46,7 +46,7 @@ int main(int argc, char **argv)
    int rc;
    rsound_t *rd;
    char *buffer;
-   
+
    parse_input(argc, argv);
    if ( rsd_init(&rd) < 0 )
    {
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
       rsd_set_param(rd, RSD_HOST, (void*)host);
    if ( strlen(port) > 0 )
       rsd_set_param(rd, RSD_PORT, (void*)port);
-   
+
    if ( set_other_params(rd) < 0 )
    {
       fprintf(stderr, "Couldn't read data.\n");
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
       rsd_free(rd);
       exit(1);
    }
-   
+
    buffer = malloc ( READ_SIZE );
    if ( buffer == NULL )
    {
@@ -93,16 +93,16 @@ int main(int argc, char **argv)
          fprintf(stderr, "Server closed connection.\n");
          goto quit;
       }
-      
+
    }
 quit:
    rsd_stop(rd);
    rsd_free(rd);
    close(infd);
-   
+
    return 0;
 }
-      
+
 static int set_other_params(rsound_t *rd)
 {
    int rate, channels, bits;
@@ -116,7 +116,7 @@ static int set_other_params(rsound_t *rd)
 #define RATE 24
 #define CHANNEL 22
 #define BITS_PER_SAMPLE 34
-   
+
    if ( !raw_mode )
    {  
       while ( read_in < HEADER_SIZE )
@@ -138,7 +138,7 @@ static int set_other_params(rsound_t *rd)
          swap_endian_16(&temp_bits);
          swap_endian_32(&temp_rate);
       }
-      
+
       rate = (int)temp_rate;
       channels = (int)temp_channels;
       bits = (int)temp_bits;
@@ -154,7 +154,7 @@ static int set_other_params(rsound_t *rd)
          rsd_free(rd);
          exit(1);
       }
-         
+
    }
    else
    {
@@ -173,13 +173,13 @@ static void print_help()
    printf("rsdplay (librsound) version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", LIBRSOUND_VERSION);
    printf("=========================================================================\n");
    printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels | -B/--bits | -f/--file | -s/--server ]\n");
-   
+
    printf("\nrsdplay reads PCM data only through stdin (default) or a file, and sends this data directly to an rsound server.\n"); 
    printf("Unless specified with --raw, rsdplay expects a valid WAV header to be present in the input stream.\n\n");
    printf(" Examples:\n"); 
    printf("\trsdplay foo.net < bar.wav\n");
    printf("\tcat bar.wav | rsdplay foo.net -p 4322 --raw -r 48000 -c 2\n\n");
-   
+
    printf("-p/--port: Defines which port to connect to.\n");
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
    printf("--raw: Enables raw PCM input. When using --raw, rsdplay will generate a fake WAV header\n");
@@ -189,7 +189,7 @@ static void print_help()
    printf("\tExample: -c 1. Defaults to stereo (2)\n");
    printf("-B: Specifies sample format in raw PCM stream\n");
    printf("\tSupported formats are: S16LE, S16BE, U16LE, U16BE, S8, U8.\n" 
-          "\tYou can pass 8 and 16 also, which is equal to U8 and S16LE respectively.\n");
+         "\tYou can pass 8 and 16 also, which is equal to U8 and S16LE respectively.\n");
    printf("-h/--help: Prints this help\n");
    printf("-f/--file: Uses file rather than stdin\n");
    printf("-s/--server: More explicit way of assigning hostname\n\n");

@@ -81,7 +81,7 @@ static int start_rsd(int fd, rsound_t *rd)
    }
 
    // Now we should reroute our socket to fd
-   
+
    if ( dup2(rd->conn.socket, fd) < 0 )
       return -1;
 
@@ -113,13 +113,13 @@ static void init_lib(void)
       memset(&_os, 0, sizeof(_os));
 
       // Let's open the real calls from LIBC
-      
+
       assert(_os.open = dlsym(REAL_LIBC, "open"));
       assert(_os.close = dlsym(REAL_LIBC, "close"));
       assert(_os.ioctl = dlsym(REAL_LIBC, "ioctl"));
       assert(_os.write = dlsym(REAL_LIBC, "write"));
       assert(_os.read = dlsym(REAL_LIBC, "read"));
-   
+
       lib_open++;
    }
 
@@ -146,7 +146,7 @@ static int is_oss_path(const char* path)
          break;
       }
    }
-   
+
    return is_path;
 }
 
@@ -161,7 +161,7 @@ int open(const char* path, int flags, ...)
       errno = EFAULT;
       return -1;
    }
-   
+
    //fprintf(stderr, "Opening path: \"%s\"\n", path);
 
    if ( flags & O_CREAT )
@@ -219,7 +219,7 @@ int open(const char* path, int flags, ...)
       _rd[i].rd = NULL;
       return -1;
    }
-      
+
    return fds[0];
 }
 
@@ -378,7 +378,7 @@ int ioctl(int fd, unsigned long int request, ...)
       case SNDCTL_DSP_GETODELAY:
          *(int*)argp = (int) rsd_delay(rd);
          break;
-      
+
       default:
          break;
 

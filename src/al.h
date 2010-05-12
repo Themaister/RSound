@@ -25,7 +25,7 @@ typedef struct
    ALuint source;
    ALuint *buffers;
    ALenum format;
-	int num_buffers;
+   int num_buffers;
    int channels;
    int rate;
    int latency;

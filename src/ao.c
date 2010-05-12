@@ -83,7 +83,7 @@ static int ao_rsd_open(void* data, wav_header_t *w)
       .rate = w->sampleRate,
       .byte_format = endian
    };
-   
+
    int default_driver = ao_default_driver_id();
    if ( default_driver < 0 )
       return -1;

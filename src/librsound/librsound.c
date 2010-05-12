@@ -39,11 +39,11 @@
 #endif
 
 /* 
-   ****************************************************************************   
-      Naming convention. Functions for use in API are called rsd_*(),         *
-      internal function are called rsnd_*()                                   *
-   ****************************************************************************
-*/
+ ****************************************************************************   
+ Naming convention. Functions for use in API are called rsd_*(),         *
+ internal function are called rsnd_*()                                   *
+ ****************************************************************************
+ */
 
 // Internal enumerations
 enum rsd_logtype
@@ -142,9 +142,9 @@ static inline void rsnd_swap_endian_16 ( uint16_t * x )
 static inline void rsnd_swap_endian_32 ( uint32_t * x )
 {
    *x =  (*x >> 24 ) |
-         ((*x<<8) & 0x00FF0000) |
-         ((*x>>8) & 0x0000FF00) |
-         (*x << 24);
+      ((*x<<8) & 0x00FF0000) |
+      ((*x>>8) & 0x0000FF00) |
+      (*x << 24);
 }
 
 static inline int rsnd_format_to_framesize ( enum rsd_format fmt )
@@ -180,7 +180,7 @@ static int rsnd_connect_server( rsound_t *rd )
    memset(&hints, 0, sizeof( hints ));
    hints.ai_family = AF_UNSPEC;
    hints.ai_socktype = SOCK_STREAM;
-   
+
 
    if ( rd->host[0] == '/' )
    {
@@ -240,7 +240,7 @@ static int rsnd_connect_server( rsound_t *rd )
    if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0 )
       goto error;
 
-/* Uses non-blocking IO since it performed more deterministic with poll()/send() */   
+   /* Uses non-blocking IO since it performed more deterministic with poll()/send() */   
 #ifndef __CYGWIN__
    if ( fcntl(rd->conn.socket, F_SETFL, O_NONBLOCK) < 0)
    {
@@ -272,7 +272,7 @@ error:
 static int rsnd_send_header_info(rsound_t *rd)
 {
 
-/* Defines the size of a wave header */
+   /* Defines the size of a wave header */
 #define HEADER_SIZE 44
    char header[HEADER_SIZE] = {0};
    int rc = 0;
@@ -281,10 +281,10 @@ static int rsnd_send_header_info(rsound_t *rd)
    uint32_t temp32;
 
 
-/* These magic numbers represent the position of the elements in the wave header. 
-   We can't simply send a wave struct over the network since the compiler is allowed to
-   pad our structs as they like, so sizeof(waveheader) might not be similar on two different
-   systems. */
+   /* These magic numbers represent the position of the elements in the wave header. 
+      We can't simply send a wave struct over the network since the compiler is allowed to
+      pad our structs as they like, so sizeof(waveheader) might not be similar on two different
+      systems. */
 
 #define RATE 24
 #define CHANNEL 22
@@ -302,7 +302,7 @@ static int rsnd_send_header_info(rsound_t *rd)
       to determine whether we're running it or not, so we can byte swap accordingly. 
       Could determine this compile time, but it was simpler to do it this way. */
 
-// Fancy macros for embedding little endian values into the header.
+   // Fancy macros for embedding little endian values into the header.
 #define SET32(buf,offset,x) (*((uint32_t*)(buf+offset)) = x)
 #define SET16(buf,offset,x) (*((uint16_t*)(buf+offset)) = x)
 
@@ -315,7 +315,7 @@ static int rsnd_send_header_info(rsound_t *rd)
    SET32(header, 4, 0);
    strcpy(header+8, "WAVE");
    strcpy(header+12, "fmt ");
-   
+
    temp32 = 16;
    LSB32(temp32);
    SET32(header, 16, temp32);
@@ -425,7 +425,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
       recieved += rc;
    }
-   
+
 
    /* Again, we can't be 100% certain that sizeof(backend_info_t) is equal on every system */
 
@@ -434,7 +434,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       rsnd_swap_endian_32(&rsnd_header[LATENCY]);
       rsnd_swap_endian_32(&rsnd_header[CHUNKSIZE]);
    }
-   
+
    rd->backend_info.latency = rsnd_header[LATENCY];
    rd->backend_info.chunk_size = rsnd_header[CHUNKSIZE];
 
@@ -459,7 +459,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       int bufsiz = rd->buffer_size;
       setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
    }
-   
+
    // Can we read the last 8 bytes so we can use the protocol interface?
    // This is non-blocking.
    rc = recv(rd->conn.socket, rsnd_header, 8, 0);
@@ -490,7 +490,7 @@ static int rsnd_create_connection(rsound_t *rd)
          rsd_stop(rd);
          return -1;
       }
-      
+
       /* After connecting, makes really sure that we have a working connection. */
       struct pollfd fd = {
          .fd = rd->conn.socket,
@@ -543,7 +543,7 @@ static int rsnd_create_connection(rsound_t *rd)
 
       rd->ready_for_data = 1;
    }
-   
+
    return 0;
 }
 
@@ -606,13 +606,13 @@ static void rsnd_drain(rsound_t *rd)
    {
       int64_t temp, temp2;
 
-/* Falls back to gettimeofday() when CLOCK_MONOTONIC is not supported */
+      /* Falls back to gettimeofday() when CLOCK_MONOTONIC is not supported */
 
-/* Calculates the amount of bytes that the server has consumed. */
+      /* Calculates the amount of bytes that the server has consumed. */
 #ifdef _POSIX_MONOTONIC_CLOCK
       struct timespec now_tv;
       clock_gettime(CLOCK_MONOTONIC, &now_tv);
-      
+
       temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_nsec.tv_sec;
 
       temp *= rd->rate * rd->channels * rd->framesize;
@@ -624,7 +624,7 @@ static void rsnd_drain(rsound_t *rd)
 #else
       struct timeval now_tv;
       gettimeofday(&now_tv, NULL);
-      
+
       temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_usec.tv_sec;
       temp *= rd->rate * rd->channels * rd->framesize;
 
@@ -659,13 +659,13 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
          break;
       }
       pthread_mutex_unlock(&rd->thread.mutex);
-      
+
       /* Sleeps until we can write to the FIFO. */
       pthread_mutex_lock(&rd->thread.cond_mutex);
       pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
    }
-   
+
    pthread_mutex_lock(&rd->thread.mutex);
    memcpy(rd->buffer + rd->buffer_pointer, buf, size);
    rd->buffer_pointer += (int)size;
@@ -702,7 +702,7 @@ static int rsnd_stop_thread(rsound_t *rd)
    if ( rd->thread_active )
    {
       rd->thread_active = 0;
-      
+
       /* Being really forceful with this unlocking, but ... who knows. Better safe than sorry. */
 
       pthread_mutex_unlock(&rd->thread.mutex);
@@ -735,7 +735,7 @@ static size_t rsnd_get_delay(rsound_t *rd)
    ptr = rd->bytes_in_buffer;
    pthread_mutex_unlock(&rd->thread.mutex);
 
-/* Adds the backend latency to the calculated latency. */
+   /* Adds the backend latency to the calculated latency. */
    ptr += (int)rd->backend_info.latency;
 
    pthread_mutex_lock(&rd->thread.mutex);
@@ -768,7 +768,7 @@ static int rsnd_send_info_query(rsound_t *rd)
       .fd = rd->conn.ctl_socket,
       .events = POLLOUT
    };
-   
+
    if ( poll(&fd, 1, 0) < 0 )
    {
       perror("poll");
@@ -808,7 +808,7 @@ static int rsnd_update_server_info(rsound_t *rd)
    long long int client_ptr = -1;
    long long int serv_ptr = -1;
    char temp[RSD_PROTO_MAXSIZE + 1] = {0};
-   
+
    // We read until we have the last (most recent) data in the network buffer.
    for (;;)
    {
@@ -905,10 +905,10 @@ static void* rsnd_thread ( void * thread_data )
    /* Two (;;) for loops! :3 Beware! */
    for (;;)
    {
-      
+
       for(;;)
       {
-         
+
          // We ask the server to send its latest backend data. Do not really care about errors atm.
          // We only bother to check after 1 sec of audio has been played, as it might be quite inaccurate in the start of the stream.
          if ( (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->framesize) )
@@ -916,7 +916,7 @@ static void* rsnd_thread ( void * thread_data )
             rsnd_send_info_query(rd); 
             rsnd_update_server_info(rd);
          }
-         
+
          /* If the buffer is empty or we've stopped the stream. Jump out of this for loop */
          pthread_mutex_lock(&rd->thread.mutex);
          if ( rd->buffer_pointer < (int)rd->backend_info.chunk_size || !rd->thread_active )
@@ -942,7 +942,7 @@ static void* rsnd_thread ( void * thread_data )
             pthread_detach(pthread_self());
             pthread_exit(NULL);
          }
-         
+
          /* If this was the first write, set the start point for the timer. */
          if ( !rd->has_written )
          {
@@ -969,7 +969,7 @@ static void* rsnd_thread ( void * thread_data )
 
          /* Buffer has decreased, signal fill_buffer() */
          pthread_cond_signal(&rd->thread.cond);
-                          
+
       }
 
       /* If we're still good to go, sleep. We are waiting for fill_buffer() to fill up some data. */
@@ -1022,10 +1022,10 @@ int rsd_stop(rsound_t *rd)
 {
    assert(rd != NULL);
    rsnd_stop_thread(rd);
-   
+
    const char buf[] = "RSD    5 STOP";
    send(rd->conn.ctl_socket, buf, strlen(buf), 0);
-   
+
    rsnd_reset(rd);
    return 0;
 }
@@ -1044,8 +1044,8 @@ size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
    size_t written = 0;
    size_t write_size;
 
-/* Makes sure that we can handle arbitrary large write sizes */
-   
+   /* Makes sure that we can handle arbitrary large write sizes */
+
    while ( written < size )
    {
       write_size = (size - written) > max_write ? max_write : (size - written); 
@@ -1074,7 +1074,7 @@ int rsd_start(rsound_t *rsound)
       return -1;
    }
 
-   
+
    return 0;
 }
 
@@ -1108,8 +1108,8 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
       case RSD_LATENCY:
          rd->max_latency = *((int*)param);
          break;
-      
-      // Checks if format is valid.   
+
+         // Checks if format is valid.   
       case RSD_FORMAT:
          rd->format = (uint16_t)(*((int*)param));
          if ( (rd->framesize = rsnd_format_to_framesize(rd->format)) == -1 )
@@ -1119,12 +1119,12 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
             *((int*)param) = (int)RSD_S16_LE;
          }
          break;
-      
+
       default:
          return -1;
    }
    return 0;
-         
+
 }
 
 void rsd_delay_wait(rsound_t *rd)
@@ -1180,7 +1180,7 @@ size_t rsd_delay(rsound_t *rd)
    int ptr = rsnd_get_delay(rd);
    if ( ptr < 0 )
       ptr = 0;
-   
+
    return ptr;
 }
 
@@ -1199,7 +1199,7 @@ int rsd_init(rsound_t** rsound)
    *rsound = calloc(1, sizeof(rsound_t));
    if ( *rsound == NULL )
       return -1;
-   
+
    (*rsound)->conn.socket = -1;
    (*rsound)->conn.ctl_socket = -1;
 

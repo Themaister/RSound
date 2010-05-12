@@ -84,7 +84,7 @@ static int al_open(void* data, wav_header_t *w)
 
    al->rate = w->sampleRate;
 
-	al->num_buffers = al->rate / 10000 + 1;
+   al->num_buffers = al->rate / 10000 + 1;
    al->buffers = malloc(al->num_buffers * sizeof(int));
    if ( al->buffers == NULL )
       return -1;
@@ -92,7 +92,7 @@ static int al_open(void* data, wav_header_t *w)
    alGenSources(1, &al->source);
    alGenBuffers(al->num_buffers, al->buffers);
    al->queue = 0;
-   
+
    return 0;
 }
 
@@ -102,7 +102,7 @@ static size_t al_write(void *data, const void* buf, size_t size)
    al_t *al = data;
 
    // Fills up the buffer before we start playing.
-   
+
    if ( al->queue < al->num_buffers )
    {
       alBufferData(al->buffers[al->queue++], al->format, buf, size, al->rate);
@@ -156,7 +156,7 @@ static size_t al_write(void *data, const void* buf, size_t size)
    alGetSourcei(al->source, AL_SOURCE_STATE, &val);
    if ( val != AL_PLAYING )
       alSourcePlay(al->source);
-   
+
    if ( alGetError() != AL_NO_ERROR )
       return 0;
 
