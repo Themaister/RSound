@@ -40,11 +40,22 @@ static int legal_ip(const char*);
 static int valid_ips(struct sockaddr_storage *their_addr);
 static void log_message(const char* ip);
 
+// Union for casting without aliasing violations.
+union
+{
+   struct sockaddr* addr;
+   struct sockaddr_storage* storage;
+   struct sockaddr_in* v4;
+   struct sockaddr_in6* v6;
+} u[2];
+
 int main(int argc, char ** argv)
 {
    int s = -1, s_new = -1, s_ctl = -1, i;
    connection_t conn;
    struct sockaddr_storage their_addr[2];
+   u[0].storage = &their_addr[0];
+   u[1].storage = &their_addr[1];
    socklen_t addr_size;
    struct pollfd fd;
 
@@ -105,7 +116,7 @@ int main(int argc, char ** argv)
    for(;;)
    {
       addr_size = sizeof (their_addr[0]);
-      s_new = accept(s, (struct sockaddr*)&their_addr[0], &addr_size);
+      s_new = accept(s, u[0].addr, &addr_size);
 
       if ( s_new == -1 )
       {
@@ -130,7 +141,7 @@ int main(int argc, char ** argv)
       if (fd.revents & POLLIN)
       {
          addr_size = sizeof (their_addr[0]);
-         s_ctl = accept(s, (struct sockaddr*)&their_addr[1], &addr_size);
+         s_ctl = accept(s, u[1].addr, &addr_size);
       }
       /* We didn't get a control socket, so we don't care about it :) 
        If s_ctl is 0, the backend will not perform any operations on it. */
@@ -171,15 +182,23 @@ int main(int argc, char ** argv)
    
 static void* get_addr(struct sockaddr *sa)
 {
+      union
+      {
+         struct sockaddr *sa;
+         struct sockaddr_in *v4;
+         struct sockaddr_in6 *v6;
+      } u;
+
+      u.sa = sa;
       /* Gotta love those & 'n * :D */
 
       if ( sa->sa_family == AF_INET ) 
       {
-         return &(((struct sockaddr_in*)sa)->sin_addr);
+         return &((u.v4)->sin_addr);
       }
       else if ( sa->sa_family == AF_INET6 )
       {
-         return &(((struct sockaddr_in6*)sa)->sin6_addr);
+         return &((u.v6)->sin6_addr);
       }
       return NULL;
 }
@@ -197,10 +216,10 @@ static int valid_ips( struct sockaddr_storage *their_addr )
    char remoteIP[2][INET6_ADDRSTRLEN] = { "", "" };
 
    inet_ntop(their_addr[0].ss_family, 
-         get_addr((struct sockaddr*)&their_addr[0]),
+         get_addr(u[0].addr),
          remoteIP[0], INET6_ADDRSTRLEN);
    inet_ntop(their_addr[1].ss_family, 
-         get_addr((struct sockaddr*)&their_addr[1]),
+         get_addr(u[0].addr),
          remoteIP[1], INET6_ADDRSTRLEN);
 
 
