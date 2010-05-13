@@ -1053,7 +1053,7 @@ int rsd_stop(rsound_t *rd)
    return 0;
 }
 
-size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
+size_t rsd_write( rsound_t *rsound, const void* buf, size_t size)
 {
    assert(rsound != NULL);
    if ( !rsound->ready_for_data )
@@ -1072,7 +1072,7 @@ size_t rsd_write( rsound_t *rsound, const char* buf, size_t size)
    while ( written < size )
    {
       write_size = (size - written) > max_write ? max_write : (size - written); 
-      result = rsnd_fill_buffer(rsound, buf + written, write_size);
+      result = rsnd_fill_buffer(rsound, (const char*)buf + written, write_size);
 
       if ( result <= 0 )
       {
