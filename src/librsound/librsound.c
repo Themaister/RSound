@@ -155,6 +155,8 @@ static inline int rsnd_format_to_framesize ( enum rsd_format fmt )
       case RSD_U16_LE:
       case RSD_S16_BE:
       case RSD_U16_BE:
+      case RSD_S16_NE:
+      case RSD_U16_NE:
          return 2;
 
       case RSD_U8:
@@ -297,6 +299,27 @@ static int rsnd_send_header_info(rsound_t *rd)
 
    uint16_t temp_bits = 8 * rsnd_format_to_framesize(rd->format);
    uint16_t temp_format = rd->format;
+
+   // Checks the format for native endian which will need to be set properly.
+   switch ( temp_format )
+   {
+      case RSD_S16_NE:
+         if ( rsnd_is_little_endian() )
+            temp_format = RSD_S16_LE;
+         else
+            temp_format = RSD_S16_BE;
+         break;
+
+      case RSD_U16_NE:
+         if ( rsnd_is_little_endian() )
+            temp_format = RSD_U16_LE;
+         else
+            temp_format = RSD_U16_BE;
+         break;
+      default:
+         break;
+   }
+
 
    /* Since the values in the wave header we are interested in, are little endian (>_<), we need
       to determine whether we're running it or not, so we can byte swap accordingly. 
