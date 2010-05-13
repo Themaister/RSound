@@ -1087,11 +1087,21 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
    switch(option)
    {
       case RSD_SAMPLERATE:
-         rd->rate = *((int*)param);
-         break;
+         if ( *(int*)param > 0 )
+         {
+            rd->rate = *((int*)param);
+            break;
+         }
+         else
+            return -1;
       case RSD_CHANNELS:
-         rd->channels = *((int*)param);
-         break;
+         if ( *(int*)param > 0 )
+         {
+            rd->channels = *((int*)param);
+            break;
+         }
+         else
+            return -1;
       case RSD_HOST:
          if ( rd->host != NULL )
             free(rd->host);
@@ -1103,7 +1113,13 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
          rd->port = strdup((char*)param);
          break;
       case RSD_BUFSIZE:
-         rd->buffer_size = *((int*)param);
+         if ( *(int*)param > 0 )
+         {
+            rd->buffer_size = *((int*)param);
+            break;
+         }
+         else
+            return -1;
          break;
       case RSD_LATENCY:
          rd->max_latency = *((int*)param);
