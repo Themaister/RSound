@@ -1,0 +1,451 @@
+===========================
+Documentation: librsound
+===========================
+
+This document will give the developer an insight in the functions that librsound provides, together with proper use.
+
+Library: The main implementation of the RSound protocol is the C library that is included in the RSound package.
+
+
+Structs:
+
+librsound uses one main struct for all its function calls.
+
+typedef struct rsound rsound_t;
+
+
+Return values:
+
+librsound uses the POSIX standard return value scheme with 0 (or positive number) and negative number for error.
+librsound does not however use errno or similar. Exceptions to this will be noted. Errors must always be checked for!
+
+
+Style:
+
+librsound will seem somewhat familiar to those who have developed for OSS (Open Sound System) and libAO.
+It is a blocking I/O audio library, but supports features for non-blocking situations.
+
+
+
+Function calls:
+
+All librsound calls are named with rsd_*.
+
+
+int rsd_init(rsound_t** handle);
+int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);
+int rsd_start(rsound_t* handle);
+int rsd_stop(rsound_t* handle);
+size_t rsd_write(rsound_t* handle, const char* buf, size_t size);
+size_t rsd_pointer(rsound_t* handle);
+size_t rsd_get_avail(rsound_t* handle);
+size_t rsd_delay(rsound_t* handle);
+inline size_t rsd_delay_ms(rsound_t* handle);
+inline int rsd_samplesize(rsound_t* handle);
+void rsd_delay_wait(rsound_t* handle);
+int rsd_pause(rsound_t* handle, int enable);
+int rsd_free(rsound_t* handle);
+
+
+=================================
+int rsd_init(rsound_t** handle);
+=================================
+
+Params: A pointer to an rsound_t* struct.
+
+Description: 
+   Initializes an rsound stream.
+   It should only fail if memory allocation failed.
+
+Example code:
+
+rsound_t* handle;
+rsd_init(&handle);
+
+Error handling has been omitted for clarity.
+
+
+============================================================================
+int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);
+============================================================================
+
+Parameters:
+   handle: An initialized rsound_t handle.
+   option: The parameter which is should be set.
+   param: The parameter.
+
+Description:
+   This call is similar to ioctl() as found in POSIX.
+   It sets options that are relevant to an audio stream.
+   It will return -1 when invalid values are given in param.
+   You must NOT call this function after rsd_start() has been called.
+   RSD_LATENCY can however be called on at any time.
+   You will have to call rsd_stop() first.
+
+   Available options are defined in the rsd_settings enum.
+
+   RSD_SAMPLERATE
+   RSD_CHANNELS
+   RSD_HOST
+   RSD_PORT
+   RSD_BUFSIZE
+   RSD_LATENCY
+   RSD_FORMAT
+
+
+RSD_SAMPLERATE:
+   This sets the samplerate of the audio stream. This is typically 44100 or 48000.
+   You will need to set this parameter for each stream.
+
+Example:
+   int rate = 44100;
+   rsd_set_param(handle, RSD_SAMPLERATE, &rate);
+
+
+RSD_CHANNELS:
+   Will set number of audio channels.
+   You will need to set this parameter for each stream.
+
+Example:
+   int channels = 2;
+   rsd_set_param(handle, RSD_CHANNELS, &channels);
+
+
+RSD_HOST:
+   Sets the server which librsound should connect to.
+   If an absolute path is given, librsound will treat this as a Unix socket.
+   Unless the user of your application explicitly asks you for a host, you should
+   not use this. librsound defaults to the environmental variable RSD_SERVER, 
+   and then to "localhost" should it not be set.
+
+Example:
+   char *server = "foo.bar.org";
+   rsd_set_param(handle, RSD_HOST, server);
+
+RSD_PORT:
+   Used for TCP/IP conncetions. This sets the port that librsound should connect to.
+   As with RSD_HOST, you should not use this unless the user explicitly asks the application.
+   librsound defaults to the environmental variable RSD_PORT, and then to port 12345 should it not be set.
+   Note that RSD_PORT takes a char* in param, and not int*.
+
+Example:
+   char *port = "9600";
+   rsd_set_param(handle, RSD_PORT, port);
+
+
+RSD_BUFSIZE:
+   librsound keeps an internal buffer for audio. The size of this buffer can be controlled with RSD_BUFSIZE.
+   In general, you should not change this, as a low value for RSD_BUFSIZE will not necessarily give a very low latency
+   since there are other buffers that create more latency. This call is useful when trying to emulate sound systems
+   that use a fixed sized buffer.
+
+Example:
+   int bytes_in_buf = 10000;
+   rsd_set_param(handle, RSD_BUFSIZE, &bytes_in_buf);
+
+
+RSD_LATENCY:
+   librsound can quite accurately measure audio latency, but if data is written all the time to the buffer, 
+   the audio latency can quickly grow quite large. Note that this behaviour is not a problem to general audio 
+   and video programs, but it might be an issue with other applications. Most application will not use this.
+   RSD_LATENCY doesn't directly guarantee a maximum audio latency. When you subsequently call on rsd_delay_wait(), 
+   it will sleep until the desired latency has been obtained. By calling rsd_delay_wait() before each call to 
+   rsd_write() you can effectively get your desired latency. RSD_LATENCY takes an int* param with the desired latency in milliseconds.
+
+Example:
+   int ms = 200;
+   rsd_set_param(handle, RSD_LATENCY, &ms);
+
+
+RSD_FORMAT:
+   This sets the sample format used by the subsequent calls to rsd_write(). If the format is invalid, param
+   will be set to a valid format.
+
+   librsound currently supports these formats:
+   RSD_S16_LE - signed 16 bit, little-endian
+   RSD_S16_BE - signed 16 bit, big-endian
+   RSD_S16_NE - signed 16 bit, native-endian
+   RSD_U16_LE - unsigned 16 bit, little-endian
+   RSD_U16_BE - unsigned 16 bit, big-endian
+   RSD_U16_NE - unsigned 16 bit, native-endian
+   RSD_U8     - unsigned 8 bit
+   RSD_S8     - signed 8 bit
+
+   librsound will default to RSD_S16_LE if this is never set.
+
+Example:
+   int format = RSD_S16_NE;
+   rsd_set_param(handle, RSD_FORMAT, &format);
+
+
+===================================
+int rsd_start(rsound_t* handle);
+===================================
+
+Description: 
+   Connects to rsound server. This is called after all desired parameters for rsd_set_param() have been set.
+   This might fail if no connection can be establish, or there is some other network error. 
+   Should it fail, you could change parameters and call rsd_start() another time.
+
+Example:
+rsd_start(handle);
+
+
+==================================
+int rsd_stop(rsound_t* handle);
+==================================
+
+Description: 
+   Disconnects from the server. This will flush all buffers, 
+   and will not assure that all audio has been played back before returning.
+   It shouldn't really fail, and if it happens for some reason, 
+   there isn't much the programmer can or should do about it.
+
+Example:
+rsd_stop(handle);
+
+
+=================================================================
+size_t rsd_write(rsound_t *handle, const void* buf, size_t size);
+=================================================================
+
+Params:
+   handle - rsound handle
+   buf - address of the buffer
+   size - how many bytes to write
+
+Description: 
+   On an already started stream, write data to the internal buffer. This is a blocking call,
+   and will write everything before returning. To determine how much data can be written without blocking, call
+   rsd_get_avail(). This call can fail if rsd_start() has not been called beforehand, or the connection to the server has suddenly
+   been closed. Contrary to other rsd_* calls, this will return 0 when an error has been encountered, 
+   else it will return the number of bytes written. 
+   There is not need to call rsd_stop() if an error has been encountered. 
+   The stream could directly be started again with rsd_start(), but if the connection is broken,
+   this probably will not work anyways ;)
+
+Example:
+   char dummy[512] = {0};
+   rsd_write(handle, dummy, sizeof(dummy));
+
+
+
+=======================================
+size_t rsd_pointer(rsound_t* handle);
+=======================================
+
+Description:
+   Recieves the pointer of the internal buffer. E.g., if the buffer is empty, it will return 0, if it's full, 
+   it will return the buffer size itself. Not very useful for a normal application. Is mostly used when emulating different
+   sound APIs that might query the sound card for the hardware pointer.
+
+Example:
+   size_t ptr = rsd_pointer(handle);
+
+
+=======================================
+size_t rsd_get_avail(rsound_t* handle);
+=======================================
+
+Description:
+   Returns the amount of bytes that can be written to rsd_write() without blocking.
+
+
+
+=====================================
+size_t rsd_delay(rsound_t* handle);
+=====================================
+
+Description:
+   Returns the current audio delay of the stream in terms of bytes. 
+   The audio delay is measured as time it takes for a rsd_write() until the data written can be heard.
+   Essential for A/V sync. Only call after rsd_start().
+
+Example:
+   size_t delay = rsd_delay(handle);
+
+
+=============================================
+inline size_t rsd_delay_ms(rsound_t* handle);
+=============================================
+
+Description:
+   Does essentially the same as rsd_delay(), but returns the delay in terms of milliseconds.
+
+Example:
+   size_t ms = rsd_delay_ms(rsound_t* handle);
+
+
+=============================================
+inline int rsd_samplesize(rsound_t* handle);
+=============================================
+
+Description:
+Returns the size in bytes of the current sample format.
+
+E.g. RSD_S16_LE will return 2, etc.
+
+Example:
+   int size = rsd_samplesize(handle);
+
+
+========================================
+void rsd_delay_wait(rsound_t* handle);
+========================================
+
+Description:
+   This function might be slightly confusing. It is used to manually handle audio latencies, when it is desirable to obtain
+   lower maximum latencies than the network buffers will give you. It requires RSD_LATENCY to be set using rsd_set_param(),
+   else this function will do nothing. Do not expect that this function will magically give you a very low latency.
+   Most applications should not use this function at all. 
+   How low latency you can achieve with this method will greatly vary on how the network behaves, 
+   and also on how accurate the server can measure latency from the audio drivers.
+
+To maintain a reasonably low latency for your audio, you should try to write in small chunks 
+and call rsd_delay_wait() before each call to rsd_write().
+
+In detail, this function will measure the current audio latency, and sleep until the latency is lower, or equals the desired latency given in RSD_LATENCY.
+
+Example:
+   int max_delay = 150; // 150 ms
+   rsd_set_param(handle, RSD_LATENCY, &max_delay);
+
+   ... // Other initializing, rsd_start(), etc
+
+   rsd_delay_wait(handle);
+   rsd_write(handle, buf, size);
+
+
+
+===============================================
+int rsd_pause(rsound_t* handle, int enable);
+===============================================
+
+Params:
+   handle - rsound handle
+   enable - 1 will pause the stream, 0 will unpause
+
+Description:
+   This is basically a wrapper to rsd_start() and rsd_stop() currently.
+   This function might be differently implemented in other implementation of rsound.
+
+=================================
+int rsd_free(rsound_t* handle);
+=================================
+
+Description:
+   Frees the rsound structure. This is called last, after rsd_stop() and the likes.
+
+
+
+=====================================================
+Documentation: RSound protocol
+=====================================================
+
+The RSound protocol is the rules that govern how the client and server communicate. The RSound protocol is connection oriented, but there is nothing wrong with implementing a connection-less interface in addition to TCP/IP. The RSound protocol mandates however, that at least a TCP/IP interface is present. The protocol is quite slim, and should not be difficult to implement in most systems.
+
+
+The client shall maintain two connections to the server. The first connection is hereby referred to as the "data socket" and the second connection as the "control socket".
+
+The server will accept two successive connections, and associate the first connection with the "data" and the second as "control".
+
+When the connections are successful, the client will send a 44 byte RIFF WAVE header to the server on the data socket.
+This WAVE header will include audio data information such as audio channels, audio format, and sample rate. For a pure WAVE header that only really supports S16_LE and U8 sample formats, the WAVE header that the client sends will be a conforming wave header. 
+
+For different audio formats, the wave header will signify this by settings the format bytes in the header to 0. These are bytes 20-21. You will then have to check bytes 42-43 to obtain the correct audio format. The format bytes will then have the same values as found in the rsound header files.
+
+Should the format be either S16_LE or U8 we set the 20-21 bytes to 1. Then we can check the bits per sample to determine which sample format we have. For more information on the RIFF WAVE format, check some other documentation.
+
+
+After the WAV header has been recieved at the server, it will send back a small header to the client.
+
+The server has now the opportunity to decide wether or not to support the control socket interface.
+Old versions of rsound did not support this, but all new implementations should support it.
+
+No support:
+   The header will be 8 bytes.
+Support:
+   The header will be 16 bytes.
+
+   The header is splitted into 2/4 unsigned 32-bit integers in network byte order (big-endian).
+
+   Byte #   Description
+   ====================================
+   0-3         Initial audio driver latency. This will be the audio latency in bytes that the audio driver has. This is typically quite low. 
+               If this can't be measured, the server can set this to 0.
+
+   4-7         Network chunk size. If the server has any preferences on how large network packet sizes it wants, you can set this there.
+               A sane default here for librsound is 512 bytes. The client is not forced to follow this suggestion, but it should.
+
+   8-11        This will always be 0.
+   12-15       This will always be 0.
+
+   The server can now decide to send only 8 bytes, or 16 bytes. The client will have to check if it can read 8 bytes, or 16 bytes
+   from the network stream. If it can only read 8 bytes, writing to or reading from the control socket is undefined in this case.
+
+
+Deprecated "8 byte" behaviour:
+==================================
+
+After this initial handshaking has taken place, the client can send raw audio data to the server on the data socket. 
+At this point, the server cannot send more data on the data socket, so it can safely be shut down with e.g. shutdown() accordingly.
+
+The server shall read all data from the data socket and send this data to an "audio driver". How the server chooses to process this audio data is up to the implementation.
+
+When the client decides to stop the stream, it will simply close() the sockets in question.
+The server can drop the data in the network buffers if it chooses to.
+
+
+
+"16 byte" behaviour:
+==========================
+
+If the control socket is enabled, the client can choose to send a message on the control socket, or audio data on the data socket.
+The data socket will behave exactly as with the "8 byte" one, but we now have the control socket interface.
+This sub-protocol will be explained in detail.
+
+
+Control socket interface:
+===========================
+
+The client can issue commands to the server. This mini-protocol is currently very slim.
+
+A client message consists of two parts.
+
+[Header: 8 bytes][Body: variable, maximum 256]
+
+The first 8 bytes will include the ascii magic key "RSD" and the following 5 bytes will embed a plain text integer which tells how many bytes the rest of the message consists of. The body will consist of
+
+space command "space" arg1 "space" arg2 ... 
+
+
+The commands that the rsound protocol uses are:
+
+NULL
+STOP
+INFO
+
+NULL: This is used for testing. It does not do anything. The server will not respond to the client in any way.
+Example message: "RSD    5 NULL". Note that the body is 5 chars long " NULL" is here the body. 
+The '\0' byte associated with string termination in C is not included.
+
+
+STOP: When the server recieves this, it closes down the control socket and data socket connection immediately. It does not send a reply back to the client.
+Example message: "RSD    5 STOP".
+
+
+INFO: The info command is used to measure latency. The client will send a message with an argument that represent the number of bytes written to the network since the start of the stream. This can be a fairly large number if the stream lasts for very long periods, so it's smart to use 64-bit integers here.
+
+The client will send something along these lines:
+
+"RSD   13 INFO 1532455"
+
+The server must only respond to the latest latency requests in the network buffer. If several INFO requests are in the network buffer. Disregard these, as they can no longer be reliable on measuring latency. INFO can be called on very often, and it is possible that INFO requests will pile up in the network buffer. Try to empty the network buffer each time the server does control handling.
+
+The server will take this message, and respond with appending the number of bytes actually played back to the speakers (or something similiar). To do this, the server will record number of bytes written to the audio driver and subtract the audio latency of the driver, effectively calculating the number of bytes "written" to the speakers. Note that this value should _never_ be larger than the value recieved from the client. That is clearly a sign of having a full control socket network buffer. The server will then reply to the control socket with something like this:
+
+"RSD   21 INFO 1532455 1502333"
+
+When the client recieves this message, it can determine that there is a (1532455 - 1502333) delta between writing to the network before hearing it. Network latencies are assumed to be so small, that they aren't noticable.
+
+
