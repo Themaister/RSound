@@ -841,7 +841,8 @@ rsd_exit:
    free(buffer);
    free(data);
    close(conn.socket);
-   close(conn.ctl_socket);
+   if ( conn.ctl_socket )
+      close(conn.ctl_socket);
    pthread_exit(NULL);
 }
 
