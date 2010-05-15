@@ -6,6 +6,6 @@ includedir=@includedir@
 Name: RSound
 Description: An audio library designed for seamless networked transfer of audio streams.
 Requires:
-Version: 0.8
+Version: 0.9
 Libs: -L${libdir} -lrsound
 Cflags: -I${includedir}
