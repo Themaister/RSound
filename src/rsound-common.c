@@ -550,7 +550,7 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
 #define LATENCY 0
 #define CHUNKSIZE 1
 
-   int rc;
+   int rc = 0;
    struct pollfd fd;
 
    // 16 byte header
@@ -577,7 +577,8 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
       return -1;
    if ( fd.revents & POLLHUP )
       return -1;
-   rc = send(conn.socket, header, RSND_HEADER_SIZE, 0);
+   if ( fd.revents & POLLOUT )
+      rc = send(conn.socket, header, RSND_HEADER_SIZE, 0);
    if ( rc != RSND_HEADER_SIZE)
       return -1;
 
