@@ -1,5 +1,5 @@
 diff --git a/Makefile.am b/Makefile.am
-index ddb27a6..8081a6a 100644
+index 86b0246..475cea8 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -48,6 +48,7 @@ mpd_headers = \
@@ -10,35 +10,99 @@ index ddb27a6..8081a6a 100644
  	src/filter_internal.h \
  	src/filter_config.h \
  	src/filter_plugin.h \
-@@ -633,7 +634,8 @@ OUTPUT_API_SRC = \
+@@ -624,6 +625,7 @@ OUTPUT_CFLAGS = \
+ OUTPUT_LIBS = \
+ 	$(AO_LIBS) \
+ 	$(ALSA_LIBS) \
++   $(RSOUND_LIBS) \
+ 	$(JACK_LIBS) \
+ 	$(OPENAL_LIBS) \
+ 	$(PULSE_LIBS) \
+@@ -639,8 +641,7 @@ OUTPUT_API_SRC = \
+ 	src/output_command.c \
  	src/output_init.c
  
- OUTPUT_SRC = \
+-OUTPUT_SRC = \
 -	src/output/null_plugin.c
-+	src/output/null_plugin.c \
-+   src/output/rsound_plugin.c
++OUTPUT_SRC = src/output/null_plugin.c
  
  MIXER_API_SRC = \
  	src/mixer_control.c \
+@@ -656,6 +657,10 @@ OUTPUT_SRC += src/output/alsa_plugin.c
+ MIXER_SRC += src/mixer/alsa_mixer_plugin.c
+ endif
+ 
++if HAVE_RSOUND
++OUTPUT_SRC += src/output/rsound_plugin.c
++endif
++
+ if HAVE_AO
+ OUTPUT_SRC += src/output/ao_plugin.c
+ endif
 diff --git a/configure.ac b/configure.ac
-index 0c2d694..ee75c29 100644
+index b5573dc..1fae924 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -43,7 +43,7 @@ AC_SUBST(AM_CFLAGS,"")
+@@ -40,7 +40,6 @@ AC_SUBST(AM_CFLAGS,"")
  
  AC_SUBST(MPD_LIBS)
  AC_SUBST(MPD_CFLAGS)
 -MPD_LIBS=""
-+MPD_LIBS="-lrsound"
  MPD_CFLAGS=""
  
+ dnl ---------------------------------------------------------------------------
+@@ -125,6 +124,11 @@ AC_ARG_ENABLE(ao,
+ 		[enable support for libao]),,
+ 	enable_ao=auto)
  
++AC_ARG_ENABLE(rsound,
++   AS_HELP_STRING([--enable-rsound],
++      [enable support for rsound]),,
++   enable_rsound=auto)
++
+ AC_ARG_ENABLE(audiofile,
+ 	AS_HELP_STRING([--enable-audiofile],
+ 		[enable audiofile support (WAV and others)]),,
+@@ -1202,6 +1206,17 @@ fi
+ 
+ AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
+ 
++
++dnl ---------------------------------- RSOUND ---------------------------------
++MPD_AUTO_PKG(rsound, RSOUND, [rsound >= 0.9],
++   [RSOUND output plugin], [librsound not found])
++
++if test x$enable_rsound = xyes; then
++   AC_DEFINE(HAVE_RSOUND, 1, [Define to enable RSOUND support])
++fi
++
++AM_CONDITIONAL(HAVE_RSOUND, test x$enable_rsound = xyes)
++
+ dnl ----------------------------------- FIFO ----------------------------------
+ if test x$enable_fifo = xyes; then
+ 	AC_CHECK_FUNC([mkfifo],
+@@ -1375,6 +1390,7 @@ AM_CONDITIONAL(ENABLE_SOLARIS_OUTPUT, test x$enable_solaris_output = xyes)
+ dnl --------------------- Post Audio Output Plugins Tests ---------------------
+ if
+ 	test x$enable_alsa = xno &&
++   test x$enable_rsound = xno &&
+ 	test x$enable_ao = xno &&
+ 	test x$enable_fifo = xno &&
+ 	test x$enable_httpd_output = xno &&
+@@ -1508,6 +1524,7 @@ results(id3,[ID3])
+ 
+ echo -en '\nPlayback support:\n\t'
+ results(alsa,ALSA)
++results(rsound,RSOUND)
+ results(fifo,FIFO)
+ results(recorder_output,[File Recorder])
+ results(httpd_output,[HTTP Daemon])
 diff --git a/src/output/rsound_plugin.c b/src/output/rsound_plugin.c
 new file mode 100644
-index 0000000..7cd6473
+index 0000000..1a64493
 --- /dev/null
 +++ b/src/output/rsound_plugin.c
-@@ -0,0 +1,152 @@
+@@ -0,0 +1,146 @@
 +/*
 + * Copyright (C) 2003-2010 The Music Player Daemon Project
 + * http://www.musicpd.org
@@ -123,21 +187,15 @@ index 0000000..7cd6473
 +static bool
 +rsound_open(void *data, struct audio_format *audio_format, GError **error)
 +{
-+   uint16_t temp16;
-+
 +   rsound_t *rd = data;
 +   
 +   rsd_set_param(rd, RSD_SAMPLERATE, &audio_format->sample_rate);
 +   rsd_set_param(rd, RSD_CHANNELS, &audio_format->channels);
 +   audio_format->format = SAMPLE_FORMAT_S16;
-+   
-+/* Hacky hack :') */
-+   temp16 = 1;
-+   if ( *((uint8_t*)&temp16) )
-+      audio_format->reverse_endian = 0;
-+   else
-+      audio_format->reverse_endian = 1;
-+/* End hacky hack */
++   audio_format->reverse_endian = 0;
++
++   int format = RSD_S16_NE;
++   rsd_set_param(rd, RSD_FORMAT, &format);
 +
 +
 +   if ( rsd_start(rd) < 0)
@@ -192,7 +250,7 @@ index 0000000..7cd6473
 +
 +
 diff --git a/src/output_list.c b/src/output_list.c
-index d94749e..b98ea6f 100644
+index d94749e..6c989ba 100644
 --- a/src/output_list.c
 +++ b/src/output_list.c
 @@ -36,6 +36,7 @@ extern const struct audio_output_plugin mvp_output_plugin;
@@ -203,11 +261,13 @@ index d94749e..b98ea6f 100644
  
  const struct audio_output_plugin *audio_output_plugins[] = {
  #ifdef HAVE_SHOUT
-@@ -81,6 +82,7 @@ const struct audio_output_plugin *audio_output_plugins[] = {
+@@ -81,6 +82,9 @@ const struct audio_output_plugin *audio_output_plugins[] = {
  #ifdef ENABLE_RECORDER_OUTPUT
  	&recorder_output_plugin,
  #endif
++#ifdef HAVE_RSOUND
 +   &rsound_output_plugin,
++#endif
  	NULL
  };
  
