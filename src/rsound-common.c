@@ -54,6 +54,10 @@ extern const rsd_backend_callback_t rsd_al;
 extern const rsd_backend_callback_t rsd_muroar;
 #endif
 
+#ifdef _PULSE
+extern const rsd_backend_callback_t rsd_pulse;
+#endif
+
 #include <getopt.h>
 #include <poll.h>
 #include <signal.h>
@@ -270,6 +274,13 @@ void parse_input(int argc, char **argv)
                break;
             }
 #endif
+#ifdef _PULSE
+            if ( !strcmp( "pulse", optarg) )
+            {
+               backend = &rsd_pulse;
+               break;
+            }
+#endif
 
             fprintf(stderr, "\nValid backend not given. Exiting ...\n\n");
             print_help();
@@ -317,7 +328,9 @@ void parse_input(int argc, char **argv)
       backend = &rsd_oss;
 #endif
 #else
-#ifdef _ALSA
+#ifdef _PULSE
+      backend = &rsd_pulse;
+#elif _ALSA
       backend = &rsd_alsa;
 #elif _OSS
       backend = &rsd_oss;
@@ -354,6 +367,9 @@ static void print_help()
 
    printf("\n-b/--backend: Specifies which audio backend to use.\n");
    printf("Supported backends: ");
+#ifdef _PULSE
+   printf("pulse ");
+#endif
 #ifdef _ALSA
    printf("alsa ");
 #endif

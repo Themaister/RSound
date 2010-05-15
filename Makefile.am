@@ -53,6 +53,13 @@ if HAVE_AL
    SERV_LIBS += -lopenal
 endif
 
+if HAVE_PULSE
+   sources_serv += src/pulse.c
+   sources_serv += src/pulse.h
+   AM_CFLAGS += -D_PULSE
+   SERV_LIBS += -lpulse-simple 
+endif
+
 if HAVE_MUROAR
    sources_serv += src/muroar.c
    sources_serv += src/muroar-internal.h
