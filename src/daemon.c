@@ -102,6 +102,8 @@ int main(int argc, char ** argv)
    write_pid_file();
    signal(SIGINT, cleanup);
    signal(SIGTERM, cleanup);
+   // SIGPIPE may cause trouble ;)
+   signal(SIGPIPE, SIG_IGN);
 
    /* In case our backend API needs some initializing functions */
    initialize_audio();
