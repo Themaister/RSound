@@ -677,8 +677,9 @@ error:
 }
 
 /* Makes sure that size data is recieved in full. Else, returns a 0. 
-   If the control socket is set, this is a sign that it has been closed (for some reason),
-   which currently means that we should stop the connection immediately. */
+   Old protocol: If the control socket is set, this is a sign that it has been closed (for some reason),
+   which currently means that we should stop the connection immediately.
+   New protocol: If the control socket is set, we should handle it! */
 
 static int recieve_data(void *data, connection_t conn, char* buffer, size_t size)
 {
