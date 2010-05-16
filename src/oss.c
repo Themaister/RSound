@@ -19,6 +19,7 @@
 static void oss_close(void *data)
 {
    oss_t *sound = data;
+   ioctl(sound->audio_fd, SNDCTL_DSP_RESET, 0);
    close(sound->audio_fd);
 }
 
