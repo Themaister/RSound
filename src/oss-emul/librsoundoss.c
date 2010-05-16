@@ -38,7 +38,12 @@
 #define REAL_LIBC ((void*) -1L)
 #endif
 
+// Makes sure GCC doesn't refine these as macros
+#undef open
+#undef open64
+
 static int lib_open = 0;
+static int open_generic(const char* path, int largefile, int flags, mode_t mode);
 
 struct rsd_oss
 {
@@ -92,6 +97,7 @@ static int start_rsd(int fd, rsound_t *rd)
 struct os_calls
 {
    int (*open)(const char*, int, ...);
+   int (*open64)(const char*, int, ...);
    int (*close)(int);
    int (*ioctl)(int, unsigned long int, ...);
    ssize_t (*write)(int, const void*, size_t);
@@ -115,6 +121,7 @@ static void init_lib(void)
       // Let's open the real calls from LIBC
 
       assert(_os.open = dlsym(REAL_LIBC, "open"));
+      assert(_os.open64 = dlsym(REAL_LIBC, "open64"));
       assert(_os.close = dlsym(REAL_LIBC, "close"));
       assert(_os.ioctl = dlsym(REAL_LIBC, "ioctl"));
       assert(_os.write = dlsym(REAL_LIBC, "write"));
@@ -150,30 +157,22 @@ static int is_oss_path(const char* path)
    return is_path;
 }
 
-int open(const char* path, int flags, ...)
+static int open_generic(const char* path, int largefile, int flags, mode_t mode)
 {
-   init_lib();
-
-   mode_t mode = 0;
-
    if ( path == NULL )
    {
       errno = EFAULT;
       return -1;
    }
 
-   //fprintf(stderr, "Opening path: \"%s\"\n", path);
-
-   if ( flags & O_CREAT )
-   {
-      va_list args;
-      va_start(args, flags);
-      mode = va_arg(args, mode_t);
-      va_end(args);
-   }
-
+   // We should use the OS calls directly.
    if ( !is_oss_path(path) )
-      return _os.open(path, flags, mode); // We route the call to the OS.
+   {
+      if ( largefile )
+         return _os.open64(path, flags, mode);
+      else
+         return _os.open(path, flags, mode);
+   }
 
    // Let's fake this call! :D
    // Search for a vacant fd
@@ -228,6 +227,38 @@ int open(const char* path, int flags, ...)
 
    return fds[0];
 }
+
+int open(const char* path, int flags, ...)
+{
+   init_lib();
+   fprintf(stderr, "open(): %s\n", path);
+   mode_t mode = 0;
+
+   if ( flags & O_CREAT )
+   {
+      va_list args;
+      va_start(args, flags);
+      mode = va_arg(args, mode_t);
+      va_end(args);
+   }
+   return open_generic(path, 0, flags, mode);
+}
+
+int open64(const char* path, int flags, ...)
+{
+   init_lib();
+   fprintf(stderr, "open64(): %s\n", path);
+   mode_t mode = 0;
+   if ( flags & O_CREAT )
+   {
+      va_list args;
+      va_start(args, flags);
+      mode = va_arg(args, mode_t);
+      va_end(args);
+   }
+   return open_generic(path, 1, flags, mode);
+}
+
 
 ssize_t write(int fd, const void* buf, size_t count)
 {
