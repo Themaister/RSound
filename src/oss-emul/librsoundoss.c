@@ -67,6 +67,7 @@ static struct rsd_oss _rd[FD_MAX];
 
 static inline rsound_t* fd2handle(int fd);
 static inline int fd2index(int fd);
+static inline int get_vacant_fd(void);
 
 // Checks if a file descriptor is an rsound fd.
 static inline rsound_t* fd2handle(int fd)
@@ -112,7 +113,10 @@ static int start_rsd(int fd, rsound_t *rd)
    if ( flags & O_NONBLOCK )
    {
       int i = fd2index(fd);
-      _rd[i].nonblock = 1;
+      if ( i >= 0 )
+         _rd[i].nonblock = 1;
+      else
+         return -1;
    }
 
    return 0;
@@ -124,7 +128,11 @@ struct os_calls
    int (*open)(const char*, int, ...);
    int (*open64)(const char*, int, ...);
    int (*close)(int);
+#ifdef sun
+   int (*ioctl)(int, int, ...);
+#else
    int (*ioctl)(int, unsigned long int, ...);
+#endif
    ssize_t (*write)(int, const void*, size_t);
    ssize_t (*read)(int, void*, size_t);
 };
@@ -185,6 +193,21 @@ static int is_oss_path(const char* path)
    return is_path;
 }
 
+static inline int get_vacant_fd(void)
+{
+   int pos = -1;
+   int i;
+   for ( i = 0; i < FD_MAX; i++ )
+   {
+      if ( _rd[i].fd == -1 )
+      {
+         pos = i;
+         break;
+      }
+   }
+   return pos;
+}
+
 static int open_generic(const char* path, int largefile, int flags, mode_t mode)
 {
    if ( path == NULL )
@@ -205,18 +228,9 @@ static int open_generic(const char* path, int largefile, int flags, mode_t mode)
    // Let's fake this call! :D
    // Search for a vacant fd
 
-   int pos = -1;
-   int i;
-   for ( i = 0; i < FD_MAX; i++ )
-   {
-      if ( _rd[i].fd == -1 )
-      {
-         pos = i;
-         break;
-      }
-   }
+   int i = get_vacant_fd();
 
-   if ( pos == -1 ) // We couldn't find a vacant fd.
+   if ( i == -1 ) // We couldn't find a vacant fd.
       return -1;
 
    if ( rsd_init(&_rd[i].rd) < 0 )
@@ -252,9 +266,7 @@ static int open_generic(const char* path, int largefile, int flags, mode_t mode)
    if ( flags & O_RDONLY ) // We do not support this.
    {
       errno = EINVAL;
-      rsd_free(_rd[i].rd);
-      _rd[i].rd = NULL;
-      return -1;
+      goto error;
    }
 
    return fds[0];
@@ -262,6 +274,8 @@ static int open_generic(const char* path, int largefile, int flags, mode_t mode)
 error:
    rsd_free(_rd[i].rd);
    _rd[i].rd = NULL;
+   _rd[i].fd = -1;
+   _rd[i].nonblock = 0;
    return -1;
 }
 
@@ -313,13 +327,13 @@ ssize_t write(int fd, const void* buf, size_t count)
 
    rsound_t *rd;
 
-   rd = fd2handle(fd);
    int i = fd2index(fd);
 
-   if ( rd == NULL )
+   if ( i < 0 )
    {
       return _os.write(fd, buf, count);
    }
+   rd = _rd[i].rd;
 
 #if DEBUG
    fprintf(stderr, "write(%d, %p, %u)\n", fd, buf, (unsigned)count);
@@ -334,21 +348,33 @@ ssize_t write(int fd, const void* buf, size_t count)
 
    // Checks for non-blocking.
    size_t write_size = count;
+   size_t avail = 0;
    if ( _rd[i].nonblock )
    {
-      if ( (size_t)rsd_get_avail(rd) > count )
+      avail = rsd_get_avail(rd);
+      if ( avail > count )
          write_size = count;
       else
-         write_size = (size_t)rsd_get_avail(rd);
+         write_size = avail;
    }
 
-   if ( rsd_write(rd, buf, write_size) == 0 )
+   if ( write_size > 0 )
    {
-      errno = ECONNRESET;
+      if ( rsd_write(rd, buf, write_size) == 0 )
+      {
+         errno = ECONNRESET;
+         return -1;
+      }
+      else
+         return write_size;
+   }
+   else if ( avail == 0 && count > 0 && _rd[i].nonblock )
+   {
+      errno = EWOULDBLOCK;
       return -1;
    }
    else
-      return write_size;
+      return 0;
 }
 
 ssize_t read(int fd, void* buf, size_t count)
@@ -389,28 +415,42 @@ int close(int fd)
 
 static int ossfmt2rsd(int format)
 {
+   int fmt = -1;
    switch(format)
    {
       case AFMT_S16_LE:
-         return RSD_S16_LE;
+         fmt = RSD_S16_LE;
+         break;
       case AFMT_S16_BE:
-         return RSD_S16_BE;
+         fmt = RSD_S16_BE;
+         break;
       case AFMT_U16_BE:
-         return RSD_U16_BE;
+         fmt = RSD_U16_BE;
+         break;
       case AFMT_U16_LE:
-         return RSD_U16_LE;
+         fmt = RSD_U16_LE;
+         break;
       case AFMT_S8:
-         return RSD_S8;
+         fmt = RSD_S8;
+         break;
       case AFMT_U8:
-         return RSD_U8;
+         fmt = RSD_U8;
+         break;
+      default:
+         break;
    }
-   return RSD_S16_LE;
+   return fmt;
 }
 
+#ifdef sun
+int ioctl(int fd, int request, ...)
+{
+#else
 int ioctl(int fd, unsigned long int request, ...)
 {
-   init_lib();
+#endif
 
+   init_lib();
 
    va_list args;
    void* argp;
@@ -444,9 +484,13 @@ int ioctl(int fd, unsigned long int request, ...)
 
       case SNDCTL_DSP_SETFMT:
          arg = ossfmt2rsd(*(int*)argp);
-         rsd_set_param(rd, RSD_FORMAT, &arg);
-         if ( arg == RSD_S16_LE )
-            *(int*)argp = AFMT_S16_LE;
+         if ( arg != -1 )
+            rsd_set_param(rd, RSD_FORMAT, &arg);
+         else 
+         {
+            errno = EINVAL;
+            return -1;
+         }
          break;
 
       case SNDCTL_DSP_STEREO:
@@ -506,6 +550,7 @@ int ioctl(int fd, unsigned long int request, ...)
       default:
          errno = ENOTSUP;
          return -1;
+         break;
 
    }
 
