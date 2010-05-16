@@ -133,7 +133,8 @@ static void init_lib(void)
       // Let's open the real calls from LIBC
 
       assert(_os.open = dlsym(REAL_LIBC, "open"));
-      assert(_os.open64 = dlsym(REAL_LIBC, "open64"));
+      // If we can't find open64(), then screw it. TODO: Proper handling of 64-bit open(), stat(), etc.
+      _os.open64 = dlsym(REAL_LIBC, "open64");
       assert(_os.close = dlsym(REAL_LIBC, "close"));
       assert(_os.ioctl = dlsym(REAL_LIBC, "ioctl"));
       assert(_os.write = dlsym(REAL_LIBC, "write"));
