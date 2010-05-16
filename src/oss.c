@@ -156,7 +156,7 @@ static size_t oss_write (void *data, const void* buf, size_t size)
 
 const rsd_backend_callback_t rsd_oss = {
    .init = oss_init,
-   .open= oss_open,
+   .open = oss_open,
    .write = oss_write,
    .latency = oss_latency,
    .get_backend_info = oss_get_backend,
