@@ -13,6 +13,14 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef _FILE_OFFSET_BITS
+#undef _FILE_OFFSET_BITS
+#endif
+
+#ifndef _LARGEFILE64_SOURCE
+#define _LARGEFILE64_SOURCE 1
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +33,7 @@
 #include <sys/soundcard.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 #include <errno.h>
 #include <assert.h>
 
@@ -245,7 +254,10 @@ int open(const char* path, int flags, ...)
    {
       va_list args;
       va_start(args, flags);
-      mode = va_arg(args, mode_t);
+      if (sizeof(mode_t) < sizeof(int))
+         mode = (mode_t)va_arg(args, int);
+      else
+         mode = va_arg(args, mode_t);
       va_end(args);
    }
    return open_generic(path, 0, flags, mode);
@@ -262,7 +274,10 @@ int open64(const char* path, int flags, ...)
    {
       va_list args;
       va_start(args, flags);
-      mode = va_arg(args, mode_t);
+      if (sizeof(mode_t) < sizeof(int))
+         mode = (mode_t)va_arg(args, int);
+      else
+         mode = va_arg(args, mode_t);
       va_end(args);
    }
    return open_generic(path, 1, flags, mode);
@@ -272,9 +287,6 @@ int open64(const char* path, int flags, ...)
 ssize_t write(int fd, const void* buf, size_t count)
 {
    init_lib();
-#if DEBUG
-   fprintf(stderr, "write(%d, %p, %u)\n", fd, buf, (unsigned)count);
-#endif
 
    rsound_t *rd;
 
@@ -285,6 +297,11 @@ ssize_t write(int fd, const void* buf, size_t count)
    {
       return _os.write(fd, buf, count);
    }
+
+#if DEBUG
+   fprintf(stderr, "write(%d, %p, %u)\n", fd, buf, (unsigned)count);
+#endif
+
 
    // We now need a working connection.
    if ( start_rsd(fd, rd) < 0 )
@@ -302,7 +319,13 @@ ssize_t write(int fd, const void* buf, size_t count)
          write_size = (size_t)rsd_get_avail(rd);
    }
 
-   return rsd_write(rd, buf, write_size);
+   if ( rsd_write(rd, buf, write_size) == 0 )
+   {
+      errno = ECONNRESET;
+      return -1;
+   }
+   else
+      return write_size;
 }
 
 ssize_t read(int fd, void* buf, size_t count)
