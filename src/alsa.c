@@ -158,7 +158,7 @@ static int alsa_latency(void *data)
    int delay;
    snd_pcm_sframes_t delay_alsa;
    if ( snd_pcm_delay(sound->handle, &delay_alsa) < 0 )
-      return -1;
+      return DEFAULT_CHUNK_SIZE; // We should at least return something.
 
    delay = snd_pcm_frames_to_bytes(sound->handle, delay_alsa);
 
