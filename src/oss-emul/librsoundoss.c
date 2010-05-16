@@ -73,7 +73,7 @@ static inline rsound_t* fd2handle(int fd)
 {
    rsound_t *rd = NULL;
    int i;
-   if ( fd2index(fd) >= 0 )
+   if ( (i = fd2index(fd)) >= 0 )
    {
       rd = _rd[i].rd;
    }
@@ -149,7 +149,7 @@ static void init_lib(void)
 
       assert(_os.open = dlsym(REAL_LIBC, "open"));
       // If we can't find open64(), then screw it. TODO: Proper handling of 64-bit open(), stat(), etc.
-      _os.open64 = dlsym(REAL_LIBC, "open64");
+      assert(_os.open64 = dlsym(REAL_LIBC, "open64"));
       assert(_os.close = dlsym(REAL_LIBC, "close"));
       assert(_os.ioctl = dlsym(REAL_LIBC, "ioctl"));
       assert(_os.write = dlsym(REAL_LIBC, "write"));
