@@ -31,6 +31,7 @@
 #define FD_MAX 16
 
 #define OSS_FRAGSIZE 512
+#define BUFSIZE (OSS_FRAGSIZE * 32)
 
 #if defined(RTLD_NEXT)
 #define REAL_LIBC RTLD_NEXT
@@ -41,6 +42,8 @@
 // Makes sure GCC doesn't refine these as macros
 #undef open
 #undef open64
+
+#define DEBUG 0
 
 static int lib_open = 0;
 static int open_generic(const char* path, int largefile, int flags, mode_t mode);
@@ -199,6 +202,8 @@ static int open_generic(const char* path, int largefile, int flags, mode_t mode)
    int channels = 2;
    rsd_set_param(_rd[i].rd, RSD_SAMPLERATE, &rate);
    rsd_set_param(_rd[i].rd, RSD_CHANNELS, &channels);
+   int bufsiz = BUFSIZE;
+   rsd_set_param(_rd[i].rd, RSD_BUFSIZE, &bufsiz);
 
    int fds[2];
    if ( pipe(fds) < 0 )
@@ -231,7 +236,9 @@ static int open_generic(const char* path, int largefile, int flags, mode_t mode)
 int open(const char* path, int flags, ...)
 {
    init_lib();
+#if DEBUG
    fprintf(stderr, "open(): %s\n", path);
+#endif
    mode_t mode = 0;
 
    if ( flags & O_CREAT )
@@ -247,7 +254,9 @@ int open(const char* path, int flags, ...)
 int open64(const char* path, int flags, ...)
 {
    init_lib();
+#if DEBUG
    fprintf(stderr, "open64(): %s\n", path);
+#endif
    mode_t mode = 0;
    if ( flags & O_CREAT )
    {
@@ -263,6 +272,9 @@ int open64(const char* path, int flags, ...)
 ssize_t write(int fd, const void* buf, size_t count)
 {
    init_lib();
+#if DEBUG
+   fprintf(stderr, "write(%d, %p, %u)\n", fd, buf, (unsigned)count);
+#endif
 
    rsound_t *rd;
 
@@ -352,6 +364,7 @@ int ioctl(int fd, unsigned long int request, ...)
 {
    init_lib();
 
+
    va_list args;
    void* argp;
    va_start(args, request);
@@ -370,6 +383,10 @@ int ioctl(int fd, unsigned long int request, ...)
    {
       return _os.ioctl(fd, request, argp);
    }
+
+#if DEBUG
+   fprintf(stderr, "ioctl(%d, %lu, *)\n", fd, request);
+#endif
 
    switch(request)
    {
@@ -414,13 +431,25 @@ int ioctl(int fd, unsigned long int request, ...)
 
       case SNDCTL_DSP_GETOSPACE:
          zz = argp;
+         if ( rd->conn.socket == -1 )
+         {
+            zz->fragsize = OSS_FRAGSIZE;
+            zz->fragments = BUFSIZE / OSS_FRAGSIZE;
+            zz->fragstotal = BUFSIZE / OSS_FRAGSIZE;
+            zz->bytes = BUFSIZE;
+            break;
+         }
          zz->fragsize = OSS_FRAGSIZE;
          zz->fragments = rsd_get_avail(rd) / OSS_FRAGSIZE;
+         zz->fragstotal = rd->buffer_size / OSS_FRAGSIZE;
          zz->bytes = rsd_get_avail(rd);
          break;
 
       case SNDCTL_DSP_GETODELAY:
-         *(int*)argp = (int) rsd_delay(rd);
+         if ( rd->conn.socket == -1 )
+            *(int*)argp = 0;
+         else
+            *(int*)argp = (int) rsd_delay(rd);
          break;
 
       case SNDCTL_DSP_NONBLOCK:
