@@ -149,7 +149,7 @@ static void init_lib(void)
 
       assert(_os.open = dlsym(REAL_LIBC, "open"));
       // If we can't find open64(), then screw it. TODO: Proper handling of 64-bit open(), stat(), etc.
-      assert(_os.open64 = dlsym(REAL_LIBC, "open64"));
+      _os.open64 = dlsym(REAL_LIBC, "open64");
       assert(_os.close = dlsym(REAL_LIBC, "close"));
       assert(_os.ioctl = dlsym(REAL_LIBC, "ioctl"));
       assert(_os.write = dlsym(REAL_LIBC, "write"));
