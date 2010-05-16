@@ -54,7 +54,6 @@
 
 #define DEBUG 0
 
-static int lib_open = 0;
 static int open_generic(const char* path, int largefile, int flags, mode_t mode);
 
 struct rsd_oss
@@ -62,23 +61,27 @@ struct rsd_oss
    int fd; // Fake fd that is returned to the API caller. This will be duplicated.
    rsound_t *rd;
    int nonblock;
-} _rd[FD_MAX];
+};
+
+static struct rsd_oss _rd[FD_MAX];
+
+static inline rsound_t* fd2handle(int fd);
+static inline int fd2index(int fd);
 
 // Checks if a file descriptor is an rsound fd.
-static rsound_t* fd2handle(int fd)
+static inline rsound_t* fd2handle(int fd)
 {
    rsound_t *rd = NULL;
    int i;
-   for ( i = 0; i < FD_MAX; i++ )
+   if ( fd2index(fd) >= 0 )
    {
-      if ( fd == _rd[i].fd )
-         rd = _rd[i].rd;
+      rd = _rd[i].rd;
    }
 
    return rd;
 }
 
-static int fd2index(int fd)
+static inline int fd2index(int fd)
 {
    int i;
    for ( i = 0; i < FD_MAX; i++ )
@@ -91,6 +94,10 @@ static int fd2index(int fd)
 
 static int start_rsd(int fd, rsound_t *rd)
 {
+   int flags = fcntl(fd, F_GETFD);
+   if ( flags < 0 )
+      return -1;
+
    if ( rd->conn.socket == -1 )
    {
       if ( rsd_start(rd) < 0 )
@@ -101,6 +108,12 @@ static int start_rsd(int fd, rsound_t *rd)
 
    if ( dup2(rd->conn.socket, fd) < 0 )
       return -1;
+
+   if ( flags & O_NONBLOCK )
+   {
+      int i = fd2index(fd);
+      _rd[i].nonblock = 1;
+   }
 
    return 0;
 }
@@ -114,10 +127,12 @@ struct os_calls
    int (*ioctl)(int, unsigned long int, ...);
    ssize_t (*write)(int, const void*, size_t);
    ssize_t (*read)(int, void*, size_t);
-} _os;
+};
+static struct os_calls _os;
 
 static void init_lib(void)
 {
+   static int lib_open = 0;
    int i;
    if ( lib_open == 0 ) // We need to init the lib
    {
@@ -218,29 +233,36 @@ static int open_generic(const char* path, int largefile, int flags, mode_t mode)
    int fds[2];
    if ( pipe(fds) < 0 )
    {
-      rsd_free(_rd[i].rd);
-      _rd[i].rd = NULL;
-      return -1;
+      goto error;
    }
 
-   close(fds[1]);
+   _os.close(fds[1]);
    _rd[i].fd = fds[0];
 
    // Let's check the flags
    if ( flags & O_NONBLOCK )
    {
       _rd[i].nonblock = 1;
+      if ( fcntl(fds[0], F_SETFL, O_NONBLOCK) < 0 )
+      {
+         goto error;
+      }
    }
 
    if ( flags & O_RDONLY ) // We do not support this.
    {
-      errno = -EINVAL;
+      errno = EINVAL;
       rsd_free(_rd[i].rd);
       _rd[i].rd = NULL;
       return -1;
    }
 
    return fds[0];
+
+error:
+   rsd_free(_rd[i].rd);
+   _rd[i].rd = NULL;
+   return -1;
 }
 
 int open(const char* path, int flags, ...)
@@ -360,6 +382,7 @@ int close(int fd)
    rsd_free(rd);
    _rd[i].rd = NULL;
    _rd[i].fd = -1;
+   _rd[i].nonblock = 0;
 
    return 0;
 }
@@ -481,7 +504,8 @@ int ioctl(int fd, unsigned long int request, ...)
          break;
 
       default:
-         break;
+         errno = ENOTSUP;
+         return -1;
 
    }
 
