@@ -251,14 +251,14 @@ static int open_generic(const char* path, int largefile, int flags, mode_t mode)
       goto error;
    }
 
-   _os.close(fds[1]);
-   _rd[i].fd = fds[0];
+   _os.close(fds[0]);
+   _rd[i].fd = fds[1];
 
    // Let's check the flags
    if ( flags & O_NONBLOCK )
    {
       _rd[i].nonblock = 1;
-      if ( fcntl(fds[0], F_SETFL, O_NONBLOCK) < 0 )
+      if ( fcntl(fds[1], F_SETFL, O_NONBLOCK) < 0 )
       {
          goto error;
       }
@@ -270,7 +270,7 @@ static int open_generic(const char* path, int largefile, int flags, mode_t mode)
       goto error;
    }
 
-   return fds[0];
+   return fds[1];
 
 error:
    rsd_free(_rd[i].rd);
