@@ -531,6 +531,9 @@ int ioctl(int fd, unsigned long int request, ...)
       case SNDCTL_DSP_GETOSPACE:
          zz = argp;
          size_t avail = rsd_get_avail(rd);
+#ifdef DEBUG
+         fprintf(stderr, "SNDCTL_DSP_GETOSPACE: Avail: %lu\n", (long unsigned int)avail);
+#endif
          if ( rd->conn.socket == -1 )
          {
             zz->fragsize = OSS_FRAGSIZE;
