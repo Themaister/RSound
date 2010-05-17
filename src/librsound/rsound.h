@@ -49,7 +49,9 @@ extern "C" {
       RSD_U8     = 0x0010,
       RSD_S8     = 0x0020,
       RSD_S16_NE = 0x0040,
-      RSD_U16_NE = 0x0080
+      RSD_U16_NE = 0x0080,
+      RSD_ALAW   = 0x0100,
+      RSD_MULAW  = 0x0200
    };
 
    /* Defines operations that can be used with rsd_set_param() */

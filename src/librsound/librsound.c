@@ -161,6 +161,8 @@ static inline int rsnd_format_to_framesize ( enum rsd_format fmt )
 
       case RSD_U8:
       case RSD_S8:
+      case RSD_ALAW:
+      case RSD_MULAW:
          return 1;
 
       default:
@@ -345,8 +347,22 @@ static int rsnd_send_header_info(rsound_t *rd)
 
    temp16 = 0; // PCM data
 
-   if ( rd->format == RSD_S16_LE || rd->format == RSD_U8 )
-      temp16 = 1;
+   switch( rd->format )
+   {
+      case RSD_S16_LE:
+      case RSD_U8:
+         temp16 = 1;
+         break;
+
+      case RSD_ALAW:
+         temp16 = 6;
+         break;
+
+      case RSD_MULAW:
+         temp16 = 7;
+         break;
+   }
+
    LSB16(temp16);
    SET16(header, 20, temp16);
 
