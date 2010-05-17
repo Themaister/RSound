@@ -52,7 +52,7 @@
 #undef open
 #undef open64
 
-#define DEBUG 1
+#define DEBUG 0
 
 static int open_generic(const char* path, int largefile, int flags, mode_t mode);
 
@@ -531,7 +531,7 @@ int ioctl(int fd, unsigned long int request, ...)
       case SNDCTL_DSP_GETOSPACE:
          zz = argp;
          size_t avail = rsd_get_avail(rd);
-#ifdef DEBUG
+#if DEBUG
          fprintf(stderr, "SNDCTL_DSP_GETOSPACE: Avail: %lu\n", (long unsigned int)avail);
 #endif
          if ( rd->conn.socket == -1 )
