@@ -52,7 +52,7 @@
 #undef open
 #undef open64
 
-#define DEBUG 0
+#define DEBUG 1
 
 static int open_generic(const char* path, int largefile, int flags, mode_t mode);
 
@@ -61,6 +61,7 @@ struct rsd_oss
    int fd; // Fake fd that is returned to the API caller. This will be duplicated.
    rsound_t *rd;
    int nonblock;
+   unsigned int bytes; // Bytes played since start of stream.
 };
 
 static struct rsd_oss _rd[FD_MAX];
@@ -276,6 +277,7 @@ error:
    _rd[i].rd = NULL;
    _rd[i].fd = -1;
    _rd[i].nonblock = 0;
+   _rd[i].bytes = 0;
    return -1;
 }
 
@@ -352,6 +354,9 @@ ssize_t write(int fd, const void* buf, size_t count)
    if ( _rd[i].nonblock )
    {
       avail = rsd_get_avail(rd);
+#if DEBUG
+      fprintf(stderr, "NONBLOCK. Avail is %lu\n", (long unsigned int)avail);
+#endif
       if ( avail > count )
          write_size = count;
       else
@@ -366,7 +371,10 @@ ssize_t write(int fd, const void* buf, size_t count)
          return -1;
       }
       else
+      {
+         _rd[i].bytes += write_size;
          return write_size;
+      }
    }
    else if ( avail == 0 && count > 0 && _rd[i].nonblock )
    {
@@ -406,9 +414,8 @@ int close(int fd)
    rsd_stop(rd);
    _os.close(fd);
    rsd_free(rd);
-   _rd[i].rd = NULL;
+   memset(&_rd[i], 0, sizeof(struct rsd_oss));
    _rd[i].fd = -1;
-   _rd[i].nonblock = 0;
 
    return 0;
 }
@@ -460,6 +467,7 @@ int ioctl(int fd, unsigned long int request, ...)
 
    int arg;
    audio_buf_info *zz;
+   count_info *ci;
 
    rsound_t *rd;
    int i;
@@ -522,6 +530,7 @@ int ioctl(int fd, unsigned long int request, ...)
 
       case SNDCTL_DSP_GETOSPACE:
          zz = argp;
+         size_t avail = rsd_get_avail(rd);
          if ( rd->conn.socket == -1 )
          {
             zz->fragsize = OSS_FRAGSIZE;
@@ -531,9 +540,17 @@ int ioctl(int fd, unsigned long int request, ...)
             break;
          }
          zz->fragsize = OSS_FRAGSIZE;
-         zz->fragments = rsd_get_avail(rd) / OSS_FRAGSIZE;
+         zz->fragments = avail / OSS_FRAGSIZE;
          zz->fragstotal = rd->buffer_size / OSS_FRAGSIZE;
-         zz->bytes = rsd_get_avail(rd);
+         zz->bytes = avail;
+         break;
+
+
+      case SNDCTL_DSP_GETOPTR:
+         ci = argp;
+         ci->bytes = _rd[i].bytes;
+         ci->blocks = _rd[i].bytes / OSS_FRAGSIZE;
+         ci->ptr = rsd_pointer(rd);
          break;
 
       case SNDCTL_DSP_GETODELAY:
