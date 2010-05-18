@@ -98,8 +98,18 @@ static int al_open(void* data, wav_header_t *w)
       al->format = AL_FORMAT_STEREO8;
    else if ( w->numChannels == 1 && w->bitsPerSample == 8 )
       al->format = AL_FORMAT_MONO8;
-   else
-      return -1;
+
+   if ( w->rsd_format == RSD_ALAW )
+   {
+      al->format = (w->numChannels == 2) ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16;
+      al->conv |= RSD_ALAW_TO_S16;
+   }
+   else if ( w->rsd_format == RSD_MULAW )
+   {
+      al->format = (w->numChannels == 2) ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16;
+      al->conv |= RSD_MULAW_TO_S16;
+   }
+
 
    al->rate = w->sampleRate;
 
@@ -115,18 +125,32 @@ static int al_open(void* data, wav_header_t *w)
    return 0;
 }
 
-static size_t al_write(void *data, const void* buf, size_t size)
+static size_t al_write(void *data, const void* inbuf, size_t size)
 {
 
    al_t *al = data;
 
-   audio_converter((void*)buf, al->fmt, al->conv, size);
+   size_t osize = size;
+
+   uint8_t convbuf[2*size];
+   void *buffer_ptr = (void*)inbuf;
+
+   if (al->conv != RSD_NULL)
+   {
+      osize = (al->fmt & (RSD_ALAW | RSD_MULAW)) ? 2*size : size;
+
+      memcpy(convbuf, inbuf, size);
+
+      audio_converter(convbuf, al->fmt, al->conv, size);
+      buffer_ptr = convbuf;
+   }
+
 
    // Fills up the buffer before we start playing.
 
    if ( al->queue < al->num_buffers )
    {
-      alBufferData(al->buffers[al->queue++], al->format, buf, size, al->rate);
+      alBufferData(al->buffers[al->queue++], al->format, buffer_ptr, osize, al->rate);
       if ( alGetError() != AL_NO_ERROR )
       {
          return 0;
@@ -168,7 +192,7 @@ static size_t al_write(void *data, const void* buf, size_t size)
    alSourceUnqueueBuffers(al->source, 1, &buffer);
 
    // Buffers up the data
-   alBufferData(buffer, al->format, buf, size, al->rate);
+   alBufferData(buffer, al->format, buffer_ptr, osize, al->rate);
    alSourceQueueBuffers(al->source, 1, &buffer);
    if ( alGetError() != AL_NO_ERROR )
       return 0;
@@ -191,11 +215,19 @@ static void al_get_backend(void *data, backend_info_t *backend_info)
    backend_info->chunk_size = BUF_SIZE;
 }
 
+// Not 100% correct, since the buffer is not neccesarily full at all times.
+static int al_latency(void *data)
+{
+   al_t *al = data;
+   return BUF_SIZE * al->num_buffers;
+}
+
 const rsd_backend_callback_t rsd_al = {
    .init = al_init,
    .initialize = al_initialize,
    .shutdown = al_shutdown,
    .write = al_write,
+   .latency = al_latency,
    .close = al_close,
    .get_backend_info = al_get_backend,
    .open = al_open,
