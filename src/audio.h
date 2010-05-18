@@ -129,6 +129,8 @@ inline int rsnd_format_to_bytes( uint16_t format )
          return 2;
       case RSD_U8:
       case RSD_S8:
+      case RSD_ALAW:
+      case RSD_MULAW:
          return 1;
    }
    return -1;
