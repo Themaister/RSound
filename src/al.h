@@ -31,6 +31,9 @@ typedef struct
    int latency;
    int queue;
 
+   enum rsd_format fmt;
+   int conv;
+
 } al_t;
 
 #endif

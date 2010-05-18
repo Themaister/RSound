@@ -70,7 +70,26 @@ static int al_open(void* data, wav_header_t *w)
 {
    al_t *al = data;
 
-   // Crude
+
+   al->fmt = w->rsd_format;
+   al->conv = RSD_NULL;
+
+   int bits = rsnd_format_to_bytes(w->rsd_format) * 8;
+   int i = 0;
+
+   if ( is_little_endian() )
+      i++;
+   if ( w->rsd_format & ( RSD_S16_BE | RSD_U16_BE ) )
+      i++;
+
+   if ( (i % 2) == 0 && bits == 16 )
+      al->conv |= RSD_SWAP_ENDIAN;
+
+   if ( w->rsd_format & ( RSD_U16_LE | RSD_U16_BE ) )
+      al->conv |= RSD_U_TO_S;
+   else if ( w->rsd_format & RSD_S8 )
+      al->conv |= RSD_S_TO_U;
+
    if ( w->numChannels == 2 && w->bitsPerSample == 16 )
       al->format = AL_FORMAT_STEREO16;
    else if ( w->numChannels == 1 && w->bitsPerSample == 16 )
@@ -80,7 +99,7 @@ static int al_open(void* data, wav_header_t *w)
    else if ( w->numChannels == 1 && w->bitsPerSample == 8 )
       al->format = AL_FORMAT_MONO8;
    else
-      al->format = AL_FORMAT_STEREO16; // Oh what the hell :D
+      return -1;
 
    al->rate = w->sampleRate;
 
@@ -100,6 +119,8 @@ static size_t al_write(void *data, const void* buf, size_t size)
 {
 
    al_t *al = data;
+
+   audio_converter((void*)buf, al->fmt, al->conv, size);
 
    // Fills up the buffer before we start playing.
 
