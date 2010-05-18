@@ -68,6 +68,14 @@ static int muroar_rsd_open(void* data, wav_header_t *w)
          bits  =  8;
          codec = MUROAR_CODEC_PCM_S;
          break;
+      case RSD_ALAW:
+         bits  =  8;
+         codec =  MUROAR_CODEC_ALAW;
+         break;
+      case RSD_MULAW:
+         bits  =  8;
+         codec =  MUROAR_CODEC_MULAW;
+         break;
 
       default:
          return -1;
