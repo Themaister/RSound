@@ -149,12 +149,12 @@ static int set_other_params(rsound_t *rd)
       // Assuming too much, but hey. Not sure how to find big-endian or little-endian in wave files.
       if ( bits == 16 )
          format = RSD_S16_LE;
-      else if ( bits == 8 )
-         format = RSD_U8;
       else if ( bits == 8 && temp_fmt == 6 )
          format = RSD_ALAW;
       else if ( bits == 8 && temp_fmt == 7 )
          format = RSD_MULAW;
+      else if ( bits == 8 )
+         format = RSD_U8;
       else
       {
          fprintf(stderr, "Only 8 or 16 bit WAVE files supported.\n");
