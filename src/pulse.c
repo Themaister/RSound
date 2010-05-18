@@ -45,6 +45,9 @@ static int pulse_open(void* data, wav_header_t *w)
    ss.channels = w->numChannels;
    ss.rate = w->sampleRate;
 
+   interface->fmt = w->rsd_format;
+   interface->conv = RSD_NULL;
+
    switch ( w->rsd_format )
    {
       case RSD_S16_LE:
@@ -53,8 +56,14 @@ static int pulse_open(void* data, wav_header_t *w)
          break;
 
       case RSD_U16_LE:
+         ss.format = PA_SAMPLE_S16LE;
+         interface->conv |= RSD_U_TO_S;
+         break;
+
       case RSD_U16_BE:
-         return -1;
+         ss.format = PA_SAMPLE_S16BE;
+         interface->conv |= RSD_U_TO_S;
+         break;
 
       case RSD_S16_BE:
          ss.format = PA_SAMPLE_S16BE;
@@ -67,7 +76,17 @@ static int pulse_open(void* data, wav_header_t *w)
          break;
 
       case RSD_S8:
-         return -1;
+         ss.format = PA_SAMPLE_U8;
+         interface->conv |= RSD_S_TO_U;
+         break;
+
+      case RSD_ALAW:
+         ss.format = PA_SAMPLE_ALAW;
+         break;
+
+      case RSD_MULAW:
+         ss.format = PA_SAMPLE_ULAW;
+         break;
 
       default:
          return -1;
@@ -89,6 +108,8 @@ static int pulse_open(void* data, wav_header_t *w)
 static size_t pulse_write(void *data, const void* buf, size_t size)
 {
    pulse_t *sound = data;
+
+   audio_converter((void*)buf, sound->fmt, sound->conv, size);
 
    if ( pa_simple_write(sound->s, buf, size, NULL) < 0 )
       return -1;

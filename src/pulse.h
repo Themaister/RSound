@@ -24,6 +24,8 @@ typedef struct
    pa_simple *s;
    int framesize;
    int rate;
+   enum rsd_format fmt;
+   int conv;
 } pulse_t;
 
 #endif
