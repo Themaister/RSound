@@ -74,6 +74,7 @@ src_rsd_SOURCES =   src/daemon.c \
                      src/proto.h \
                      src/proto.c \
                            src/endian.h \
+									src/audio.c \
                            src/rsound-common.c \
                            src/rsound.h \
                            src/audio.h $(sources_serv)

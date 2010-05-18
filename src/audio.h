@@ -43,7 +43,9 @@ enum
    RSD_U16_LE = 0x0004,
    RSD_U16_BE = 0x0008,
    RSD_U8     = 0x0010,
-   RSD_S8     = 0x0020
+   RSD_S8     = 0x0020,
+   RSD_ALAW   = 0x0100,
+   RSD_MULAW  = 0x0200
 };
 
 // Defines connection types the server can handle.
@@ -127,6 +129,16 @@ inline int rsnd_format_to_bytes( uint16_t format )
    }
    return -1;
 }
+
+enum rsd_format_conv
+{
+   RSD_NULL = 0x0000,
+   RSD_S_TO_U = 0x0001,
+   RSD_U_TO_S = 0x0002,
+   RSD_SWAP_ENDIAN = 0x0004
+};
+
+void audio_converter(void* data, int bits, int operation, size_t bytes); 
 
 
 

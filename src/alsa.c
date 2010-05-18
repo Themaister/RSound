@@ -77,6 +77,12 @@ static int alsa_open(void *data, wav_header_t *w)
       case RSD_S8:
          format = SND_PCM_FORMAT_S8;
          break;
+      case RSD_ALAW:
+         format = SND_PCM_FORMAT_A_LAW;
+         break;
+      case RSD_MULAW:
+         format = SND_PCM_FORMAT_MU_LAW;
+         break;
 
       default:
          return -1;

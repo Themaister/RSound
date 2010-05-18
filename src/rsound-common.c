@@ -524,6 +524,16 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
             break;
       }
    }
+   else if ( pcm == 6 ) // Magic key for ALAW
+   {
+      if ( head->bitsPerSample == 8 )
+         head->rsd_format = RSD_ALAW;
+   }
+   else if ( pcm == 7 ) // Magic key for MULAW
+   {
+      if ( head->bitsPerSample == 8 )
+         head->rsd_format = RSD_MULAW;
+   }
 
 
    /* Checks some basic sanity of header file */

@@ -77,6 +77,12 @@ static int oss_open(void *data, wav_header_t *w)
       case RSD_S8:
          format = AFMT_S8;
          break;
+      case RSD_ALAW:
+         format = AFMT_A_LAW;
+         break;
+      case RSD_MULAW:
+         format = AFMT_MU_LAW;
+         break;
 
       default:
          return -1;
