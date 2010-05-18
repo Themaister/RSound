@@ -90,6 +90,16 @@ static int ao_rsd_open(void* data, wav_header_t *w)
          bits = 8;
          break;
 
+      case RSD_ALAW:
+         bits = 16;
+         interface->converter |= RSD_ALAW_TO_S16;
+         break;
+
+      case RSD_MULAW:
+         bits = 16;
+         interface->converter |= RSD_MULAW_TO_S16;
+         break;
+
       default:
          return -1;
    }
@@ -114,13 +124,26 @@ static int ao_rsd_open(void* data, wav_header_t *w)
    return 0;
 }
 
-static size_t ao_rsd_write(void *data, const void* buf, size_t size)
+static size_t ao_rsd_write(void *data, const void* inbuf, size_t size)
 {
    ao_t *sound = data;
 
-   audio_converter((void*)buf, sound->fmt, sound->converter, size);
+   size_t osize = size;
+   
+   uint8_t convbuf[2*size];
+   void *buffer = (void*)inbuf;
 
-   if ( ao_play(sound->device, (void*)buf, size) == 0 )
+   if (sound->converter != RSD_NULL)
+   {
+      osize = (sound->fmt & (RSD_ALAW | RSD_MULAW)) ? 2*size : size;
+
+      memcpy(convbuf, inbuf, size);
+
+      audio_converter(convbuf, sound->fmt, sound->converter, size);
+      buffer = convbuf;
+   }
+
+   if ( ao_play(sound->device, buffer, osize) == 0 )
       return -1;
    return size;
 }

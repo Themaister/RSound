@@ -67,28 +67,43 @@ static int porta_open(void *data, wav_header_t *w)
          if ( !is_little_endian() )
             sound->converter |= RSD_SWAP_ENDIAN;
          break;
+
       case RSD_U16_LE:
          params.sampleFormat = paInt16;
          sound->converter |= RSD_U_TO_S;
          if ( !is_little_endian() )
             sound->converter |= RSD_SWAP_ENDIAN;
          break;
+
       case RSD_S16_BE:
          params.sampleFormat = paInt16;
          if ( is_little_endian() )
             sound->converter |= RSD_SWAP_ENDIAN;
          break;
+
       case RSD_U16_BE:
          params.sampleFormat = paInt16;
          sound->converter |= RSD_U_TO_S;
          if ( is_little_endian() )
             sound->converter |= RSD_SWAP_ENDIAN;
          break;
+
       case RSD_U8:
          params.sampleFormat = paUInt8;
          break;
+
       case RSD_S8:
          params.sampleFormat = paInt8;
+         break;
+
+      case RSD_ALAW:
+         params.sampleFormat = paInt16;
+         sound->converter |= RSD_ALAW_TO_S16;
+         break;
+
+      case RSD_MULAW:
+         params.sampleFormat = paInt16;
+         sound->converter |= RSD_MULAW_TO_S16;
          break;
 
       default:
@@ -100,6 +115,9 @@ static int porta_open(void *data, wav_header_t *w)
    params.hostApiSpecificStreamInfo = NULL;
 
    sound->size = FRAMES_PER_BUFFER * rsnd_format_to_bytes(w->rsd_format) * w->numChannels;
+   if ( w->rsd_format & ( RSD_ALAW | RSD_MULAW ) )
+      sound->size *= 2;
+
    sound->frames = FRAMES_PER_BUFFER;
    sound->bps = rsnd_format_to_bytes(w->rsd_format) * w->numChannels * w->sampleRate;
 
@@ -144,16 +162,29 @@ static int porta_latency(void *data)
    return sound->bps * Pa_GetStreamInfo(sound->stream)->outputLatency;
 }
 
-static size_t porta_write(void *data, const void *buf, size_t size)
+static size_t porta_write(void *data, const void *inbuf, size_t size)
 {
    porta_t *sound = data;
    PaError err;
 
-   audio_converter((void*)buf, sound->fmt, sound->converter, size);
+   size_t osize = size;
+   
+   uint8_t convbuf[2*size];
+   void *buffer = (void*)inbuf;
 
-   size_t write_frames = size / (sound->size / sound->frames);
+   if (sound->converter != RSD_NULL)
+   {
+      osize = (sound->fmt & (RSD_ALAW | RSD_MULAW)) ? 2*size : size;
 
-   err = Pa_WriteStream( sound->stream, buf, write_frames );
+      memcpy(convbuf, inbuf, size);
+
+      audio_converter(convbuf, sound->fmt, sound->converter, size);
+      buffer = convbuf;
+   }
+
+   size_t write_frames = osize / (sound->size / sound->frames);
+
+   err = Pa_WriteStream( sound->stream, buffer, write_frames );
    if ( err < 0 && err != paOutputUnderflowed )
       return -1;
 

@@ -141,7 +141,9 @@ enum rsd_format_conv
    RSD_NULL = 0x0000,
    RSD_S_TO_U = 0x0001,
    RSD_U_TO_S = 0x0002,
-   RSD_SWAP_ENDIAN = 0x0004
+   RSD_SWAP_ENDIAN = 0x0004,
+   RSD_ALAW_TO_S16 = 0x0008,
+   RSD_MULAW_TO_S16 = 0x0010
 };
 
 void audio_converter(void* data, enum rsd_format fmt, int operation, size_t bytes); 
