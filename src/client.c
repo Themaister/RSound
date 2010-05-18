@@ -106,7 +106,7 @@ quit:
 static int set_other_params(rsound_t *rd)
 {
    int rate, channels, bits;
-   uint16_t temp_channels, temp_bits;
+   uint16_t temp_channels, temp_bits, temp_fmt;
    uint32_t temp_rate;
 
    int rc;
@@ -116,6 +116,7 @@ static int set_other_params(rsound_t *rd)
 #define RATE 24
 #define CHANNEL 22
 #define BITS_PER_SAMPLE 34
+#define FORMAT 20
 
    if ( !raw_mode )
    {  
@@ -132,11 +133,13 @@ static int set_other_params(rsound_t *rd)
       temp_channels = *((uint16_t*)(buf+CHANNEL));
       temp_rate = *((uint32_t*)(buf+RATE));
       temp_bits = *((uint16_t*)(buf+BITS_PER_SAMPLE));
+      temp_fmt = *((uint16_t*)(buf+FORMAT));
       if ( !is_little_endian() )
       {
          swap_endian_16(&temp_channels);
          swap_endian_16(&temp_bits);
          swap_endian_32(&temp_rate);
+         swap_endian_16(&temp_fmt);
       }
 
       rate = (int)temp_rate;
@@ -148,6 +151,10 @@ static int set_other_params(rsound_t *rd)
          format = RSD_S16_LE;
       else if ( bits == 8 )
          format = RSD_U8;
+      else if ( bits == 8 && temp_fmt == 6 )
+         format = RSD_ALAW;
+      else if ( bits == 8 && temp_fmt == 7 )
+         format = RSD_MULAW;
       else
       {
          fprintf(stderr, "Only 8 or 16 bit WAVE files supported.\n");
@@ -188,7 +195,7 @@ static void print_help()
    printf("-c/--channel: Specifies number of sound channels (raw PCM)\n");
    printf("\tExample: -c 1. Defaults to stereo (2)\n");
    printf("-B: Specifies sample format in raw PCM stream\n");
-   printf("\tSupported formats are: S16LE, S16BE, U16LE, U16BE, S8, U8.\n" 
+   printf("\tSupported formats are: S16LE, S16BE, U16LE, U16BE, S8, U8, ALAW, MULAW.\n" 
          "\tYou can pass 8 and 16 also, which is equal to U8 and S16LE respectively.\n");
    printf("-h/--help: Prints this help\n");
    printf("-f/--file: Uses file rather than stdin\n");
@@ -272,6 +279,10 @@ static void parse_input(int argc, char **argv)
                format = RSD_S8;
             else if ( strcmp("U8", optarg) == 0 || strcmp("8", optarg) == 0 )
                format = RSD_U8;
+            else if ( strcmp("ALAW", optarg) == 0 )
+               format = RSD_ALAW;
+            else if ( strcmp("MULAW", optarg) == 0 )
+               format = RSD_MULAW;
             else
             {
                fprintf(stderr, "Invalid bit format.\n");

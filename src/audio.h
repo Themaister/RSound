@@ -110,6 +110,10 @@ inline const char* rsnd_format_to_string( uint16_t format )
          return "Unsigned 8-bit";
       case RSD_S8:
          return "Signed 8-bit";
+      case RSD_ALAW:
+         return "a-law";
+      case RSD_MULAW:
+         return "mu-law";
    }
    return "Unknown format";
 }
