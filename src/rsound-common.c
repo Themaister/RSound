@@ -515,9 +515,9 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
                head->rsd_format = RSD_U16_BE;
             break;
 
-         case RSD_U8:
+         case RSD_S8:
             if ( head->bitsPerSample == 8 )
-               head->rsd_format = RSD_U8;
+               head->rsd_format = RSD_S8;
             break;
 
          default:

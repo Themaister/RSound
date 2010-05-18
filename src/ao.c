@@ -48,26 +48,46 @@ static int ao_rsd_open(void* data, wav_header_t *w)
    ao_t* interface = data;
 
    int bits = 0;
-   int endian = 0;
+   int endian = AO_FMT_NATIVE;
+
+   interface->converter = RSD_NULL;
+   interface->fmt = w->rsd_format;
 
    switch ( w->rsd_format )
    {
       case RSD_S16_LE:
          bits = 16;
-         endian = AO_FMT_LITTLE;
+         if ( !is_little_endian() )
+            interface->converter |= RSD_SWAP_ENDIAN;
+
          break;
 
       case RSD_U16_LE:
+         bits = 16;
+         if ( !is_little_endian() )
+            interface->converter |= RSD_SWAP_ENDIAN;
+         interface->converter |= RSD_U_TO_S;
+         break;
+
       case RSD_U16_BE:
-         return -1;
+         bits = 16;
+         if ( is_little_endian() )
+            interface->converter |= RSD_SWAP_ENDIAN;
+         interface->converter |= RSD_U_TO_S | RSD_SWAP_ENDIAN;
+         break;
 
       case RSD_S16_BE:
          bits = 16;
-         endian = AO_FMT_BIG;
+         if ( is_little_endian() )
+            interface->converter |= RSD_SWAP_ENDIAN;
+         interface->converter |= RSD_SWAP_ENDIAN;
          break;
+
       case RSD_U8:
          bits = 8;
+         interface->converter |= RSD_U_TO_S;
          break;
+
       case RSD_S8:
          bits = 8;
          break;
@@ -75,7 +95,6 @@ static int ao_rsd_open(void* data, wav_header_t *w)
       default:
          return -1;
    }
-
 
    ao_sample_format format = {
       .bits = bits,
@@ -100,6 +119,9 @@ static int ao_rsd_open(void* data, wav_header_t *w)
 static size_t ao_rsd_write(void *data, const void* buf, size_t size)
 {
    ao_t *sound = data;
+
+   audio_converter((void*)buf, sound->fmt, sound->converter, size);
+
    if ( ao_play(sound->device, (void*)buf, size) == 0 )
       return -1;
    return size;

@@ -35,7 +35,7 @@
 #include <unistd.h>
 
 // Defines audio formats supported by rsound. Might be extended in the future :)
-enum 
+enum rsd_format
 {
    RSD_UNSPEC = 0x0000,
    RSD_S16_LE = 0x0001,
@@ -142,7 +142,7 @@ enum rsd_format_conv
    RSD_SWAP_ENDIAN = 0x0004
 };
 
-void audio_converter(void* data, int bits, int operation, size_t bytes); 
+void audio_converter(void* data, enum rsd_format fmt, int operation, size_t bytes); 
 
 
 

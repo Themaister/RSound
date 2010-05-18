@@ -22,6 +22,8 @@
 typedef struct
 {
    ao_device *device;
+   enum rsd_format fmt;
+   int converter;
 } ao_t;
 
 #endif
