@@ -57,18 +57,33 @@ static int porta_open(void *data, wav_header_t *w)
    params.device = Pa_GetDefaultOutputDevice();
    params.channelCount = w->numChannels;
 
+   sound->converter = RSD_NULL;
+   sound->fmt = w->rsd_format;
+
    switch ( w->rsd_format )
    {
-      // This will only work on little endian. (Windows :D)
-      // This driver is mostly for cygwin.
       case RSD_S16_LE:
          params.sampleFormat = paInt16;
+         if ( !is_little_endian() )
+            sound->converter |= RSD_SWAP_ENDIAN;
          break;
       case RSD_U16_LE:
+         params.sampleFormat = paInt16;
+         sound->converter |= RSD_U_TO_S;
+         if ( !is_little_endian() )
+            sound->converter |= RSD_SWAP_ENDIAN;
+         break;
       case RSD_S16_BE:
+         params.sampleFormat = paInt16;
+         if ( is_little_endian() )
+            sound->converter |= RSD_SWAP_ENDIAN;
+         break;
       case RSD_U16_BE:
-         fprintf(stderr, "Format not supported: %s\n", rsnd_format_to_string(w->rsd_format));
-         return -1;
+         params.sampleFormat = paInt16;
+         sound->converter |= RSD_U_TO_S;
+         if ( is_little_endian() )
+            sound->converter |= RSD_SWAP_ENDIAN;
+         break;
       case RSD_U8:
          params.sampleFormat = paUInt8;
          break;
@@ -133,6 +148,8 @@ static size_t porta_write(void *data, const void *buf, size_t size)
 {
    porta_t *sound = data;
    PaError err;
+
+   audio_converter((void*)buf, sound->fmt, sound->converter, size);
 
    size_t write_frames = size / (sound->size / sound->frames);
 

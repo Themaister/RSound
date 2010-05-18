@@ -59,7 +59,6 @@ static int ao_rsd_open(void* data, wav_header_t *w)
          bits = 16;
          if ( !is_little_endian() )
             interface->converter |= RSD_SWAP_ENDIAN;
-
          break;
 
       case RSD_U16_LE:

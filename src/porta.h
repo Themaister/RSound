@@ -26,6 +26,8 @@ typedef struct
    size_t size;
    size_t frames;
    uint32_t bps;
+   enum rsd_format fmt;
+   int converter;
 } porta_t;
 
 #endif
