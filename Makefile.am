@@ -51,11 +51,17 @@ if HAVE_SYS_OSS_H
    sources_serv += src/oss.c
    sources_serv += src/oss.h
    AM_CFLAGS += -D_OSS
+if NEED_OSSAUDIO_LIB
+   SERV_LIBS += -lossaudio
+endif
 endif
 if HAVE_OSS_H
    sources_serv += src/oss.c
    sources_serv += src/oss.h
    AM_CFLAGS += -D_OSS
+if NEED_OSSAUDIO_LIB
+   SERV_LIBS += -lossaudio
+endif
 endif
 endif
 

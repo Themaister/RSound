@@ -45,10 +45,12 @@ AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR([Could not find pthread]),)
 
 AC_CHECK_LIB(dnet, dnet_conn, , enable_decnet=no ,enable_decnet=yes)
 AC_CHECK_LIB(rt, clock_gettime, , enable_rt=no, enable_rt=yes)
+AC_CHECK_LIB(ossaudio, _oss_ioctl, , need_ossaudio=no, need_ossaudio=yes)
 
 AM_CONDITIONAL(HAVE_SYS_OSS_H, test x$have_sys_oss = xyes)
 AM_CONDITIONAL(HAVE_OSS_H, test x$have_oss = xyes)
 AM_CONDITIONAL(HAVE_OSS, test x$enable_oss = xyes)
+AM_CONDITIONAL(NEED_OSSAUDIO_LIB, test x$need_ossaudio = xyes)
 AM_CONDITIONAL(HAVE_DECNET, test x$enable_decnet = xyes)
 AM_CONDITIONAL(HAVE_RT, test x$enable_rt = xyes)
 AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
