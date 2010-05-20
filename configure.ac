@@ -16,9 +16,7 @@ AC_ARG_ENABLE( muroar,     [  --disable-muroar        Disables muroar support], 
 AC_PROG_CC_C99
 AM_PROG_CC_C_O
 
-SERV_LIBS="-lpthread"
-
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h getopt.h netdnet/dn.h netdnet/dnetdb.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h getopt.h netdnet/dn.h netdnet/dnetdb.h sys/soundcard.h soundcard.h])
 AC_C_INLINE
 AC_TYPE_SIZE_T
 AC_TYPE_UINT16_T
@@ -28,7 +26,9 @@ AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset select socket strerror getopt_long])
 
-AC_CHECK_HEADER(sys/soundcard.h, ,enable_oss=no,)
+AC_CHECK_HEADER(soundcard.h, have_oss=yes ,have_oss=no)
+AC_CHECK_HEADER(sys/soundcard.h, have_sys_oss=yes , have_sys_oss=no)
+
 AC_CHECK_HEADER(alsa/asoundlib.h, ,enable_alsa=no,)
 AC_CHECK_HEADER(ao/ao.h, ,enable_ao=no,)
 AC_CHECK_HEADER(portaudio.h, ,enable_porta=no,)
@@ -44,12 +44,14 @@ AC_CHECK_LIB(pulse-simple, pa_simple_new, ,enable_pulse=no)
 AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR([Could not find pthread]),)
 
 AC_CHECK_LIB(dnet, dnet_conn, , enable_decnet=no ,enable_decnet=yes)
+AC_CHECK_LIB(rt, clock_gettime, , enable_rt=no, enable_rt=yes)
 
-AC_SUBST(SERV_LIBS)
-
-AM_CONDITIONAL(HAVE_DECNET, test x$enable_decnet = xyes)
-AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
+AM_CONDITIONAL(HAVE_SYS_OSS_H, test x$have_sys_oss = xyes)
+AM_CONDITIONAL(HAVE_OSS_H, test x$have_oss = xyes)
 AM_CONDITIONAL(HAVE_OSS, test x$enable_oss = xyes)
+AM_CONDITIONAL(HAVE_DECNET, test x$enable_decnet = xyes)
+AM_CONDITIONAL(HAVE_RT, test x$enable_rt = xyes)
+AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
 AM_CONDITIONAL(HAVE_PORTA, test x$enable_porta = xyes)
 AM_CONDITIONAL(HAVE_AO, test x$enable_ao = xyes)
 AM_CONDITIONAL(HAVE_AL, test x$enable_al = xyes)

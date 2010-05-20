@@ -13,6 +13,13 @@ if HAVE_DECNET
    src_librsound_librsound_la_LDFLAGS += -ldnet
 endif
 
+CORE_LIBS = -lpthread
+if HAVE_RT
+CORE_LIBS += -lrt
+endif
+
+SERV_LIBS = $(CORE_LIBS)
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = rsound.pc
 
@@ -41,9 +48,16 @@ if HAVE_PORTA
 endif
 
 if HAVE_OSS
+if HAVE_SYS_OSS_H
    sources_serv += src/oss.c
    sources_serv += src/oss.h
    AM_CFLAGS += -D_OSS
+endif
+if HAVE_OSS_H
+   sources_serv += src/oss.c
+   sources_serv += src/oss.h
+   AM_CFLAGS += -D_OSS
+endif
 endif
 
 if HAVE_AL
@@ -68,21 +82,21 @@ if HAVE_MUROAR
 endif
 
 src_rsdplay_SOURCES = src/client.c \
-                     src/librsound/rsound.h \
-							src/endian.c
+                      src/librsound/rsound.h \
+							 src/endian.c
 
-src_rsd_SOURCES =   src/daemon.c \
-                     src/proto.h \
-                     src/proto.c \
-                           src/endian.h \
-									src/endian.c \
-									src/audio.c \
-                           src/rsound-common.c \
-                           src/rsound.h \
-                           src/audio.h $(sources_serv)
+src_rsd_SOURCES =    src/daemon.c \
+							src/proto.h \
+							src/proto.c \
+							src/endian.h \
+							src/endian.c \
+							src/audio.c \
+							src/rsound-common.c \
+							src/rsound.h \
+							src/audio.h $(sources_serv)
 
 src_rsd_LDADD = $(SERV_LIBS)
-src_rsdplay_LDADD = -lpthread -lrt src/librsound/librsound.la
+src_rsdplay_LDADD = $(CORE_LIBS) src/librsound/librsound.la
 
 ### Docs ###
 man_MANS = doc/rsd.1 doc/rsdplay.1

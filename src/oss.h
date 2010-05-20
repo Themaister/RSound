@@ -17,10 +17,19 @@
 #define OSS_H
 
 #include "audio.h"
-#include <sys/soundcard.h>
+
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+#include "config.h"
+#if HAVE_SYS_SOUNDCARD_H
+#include <sys/soundcard.h>
+#elif HAVE_SOUNDCARD_H
+#include <soundcard.h>
+#else
+#error "Can not find suitable OSS header"
+#endif
 
 typedef struct
 {
