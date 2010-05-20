@@ -68,12 +68,14 @@ if HAVE_MUROAR
 endif
 
 src_rsdplay_SOURCES = src/client.c \
-                     src/librsound/rsound.h
+                     src/librsound/rsound.h \
+							src/endian.c
 
 src_rsd_SOURCES =   src/daemon.c \
                      src/proto.h \
                      src/proto.c \
                            src/endian.h \
+									src/endian.c \
 									src/audio.c \
                            src/rsound-common.c \
                            src/rsound.h \

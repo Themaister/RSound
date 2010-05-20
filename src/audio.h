@@ -94,47 +94,9 @@ typedef struct
 
 
 // Returns a string. Used for error reporting mostly should the format not be supported.
-inline const char* rsnd_format_to_string( uint16_t format )
-{
-   switch(format)
-   {
-      case RSD_S16_LE:
-         return "Signed 16-bit little-endian";
-      case RSD_S16_BE:
-         return "Signed 16-bit big-endian";
-      case RSD_U16_LE:
-         return "Unsigned 16-bit little-endian";
-      case RSD_U16_BE:
-         return "Unsigned 16-bit big-endian";
-      case RSD_U8:
-         return "Unsigned 8-bit";
-      case RSD_S8:
-         return "Signed 8-bit";
-      case RSD_ALAW:
-         return "a-law";
-      case RSD_MULAW:
-         return "mu-law";
-   }
-   return "Unknown format";
-}
+const char* rsnd_format_to_string(enum rsd_format fmt);
 
-inline int rsnd_format_to_bytes( uint16_t format )
-{
-   switch(format)
-   {
-      case RSD_S16_LE:
-      case RSD_S16_BE:
-      case RSD_U16_LE:
-      case RSD_U16_BE:
-         return 2;
-      case RSD_U8:
-      case RSD_S8:
-      case RSD_ALAW:
-      case RSD_MULAW:
-         return 1;
-   }
-   return -1;
-}
+int rsnd_format_to_bytes(enum rsd_format fmt);
 
 enum rsd_format_conv
 {

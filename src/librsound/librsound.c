@@ -170,6 +170,11 @@ static inline int rsnd_format_to_framesize ( enum rsd_format fmt )
    }
 }
 
+int rsd_samplesize( rsound_t *rd )
+{
+   assert(rd != NULL);
+   return rd->framesize;
+}
 
 /* Creates sockets and attempts to connect to the server. Returns -1 when failed, and 0 when success. */
 static int rsnd_connect_server( rsound_t *rd )
@@ -1237,6 +1242,14 @@ size_t rsd_delay(rsound_t *rd)
       ptr = 0;
 
    return ptr;
+}
+
+size_t rsd_delay_ms(rsound_t* rd)
+{
+   assert(rd);
+   assert(rd->rate > 0 && rd->channels > 0);
+
+   return (rsd_delay(rd) * 1000) / ( rd->rate * rd->channels * rd->framesize );
 }
 
 int rsd_pause(rsound_t* rsound, int enable)

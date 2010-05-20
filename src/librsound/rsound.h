@@ -184,19 +184,10 @@ available values found in the format enum. If invalid format is given, param mig
    size_t rsd_delay (rsound_t *rd);
 
    /* Utility for returning latency in milliseconds. */
-   inline size_t rsd_delay_ms (rsound_t *rd)
-   {
-      assert (rd);
-      assert (rd->rate > 0 && rd->channels > 0 );
-
-      return (rsd_delay(rd) * 1000) / ( rd->rate * rd->channels * rd->framesize );
-   }
+   size_t rsd_delay_ms (rsound_t *rd);
 
    /* Returns bytes per sample */
-   inline int rsd_samplesize( rsound_t *rd )
-   {
-      return rd->framesize;
-   }
+   int rsd_samplesize( rsound_t *rd );
 
    /* Will sleep until latency of stream reaches maximum allowed latency defined earlier by rsd_set_param - RSD_LATENCY 
       Useful for hard headed blocking I/O design where user defined latency is needed. If rsd_set_param hasn't been set
