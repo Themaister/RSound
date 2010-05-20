@@ -18,7 +18,7 @@
 
 #include <stdint.h>
 
-inline int is_little_endian()
+inline int is_little_endian(void)
 {
    uint16_t i = 1;
    return *((uint8_t*)&i);
