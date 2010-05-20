@@ -2,20 +2,19 @@ bin_PROGRAMS = src/rsdplay src/rsd
 AUTOMAKE_OPTIONS = subdir-objects
 ACLOCAL_AMFLAGS = -I m4
 
+CORE_LIBS = -lpthread
+if HAVE_RT
+CORE_LIBS += -lrt
+endif
 
 lib_LTLIBRARIES = src/librsound/librsound.la
 src_librsound_librsound_la_SOURCES = src/librsound/librsound.c 
-src_librsound_librsound_la_LDFLAGS = -version-info 1:1 -lpthread -lrt
+src_librsound_librsound_la_LDFLAGS = -version-info 1:1 $(CORE_LIBS)
 src_librsound_librsound_includedir = $(includedir)
 src_librsound_librsound_include_HEADERS = src/librsound/rsound.h
 
 if HAVE_DECNET
    src_librsound_librsound_la_LDFLAGS += -ldnet
-endif
-
-CORE_LIBS = -lpthread
-if HAVE_RT
-CORE_LIBS += -lrt
 endif
 
 SERV_LIBS = $(CORE_LIBS)
@@ -24,7 +23,7 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = rsound.pc
 
 sources_serv = 
-AM_CFLAGS = -Wall -Wextra -O2
+AM_CFLAGS = -Wall -O2
 
 if HAVE_ALSA
    sources_serv += src/alsa.c
