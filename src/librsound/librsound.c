@@ -487,7 +487,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       rd->backend_info.chunk_size = MAX_CHUNK_SIZE;
 
    /* Assumes a default buffer size should it cause problems of being too small */
-   if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size )
+   if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size * 2 )
       rd->buffer_size = rd->backend_info.chunk_size * 32;
 
    /* Reallocs memory each time in case we have changes the buffer size from last time */
