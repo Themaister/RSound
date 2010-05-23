@@ -13,7 +13,7 @@ AC_ARG_ENABLE( libao,      [  --disable-libao         Disables libao support], e
 AC_ARG_ENABLE( openal,     [  --disable-openal        Disables openal support], enable_al=no, enable_al=yes)
 AC_ARG_ENABLE( muroar,     [  --disable-muroar        Disables muroar support], enable_muroar=no, enable_muroar=yes)
 
-AC_PROG_CC_C99
+AC_PROG_CC
 AM_PROG_CC_C_O
 
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h getopt.h netdnet/dn.h netdnet/dnetdb.h sys/soundcard.h soundcard.h])

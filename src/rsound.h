@@ -25,7 +25,6 @@
 #define RSD_VERSION "0.9"
 #endif
 
-
 void parse_input(int, char**);
 void new_sound_thread(connection_t);
 int set_up_socket();

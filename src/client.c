@@ -25,6 +25,13 @@
 #include <fcntl.h>
 #include "endian.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#define LIBRSOUND_VERSION PACKAGE_VERSION
+#else 
+#define LIBRSOUND_VERSION "0.9"
+#endif
+
 #define READ_SIZE 1024
 #define HEADER_SIZE 44
 

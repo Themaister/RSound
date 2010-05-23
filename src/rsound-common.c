@@ -17,16 +17,15 @@
  *   This file defines some backend independent functions      *
  ***************************************************************/
 
+#include "rsound.h"
 #include "config.h"
 #include "endian.h"
-#include "rsound.h"
 #include "audio.h"
 #include "proto.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
-
 
 /* Pulls in callback structs depending on compilation options. */
 
