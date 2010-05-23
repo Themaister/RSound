@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <netinet/tcp.h>
 
 /* Pulls in callback structs depending on compilation options. */
 
@@ -809,8 +810,24 @@ static void* rsd_thread(void *thread_data)
    // We only bother with setting buffer size if we're doing TCP.
    if ( rsd_conn_type != RSD_CONN_UNIX )
    {
-      int bufsiz = backend_info.chunk_size * 32;
-      setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
+      int bufsiz = backend_info.chunk_size * 8;
+      if ( setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int)) < 0 )
+         goto rsd_exit;
+
+      if ( conn.ctl_socket )
+      {
+         if ( setsockopt(conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int)) < 0 )
+            goto rsd_exit;
+         if ( setsockopt(conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int)) < 0 )
+            goto rsd_exit;
+      }
+
+      int flag = 1;
+      if ( setsockopt(conn.socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) < 0 )
+         goto rsd_exit;
+      if ( setsockopt(conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) < 0 )
+         goto rsd_exit;
+
    }
 
    /* Now we can send backend info to client. */
