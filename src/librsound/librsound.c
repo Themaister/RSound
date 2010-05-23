@@ -31,6 +31,13 @@
 #include <assert.h>
 #include <stdarg.h>
 
+#ifdef HAVE_CONFIG_H
+#include "../config.h"
+#define LIBRSOUND_VERSION PACKAGE_VERSION
+#else
+#define LIBRSOUND_VERSION "0.9"
+#endif
+
 // DECnet
 #if defined(HAVE_NETDNET_DNETDB_H) && defined(HAVE_NETDNET_DN_H)
 #define HAVE_DECNET

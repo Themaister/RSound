@@ -25,19 +25,10 @@ extern "C" {
 #include <time.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <assert.h>
-
-#ifdef HAVE_CONFIG_H
-#include "../config.h"
-#define LIBRSOUND_VERSION PACKAGE_VERSION
-#else
-#define LIBRSOUND_VERSION "0.9"
-#endif
 
 #define RSD_DEFAULT_HOST "localhost"
 #define RSD_DEFAULT_PORT "12345"
 #define RSD_DEFAULT_OBJECT "rsound"
-
 
    /* Defines sample formats available. Defaults to S16_LE should it never be set. */
    enum rsd_format
