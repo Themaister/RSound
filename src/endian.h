@@ -13,8 +13,8 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef ENDIAN_H
-#define ENDIAN_H
+#ifndef __RSD_ENDIAN_H
+#define __RSD_ENDIAN_H
 
 #include <stdint.h>
 
