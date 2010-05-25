@@ -593,10 +593,7 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
       return -1;
 
    // RSD will no longer use this for writing
-   if ( shutdown(conn.socket, SHUT_WR) < 0 )
-   {
-      return -1;
-   }
+   shutdown(conn.socket, SHUT_WR);
 
    return 0;
 }
@@ -811,26 +808,20 @@ static void* rsd_thread(void *thread_data)
    if ( rsd_conn_type != RSD_CONN_UNIX )
    {
       int bufsiz = backend_info.chunk_size * 32;
-      if ( setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int)) < 0 )
-         goto rsd_exit;
+      setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
 
       if ( conn.ctl_socket )
       {
          bufsiz = backend_info.chunk_size * 32;
-         if ( setsockopt(conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int)) < 0 )
-            goto rsd_exit;
+         setsockopt(conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
          bufsiz = backend_info.chunk_size * 32;
-         if ( setsockopt(conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int)) < 0 )
-            goto rsd_exit;
+         setsockopt(conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
       }
 
       int flag = 1;
-      if ( setsockopt(conn.socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) < 0 )
-         goto rsd_exit;
+      setsockopt(conn.socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
       flag = 1;
-      if ( setsockopt(conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) < 0 )
-         goto rsd_exit;
-
+      setsockopt(conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
    }
 
    /* Now we can send backend info to client. */

@@ -510,35 +510,16 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    if ( rd->conn_type & RSD_CONN_TCP )
    {
       int bufsiz = rd->buffer_size;
-      if ( setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int)) < 0 )
-      {
-         RSD_ERR("Failed to set TCP socket buffer size");
-         return -1;
-      }
+      setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
       bufsiz = rd->buffer_size;
-      if ( setsockopt(rd->conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int)) < 0 )
-      {
-         RSD_ERR("Failed to set TCP socket buffer size");
-         return -1;
-      }
+      setsockopt(rd->conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
       bufsiz = rd->buffer_size;
-      if ( setsockopt(rd->conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int)) < 0 )
-      {
-         RSD_ERR("Failed to set TCP socket buffer size");
-         return -1;
-      }
+      setsockopt(rd->conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
+
       int flag = 1;
-      if ( setsockopt(rd->conn.socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) < 0 )
-      {
-         RSD_ERR("Failed to set TCP_NODELAY");
-         return -1;
-      }
+      setsockopt(rd->conn.socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
       flag = 1;
-      if ( setsockopt(rd->conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) < 0 )
-      {
-         RSD_ERR("Failed to set TCP_NODELAY");
-         return -1;
-      }
+      setsockopt(rd->conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
    }
 
    // Can we read the last 8 bytes so we can use the protocol interface?
@@ -548,10 +529,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       rd->conn_type |= RSD_CONN_PROTO; 
 
    // We no longer want to read from this socket.
-   if ( shutdown(rd->conn.socket, SHUT_RD) < 0 )
-   {
-      return -1;
-   }
+   shutdown(rd->conn.socket, SHUT_RD);
 
    return 0;
 }
