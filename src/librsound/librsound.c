@@ -524,9 +524,19 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
    // Can we read the last 8 bytes so we can use the protocol interface?
    // This is non-blocking.
-   rc = recv(rd->conn.socket, rsnd_header, 8, 0);
-   if ( rc == 8 )
-      rd->conn_type |= RSD_CONN_PROTO; 
+   if ( poll(&fd, 1, 0) < 0 )
+   {
+      perror("poll");
+      return -1;
+   }
+
+   // Avoid blocking if we're on cygwin <.<
+   if ( fd.revents & POLLIN )
+   {
+      rc = recv(rd->conn.socket, rsnd_header, 8, 0);
+      if ( rc == 8 )
+         rd->conn_type |= RSD_CONN_PROTO; 
+   }
 
    // We no longer want to read from this socket.
    shutdown(rd->conn.socket, SHUT_RD);
