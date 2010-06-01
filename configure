@@ -7,50 +7,16 @@ if [ -z $CC ]; then
    CC=cc
 fi
 
-RSD_VERSION=0.9.2
+HAVE_ALSA=auto
+HAVE_OSS=auto
+HAVE_PORTAUDIO=auto
+HAVE_OPENAL=auto
+HAVE_LIBAO=auto
+HAVE_MUROAR=auto
+HAVE_PULSE=auto
 
 PREFIX=/usr/local
-
-check_lib()
-{
-   echo "void $3(void); int main(void) { $3(); return 0; }" > $TEMP_C
-
-   eval HAVE_$1=no
-   $CC -o $TEMP_EXE $TEMP_C -l$2 2>/dev/null >/dev/null && eval HAVE_$1=yes
-
-   rm -rf $TEMP_C $TEMP_EXE
-}
-
-check_header()
-{
-   echo "#include<$2>" > $TEMP_C
-   echo "int main(void) { return 0; }" >> $TEMP_C
-   eval HAVE_$1=no
-
-   $CC -o $TEMP_EXE $TEMP_C 2>/dev/null >/dev/null && eval HAVE_$1=yes
-
-   rm -rf $TEMP_C $TEMP_EXE
-}
-
-check_lib ALSA asound snd_pcm_open
-check_header SYS_SOUNDCARD_H sys/soundcard.h
-check_header SOUNDCARD_H soundcard.h
-check_lib OSSAUDIO ossaudio _oss_ioctl
-check_lib AO ao ao_open_live
-check_lib PULSE pulse-simple pa_simple_new
-check_lib MUROAR muroar muroar_stream
-check_lib AL openal alcOpenDevice
-check_lib PORTAUDIO portaudio Pa_OpenStream
-
-check_lib RT rt clock_gettime
-check_lib DECNET dnet dnet_conn
-
-HAVE_OSS=no
-if [ $HAVE_SYS_SOUNDCARD_H = yes ]; then
-   HAVE_OSS=yes
-elif [ $HAVE_SOUNDCARD_H = yes ]; then
-   HAVE_OSS=yes
-fi
+RSD_VERSION=0.9.2
 
 ### Command line stuff
 
@@ -105,6 +71,58 @@ do
 
 done
 
+
+check_lib()
+{
+   echo "void $3(void); int main(void) { $3(); return 0; }" > $TEMP_C
+
+   eval HAVE_$1=no
+   $CC -o $TEMP_EXE $TEMP_C -l$2 2>/dev/null >/dev/null && eval HAVE_$1=yes
+
+   rm -rf $TEMP_C $TEMP_EXE
+}
+
+check_header()
+{
+   echo "#include<$2>" > $TEMP_C
+   echo "int main(void) { return 0; }" >> $TEMP_C
+   eval HAVE_$1=no
+
+   $CC -o $TEMP_EXE $TEMP_C 2>/dev/null >/dev/null && eval HAVE_$1=yes
+
+   rm -rf $TEMP_C $TEMP_EXE
+}
+
+check_lib PTHREAD pthread pthread_create
+if [ $HAVE_PTHREAD = no ]; then
+   echo "Couldn't find pthread library. Cannot build."
+   exit 1
+fi
+
+[ $HAVE_ALSA = auto ] && check_lib ALSA asound snd_pcm_open
+check_header SYS_SOUNDCARD_H sys/soundcard.h
+check_header SOUNDCARD_H soundcard.h
+check_lib OSSAUDIO ossaudio _oss_ioctl
+[ $HAVE_LIBAO = auto ] && check_lib AO ao ao_open_live
+[ $HAVE_PULSE = auto ] && check_lib PULSE pulse-simple pa_simple_new
+[ $HAVE_MUROAR = auto ] && check_lib MUROAR muroar muroar_stream
+[ $HAVE_OPENAL = auto ] && check_lib AL openal alcOpenDevice
+[ $HAVE_PORTAUDIO = auto ] && check_lib PORTAUDIO portaudio Pa_OpenStream
+
+check_lib RT rt clock_gettime
+check_lib DECNET dnet dnet_conn
+
+if [ $HAVE_OSS = auto ]; then
+   if [ $HAVE_SYS_SOUNDCARD_H = yes ]; then
+      HAVE_OSS=yes
+   elif [ $HAVE_SOUNDCARD_H = yes ]; then
+      HAVE_OSS=yes
+   else
+      HAVE_OSS=no
+   fi
+fi
+
+
 #### Output stuff to config.{h,mk}
 
 echo "" > src/config.h
@@ -133,7 +151,7 @@ if [ $HAVE_OSS = yes ]; then
    echo "HAVE_OSS = 1" >> src/config.mk
 fi
 
-if [ $HAVE_AO = yes ]; then
+if [ $HAVE_LIBAO = yes ]; then
    echo "#define _AO 1" >> src/config.h
    echo "HAVE_LIBAO = 1" >> src/config.mk
 fi
@@ -148,7 +166,7 @@ if [ $HAVE_MUROAR = yes ]; then
    echo "HAVE_MUROAR = 1" >> src/config.mk
 fi
 
-if [ $HAVE_AL = yes ]; then
+if [ $HAVE_OPENAL = yes ]; then
    echo "#define _AL 1" >> src/config.h
    echo "HAVE_AL = 1" >> src/config.mk
 fi
@@ -171,3 +189,23 @@ if [ $HAVE_DECNET = yes ]; then
 fi
 
 echo "PREFIX = $PREFIX" >> src/config.mk
+
+
+### Output log
+
+echo "============================"
+echo "Configuration successful."
+echo "============================"
+echo " ALSA:         $HAVE_ALSA"
+echo " OSS:          $HAVE_OSS"
+echo " libAO:        $HAVE_LIBAO"
+echo " PortAudio:    $HAVE_PORTAUDIO"
+echo " OpenAL:       $HAVE_OPENAL"
+echo " muRoar:       $HAVE_MUROAR"
+echo " PulseAudio:   $HAVE_PULSE"
+echo ""
+echo "   Prefix: $PREFIX"
+echo "   CC:     $CC"
+echo "   CFLAGS: $CFLAGS"
+echo ""
+echo ":: Type 'make' to compile."
