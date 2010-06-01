@@ -114,9 +114,11 @@ install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
 	install -m644 rsound.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig
 
 install-server: $(TARGET_SERVER)
+	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	install -m755 $(TARGET_SERVER) $(DESTDIR)$(PREFIX)/bin
 
 install-client: $(TARGET_CLIENT)
+	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	install -m755 $(TARGET_CLIENT) $(DESTDIR)$(PREFIX)/bin
 
 install-pkgconf:
