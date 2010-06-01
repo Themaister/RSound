@@ -2,7 +2,7 @@ include config.mk
 
 TARGET_SERVER = rsd
 TARGET_CLIENT = rsdplay
-TARGET_LIB = librsound/librsound.so
+TARGET_LIB = librsound/librsound.so.1.0.1
 TARGET_LIB_OBJ = librsound/librsound.o
 TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
@@ -76,6 +76,8 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
 	$(CC) -shared -Wl,-soname,librsound.so.1 -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
+	ln -sf librsound.so.1.0.1 librsound/librsound.so.1
+	ln -sf librsound.so.1.0.1 librsound/librsound.so
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	$(CC) -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS)
@@ -105,7 +107,7 @@ install: install-lib install-server install-client
 
 install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
 	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib
-	ln -sf librsound.so $(DESTDIR)$(PREFIX)/lib/librsound.so.1
+	cp -P librsound/librsound.so librsound/librsound.so.1 $(DESTDIR)$(PREFIX)/lib
 	install -m644 $(TARGET_LIB_OBJ_STATIC) $(DESTDIR)$(PREFIX)/lib
 	install -m644 librsound/rsound.h $(DESTDIR)$(PREFIX)/include
 	install -m644 rsound.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig
