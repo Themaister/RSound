@@ -24,13 +24,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "endian.h"
-
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#define LIBRSOUND_VERSION PACKAGE_VERSION
-#else 
-#define LIBRSOUND_VERSION "0.9"
-#endif
 
 #define READ_SIZE 1024
 #define HEADER_SIZE 44
@@ -184,7 +178,7 @@ static int set_other_params(rsound_t *rd)
 
 static void print_help()
 {
-   printf("rsdplay (librsound) version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", LIBRSOUND_VERSION);
+   printf("rsdplay (librsound) version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", RSD_VERSION);
    printf("=========================================================================\n");
    printf("Usage: rsdplay [ <hostname> | -p/--port | -h/--help | --raw | -r/--rate | -c/--channels | -B/--bits | -f/--file | -s/--server ]\n");
 

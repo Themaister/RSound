@@ -1,0 +1,2 @@
+HAVE_ALSA = 1
+NEED_RT = 1

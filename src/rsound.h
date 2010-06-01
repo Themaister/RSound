@@ -18,13 +18,6 @@
 
 #include "audio.h"
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#define RSD_VERSION PACKAGE_VERSION
-#else
-#define RSD_VERSION "0.9"
-#endif
-
 void parse_input(int, char**);
 void new_sound_thread(connection_t);
 int set_up_socket();
