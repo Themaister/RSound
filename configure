@@ -103,10 +103,10 @@ fi
 check_header SYS_SOUNDCARD_H sys/soundcard.h
 check_header SOUNDCARD_H soundcard.h
 check_lib OSSAUDIO ossaudio _oss_ioctl
-[ $HAVE_LIBAO = auto ] && check_lib AO ao ao_open_live
+[ $HAVE_LIBAO = auto ] && check_lib LIBAO ao ao_open_live
 [ $HAVE_PULSE = auto ] && check_lib PULSE pulse-simple pa_simple_new
 [ $HAVE_MUROAR = auto ] && check_lib MUROAR muroar muroar_stream
-[ $HAVE_OPENAL = auto ] && check_lib AL openal alcOpenDevice
+[ $HAVE_OPENAL = auto ] && check_lib OPENAL openal alcOpenDevice
 [ $HAVE_PORTAUDIO = auto ] && check_lib PORTAUDIO portaudio Pa_OpenStream
 
 check_lib RT rt clock_gettime
