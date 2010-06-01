@@ -100,63 +100,63 @@ done
 
 #### Output stuff to config.{h,mk}
 
-echo "" > config.h
-echo "" > config.mk
+echo "" > src/config.h
+echo "" > src/config.mk
 
-echo "#define RSD_VERSION \"$RSD_VERSION\"" >> config.h
+echo "#define RSD_VERSION \"$RSD_VERSION\"" >> src/config.h
 
-echo "CC = $CC" >> config.mk
-echo "CFLAGS = $CFLAGS" >> config.mk
+echo "CC = $CC" >> src/config.mk
+echo "CFLAGS = $CFLAGS" >> src/config.mk
 
 if [ $HAVE_ALSA = yes ]; then
-   echo "#define _ALSA 1" >> config.h
-   echo "HAVE_ALSA = 1" >> config.mk
+   echo "#define _ALSA 1" >> src/config.h
+   echo "HAVE_ALSA = 1" >> src/config.mk
 fi
 
 if [ $HAVE_SYS_SOUNDCARD_H = yes ]; then
-   echo "#define HAVE_SYS_SOUNDCARD_H 1" >> config.h
+   echo "#define HAVE_SYS_SOUNDCARD_H 1" >> src/config.h
 fi
 
 if [ $HAVE_SOUNDCARD_H = yes ]; then
-   echo "#define HAVE_SOUNDCARD_H 1" >> config.h
+   echo "#define HAVE_SOUNDCARD_H 1" >> src/config.h
 fi
 
 if [ $HAVE_OSS = yes ]; then
-   echo "#define _OSS 1" >> config.h
-   echo "HAVE_OSS = 1" >> config.mk
+   echo "#define _OSS 1" >> src/config.h
+   echo "HAVE_OSS = 1" >> src/config.mk
 fi
 
 if [ $HAVE_AO = yes ]; then
-   echo "#define _AO 1" >> config.h
-   echo "HAVE_LIBAO = 1" >> config.mk
+   echo "#define _AO 1" >> src/config.h
+   echo "HAVE_LIBAO = 1" >> src/config.mk
 fi
 
 if [ $HAVE_PULSE = yes ]; then
-   echo "#define _PULSE 1" >> config.h
-   echo "HAVE_PULSE = 1" >> config.mk
+   echo "#define _PULSE 1" >> src/config.h
+   echo "HAVE_PULSE = 1" >> src/config.mk
 fi
 
 if [ $HAVE_MUROAR = yes ]; then
-   echo "#define _MUROAR 1" >> config.h
-   echo "HAVE_MUROAR = 1" >> config.mk
+   echo "#define _MUROAR 1" >> src/config.h
+   echo "HAVE_MUROAR = 1" >> src/config.mk
 fi
 
 if [ $HAVE_AL = yes ]; then
-   echo "#define _AL 1" >> config.h
-   echo "HAVE_AL = 1" >> config.mk
+   echo "#define _AL 1" >> src/config.h
+   echo "HAVE_AL = 1" >> src/config.mk
 fi
 
 if [ $HAVE_PORTAUDIO = yes ]; then
-   echo "#define _PORTA 1" >> config.h
-   echo "HAVE_PORTAUDIO = 1" >> config.mk
+   echo "#define _PORTA 1" >> src/config.h
+   echo "HAVE_PORTAUDIO = 1" >> src/config.mk
 fi
 
 if [ $HAVE_RT = yes ]; then
-   echo "NEED_RT = 1" >> config.mk
+   echo "NEED_RT = 1" >> src/config.mk
 fi
 
 if [ $HAVE_OSSAUDIO = yes ]; then
-   echo "NEED_OSSAUDIO = 1" >> config.mk
+   echo "NEED_OSSAUDIO = 1" >> src/config.mk
 fi
 
-echo "PREFIX = $PREFIX" >> config.mk
+echo "PREFIX = $PREFIX" >> src/config.mk
