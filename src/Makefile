@@ -5,6 +5,8 @@ TARGET_CLIENT = rsdplay
 TARGET_LIB = librsound/librsound.so
 TARGET_LIB_OBJ = librsound/librsound.o
 
+CFLAGS += -Wall
+
 TARGET_SERVER_LIBS = -lpthread
 TARGET_LIB_LIBS = -lpthread
 OPT_SERV_LIBS =
@@ -54,14 +56,7 @@ TARGET_CLIENT_OBJ = client.o endian.o $(TARGET_LIB_OBJ)
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
 TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) audio.o endian.o daemon.o rsound-common.o proto.o
 
-all: lib client server
-
-lib: $(TARGET_LIB)
-
-client: $(TARGET_CLIENT)
-
-server: $(TARGET_SERVER)
-
+all: $(TARGET_LIB) $(TARGET_CLIENT) $(TARGET_SERVER)
 
 $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 	$(CC) $(CFLAGS) -o $(TARGET_CLIENT) $(TARGET_CLIENT_OBJ) $(TARGET_LIB_LIBS)
@@ -79,9 +74,9 @@ librsound/librsound.o: librsound/librsound.c
 	$(CC) $(CFLAGS) -fPIC -c $< -o $@
 
 rsound-common.o: rsound-common.c config.h
-	$(CC) -c -o $@ $< 
-
-%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+	
+%.o: %.c config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
@@ -102,6 +97,12 @@ install-server:
 
 install-client:
 	install -m755 $(TARGET_CLIENT) $(PREFIX)/bin
+
+uninstall:
+	rm -rf $(PREFIX)/bin/rsd
+	rm -rf $(PREFIX)/bin/rsdplay
+	rm -rf $(PREFIX)/lib/librsound.so
+	rm -rf $(PREFIX)/include/rsound.h
 
 
 .PHONY: rsd rsdplay clean client lib server install install-lib install-server install-client
