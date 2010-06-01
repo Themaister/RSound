@@ -20,9 +20,6 @@
 extern "C" {
 #endif
 
-#define _POSIX_SOURCE
-#define _GNU_SOURCE
-
 #include <pthread.h>
 #include <sys/time.h>
 #include <time.h>

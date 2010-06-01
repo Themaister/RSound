@@ -13,8 +13,10 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "rsound.h"
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -23,15 +25,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <poll.h>
 #include <errno.h> 
 #include <time.h>
 #include <assert.h>
 #include <stdarg.h>
+
+#include "rsound.h"
 
 #ifdef HAVE_CONFIG_H
 #include "../config.h"
