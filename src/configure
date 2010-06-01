@@ -70,7 +70,6 @@ do
    prefix=`echo $1 | sed -e 's|^--prefix=\(\S\+\)$|\1|' -e 's|\(\S\+\)/|\1|'`
 
    if [ "$prefix" != "$1" ]; then
-      echo "PREFIX = $prefix"
       PREFIX="$prefix"
       shift
       continue
