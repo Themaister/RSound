@@ -18,8 +18,7 @@ check_lib()
    eval HAVE_$1=no
    $CC -o $TEMP_EXE $TEMP_C -l$2 2>/dev/null >/dev/null && eval HAVE_$1=yes
 
-   rm -rf $TEMP_C
-   rm -rf $TEMP_EXE
+   rm -rf $TEMP_C $TEMP_EXE
 }
 
 check_header()
@@ -29,6 +28,8 @@ check_header()
    eval HAVE_$1=no
 
    $CC -o $TEMP_EXE $TEMP_C 2>/dev/null >/dev/null && eval HAVE_$1=yes
+
+   rm -rf $TEMP_C $TEMP_EXE
 }
 
 check_lib ALSA asound snd_pcm_open
@@ -42,6 +43,7 @@ check_lib AL openal alcOpenDevice
 check_lib PORTAUDIO portaudio Pa_OpenStream
 
 check_lib RT rt clock_gettime
+check_lib DECNET dnet dnet_conn
 
 HAVE_OSS=no
 if [ $HAVE_SYS_SOUNDCARD_H = yes ]; then
@@ -162,6 +164,10 @@ fi
 
 if [ $HAVE_OSSAUDIO = yes ]; then
    echo "NEED_OSSAUDIO = 1" >> src/config.mk
+fi
+
+if [ $HAVE_DECNET = yes ]; then
+   echo "#define HAVE_DECNET 1" >> src/config.h
 fi
 
 echo "PREFIX = $PREFIX" >> src/config.mk

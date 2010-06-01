@@ -33,10 +33,10 @@
 #include <stdarg.h>
 
 #include "rsound.h"
+#include "../config.h"
 
 // DECnet
-#if defined(HAVE_NETDNET_DNETDB_H) && defined(HAVE_NETDNET_DN_H)
-#define HAVE_DECNET
+#ifdef HAVE_DECNET
 #include <netdnet/dn.h>
 #include <netdnet/dnetdb.h>
 #endif
