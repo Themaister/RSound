@@ -108,4 +108,4 @@ uninstall:
 	rm -rf $(PREFIX)/include/rsound.h
 
 
-.PHONY: rsd rsdplay clean client lib server install install-lib install-server install-client
+.PHONY: clean client lib server install install-lib install-server install-client all uninstall
