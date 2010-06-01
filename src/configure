@@ -1,0 +1,97 @@
+#!/bin/sh
+
+TEMP_C=.tmp.c
+TEMP_EXE=.tmp
+
+if [ -z $CC ]; then
+   CC=gcc
+fi
+
+RSD_VERSION=0.9.2
+
+PREFIX=/usr/local
+
+function check_lib()
+{
+   echo "void $3(void); int main(void) { $3(); return 0; }" > $TEMP_C
+
+   eval HAVE_$1=no
+   $CC -o $TEMP_EXE $TEMP_C -l$2 2>/dev/null >/dev/null && eval HAVE_$1=yes
+
+   rm -rf $TEMP_C
+   rm -rf $TEMP_EXE
+}
+
+function check_header()
+{
+   echo -e "#include<$2>\n int main(void) { return 0; }" > $TEMP_C
+   eval HAVE_$1=no
+
+   $CC -o $TEMP_EXE $TEMP_C 2>/dev/null >/dev/null && eval HAVE_$1=yes
+}
+
+check_lib ALSA asound snd_pcm_open
+check_header OSS sys/soundcard.h
+check_lib AO ao ao_open_live
+check_lib PULSE pulse-simple pa_simple_new
+check_lib MUROAR muroar muroar_stream
+check_lib AL openal alcOpenDevice
+check_lib PORTAUDIO portaudio Pa_OpenStream
+
+check_lib RT rt clock_gettime
+
+echo ALSA: $HAVE_ALSA
+echo OSS: $HAVE_OSS
+echo AO: $HAVE_AO
+echo PULSE: $HAVE_PULSE
+echo MUROAR: $HAVE_MUROAR
+echo AL: $HAVE_AL
+echo PORTAUDIO: $HAVE_PORTAUDIO
+
+echo RT: $HAVE_RT
+
+echo "" > config.h
+echo "" > config.mk
+
+echo "#define RSD_VERSION \"$RSD_VERSION\"" >> config.h
+
+if [ $HAVE_ALSA == yes ]; then
+   echo "#define _ALSA 1" >> config.h
+   echo "HAVE_ALSA = 1" >> config.mk
+fi
+
+if [ $HAVE_OSS == yes ]; then
+   echo "#define _OSS 1" >> config.h
+   echo "HAVE_OSS = 1" >> config.mk
+fi
+
+if [ $HAVE_AO == yes ]; then
+   echo "#define _AO 1" >> config.h
+   echo "HAVE_LIBAO = 1" >> config.mk
+fi
+
+if [ $HAVE_PULSE == yes ]; then
+   echo "#define _PULSE 1" >> config.h
+   echo "HAVE_PULSE = 1" >> config.mk
+fi
+
+if [ $HAVE_MUROAR == yes ]; then
+   echo "#define _MUROAR 1" >> config.h
+   echo "HAVE_MUROAR = 1" >> config.mk
+fi
+
+if [ $HAVE_AL == yes ]; then
+   echo "#define _AL 1" >> config.h
+   echo "HAVE_AL = 1" >> config.mk
+fi
+
+if [ $HAVE_PORTAUDIO == yes ]; then
+   echo "#define _PORTA 1" >> config.h
+   echo "HAVE_PORTAUDIO = 1" >> config.mk
+fi
+
+if [ $HAVE_RT == yes ]; then
+   echo "NEED_RT = 1" >> config.mk
+fi
+
+
