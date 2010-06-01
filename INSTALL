@@ -8,24 +8,22 @@ You will need at least one of these (headers and libraries):
    libao
    portaudio
 
-You will need autoconf, automake and libtool.
-
 =========================
 To compile (Unix-like):
 =========================
 
-Standard autotools. It will try to detect backend support.
+Custom configure script, but will recognize some autotool-isms like --prefix, etc.
+It will try to detect backend support.
 To explicitly disable support, you can add these
 
 --disable-alsa
 --disable-oss
 --disable-libao
 --disable-portaudio
-(Note that I've had huge problems with portaudio on Linux,
-you've been warned :P)
 
-$ ./autogen.sh
-$ ./configure --disable-things-here
+You can refer to which modules you can (un)install by checking ./configure --help
+
+$ ./configure
 $ make
 # make install
 
@@ -46,7 +44,6 @@ LibAO: http://www.xiph.org/ao/ - Grab latest source and build as you would expec
 
 Then you could build with:
 
-$ ./autogen.sh
 $ ./configure
 $ make
 $ make install

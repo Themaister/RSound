@@ -99,7 +99,7 @@ rsound-common.o: rsound-common.c config.h
 clean:
 	rm -rf rsd 
 	rm -rf rsdplay 
-	rm -rf librsound/*.{o,so,a}
+	rm -rf librsound/*.{o,so*,a}
 	rm -rf *.o
 
 install: install-lib install-server install-client
