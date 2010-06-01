@@ -6,6 +6,8 @@ TARGET_LIB = librsound/librsound.so
 TARGET_LIB_OBJ = librsound/librsound.o
 TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
+PKGCONF_PATH = $(PREFIX)/lib/pkgconfig/rsound.pc
+
 CFLAGS += -Wall
 
 TARGET_SERVER_LIBS = -lpthread
@@ -101,11 +103,12 @@ clean:
 install: install-lib install-server install-client
 
 
-install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC)
+install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
 	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib
 	ln -sf librsound.so $(DESTDIR)$(PREFIX)/lib/librsound.so.1
 	install -m644 $(TARGET_LIB_OBJ_STATIC) $(DESTDIR)$(PREFIX)/lib
 	install -m644 librsound/rsound.h $(DESTDIR)$(PREFIX)/include
+	install -m644 rsound.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig
 
 install-server: $(TARGET_SERVER)
 	install -m755 $(TARGET_SERVER) $(DESTDIR)$(PREFIX)/bin
@@ -113,11 +116,25 @@ install-server: $(TARGET_SERVER)
 install-client: $(TARGET_CLIENT)
 	install -m755 $(TARGET_CLIENT) $(DESTDIR)$(PREFIX)/bin
 
+install-pkgconf:
+	@echo "prefix=$(PREFIX)" > rsound.pc
+	@echo "exec_prefix=$(PREFIX)" >> rsound.pc
+	@echo "libdir=$(PREFIX)/lib" >> rsound.pc
+	@echo "includedir=$(PREFIX)/include" >> rsound.pc
+	@echo "" >> rsound.pc
+	@echo "Name: RSound" >> rsound.pc
+	@echo "Description: An audio library designed for seamless networked transfer of audio streams." >> rsound.pc
+	@echo "Requires:" >> rsound.pc
+	@echo "Version: 0.9.2" >> rsound.pc
+	@echo "Libs: -L$(PREFIX)/lib -lrsound" >> rsound.pc
+	@echo "Cflags: -I$(PREFIX)/include" >> rsound.pc
+
 uninstall:
 	rm -rf $(PREFIX)/bin/rsd
 	rm -rf $(PREFIX)/bin/rsdplay
 	rm -rf $(PREFIX)/lib/librsound.*
 	rm -rf $(PREFIX)/include/rsound.h
+	rm -rf $(PREFIX)/lib/pkgconfig/rsound.pc
 
 
 .PHONY: clean client lib server install install-lib install-server install-client all uninstall
