@@ -1,4 +1,7 @@
 *.o
 *.so
+*.a
 /src/rsdplay
 /src/rsd
+/src/config.h
+/src/config.mk
