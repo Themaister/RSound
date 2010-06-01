@@ -17,6 +17,7 @@
 #define AO_H
 
 #include "audio.h"
+#include "endian.h"
 #include <ao/ao.h>
 
 typedef struct

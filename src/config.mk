@@ -1,4 +1,6 @@
 
+CC = clang
+PREFIX = /usr/local
 HAVE_ALSA = 1
 HAVE_OSS = 1
 HAVE_LIBAO = 1

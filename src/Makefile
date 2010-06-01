@@ -18,6 +18,9 @@ ifeq ($(HAVE_ALSA), 1)
 endif
 
 ifeq ($(HAVE_OSS), 1)
+ifeq ($(HAVE_OSSAUDIO), 1)
+   OPT_SERV_LIBS += -lossaudio
+endif
    OPT_SERV_OBJ += oss.o
 endif
 

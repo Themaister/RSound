@@ -22,16 +22,14 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-/*#include "config.h"
+#include "config.h"
 #if HAVE_SYS_SOUNDCARD_H
 #include <sys/soundcard.h>
 #elif HAVE_SOUNDCARD_H
 #include <soundcard.h>
 #else
 #error "Can not find suitable OSS header"
-#endif*/
-
-#include <sys/soundcard.h>
+#endif
 
 typedef struct
 {
