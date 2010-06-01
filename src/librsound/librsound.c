@@ -466,10 +466,12 @@ static int rsnd_get_backend_info ( rsound_t *rd )
          return -1;
       }
 
-      rc = recv(rd->conn.socket, (char*)rsnd_header + recieved, RSND_HEADER_SIZE - recieved, 0);
-      if ( rc <= 0)
+      rc = 0;
+      if ( fd.revents & POLLIN )
       {
-         return -1;
+         rc = recv(rd->conn.socket, (char*)rsnd_header + recieved, RSND_HEADER_SIZE - recieved, 0);
+         if ( rc <= 0)
+            return -1;
       }
 
       recieved += rc;
