@@ -47,15 +47,121 @@ if [ $HAVE_SYS_SOUNDCARD_H == yes ] || [ $HAVE_SOUNDCARD_H == yes ]; then
    HAVE_OSS=yes
 fi
 
-echo ALSA: $HAVE_ALSA
-echo OSS: $HAVE_OSS
-echo AO: $HAVE_AO
-echo PULSE: $HAVE_PULSE
-echo MUROAR: $HAVE_MUROAR
-echo AL: $HAVE_AL
-echo PORTAUDIO: $HAVE_PORTAUDIO
 
-echo RT: $HAVE_RT
+### Command line stuff
+
+function print_help()
+{
+   echo "Usage:"
+   echo "   --prefix=\$prefix: Installs under \$prefix directory"
+   echo "   --disable-\$module: Disables module"
+   echo "   --enable-\$module: Forcefully enables module (not recommended)"
+   echo ""
+   echo "Modules:"
+   echo "   alsa oss libao portaudio openal pulse muroar"
+}
+
+function enable_opt()
+{
+   case $1 in
+
+      alsa)
+         HAVE_ALSA=yes
+         ;;
+      oss)
+         HAVE_OSS=yes
+         ;;
+      libao)
+         HAVE_AO=yes
+         ;;
+      portaudio)
+         HAVE_PORTAUDIO=yes
+         ;;
+      openal)
+         HAVE_AL=yes
+         ;;
+      pulse)
+         HAVE_PULSE=yes
+         ;;
+      muroar)
+         HAVE_MUROAR=yes
+         ;;
+      *)
+         print_help
+         exit 1
+
+   esac
+}
+
+function disable_opt()
+{
+   case $1 in
+
+      alsa)
+         HAVE_ALSA=no
+         ;;
+      oss)
+         HAVE_OSS=no
+         ;;
+      libao)
+         HAVE_AO=no
+         ;;
+      portaudio)
+         HAVE_PORTAUDIO=no
+         ;;
+      openal)
+         HAVE_AL=no
+         ;;
+      pulse)
+         HAVE_PULSE=no
+         ;;
+      muroar)
+         HAVE_MUROAR=no
+         ;;
+      *)
+         print_help
+         exit 1
+
+   esac
+}
+
+### Parse stuff :V
+
+while [ ! -z "$1" ]
+do
+   prefix=`echo $1 | sed -e 's|^--prefix=\(\S\+\)$|\1|' -e 's|\(\S\+\)/|\1|'`
+
+   if [ "$prefix" != "$1" ]; then
+      echo "PREFIX = $prefix"
+      PREFIX="$prefix"
+      shift
+      continue
+   fi
+
+   case "$1" in
+
+      --enable-*)
+         enable=`echo $1 | sed 's|^--enable-\(\S\+\)$|\1|'`
+         enable_opt $enable
+         shift
+         continue
+         ;;
+
+      --disable-*)
+         disable=`echo $1 | sed 's|^--disable-\(\S\+\)$|\1|'`
+         disable_opt $disable
+         shift
+         continue
+         ;;
+
+   esac
+
+   print_help
+   exit 1
+
+done
+
+#### Output stuff to config.{h,mk}
 
 echo "" > config.h
 echo "" > config.mk
@@ -63,7 +169,7 @@ echo "" > config.mk
 echo "#define RSD_VERSION \"$RSD_VERSION\"" >> config.h
 
 echo "CC = $CC" >> config.mk
-echo "PREFIX = $PREFIX" >> config.mk
+echo "CFLAGS = $CFLAGS" >> config.mk
 
 if [ $HAVE_ALSA == yes ]; then
    echo "#define _ALSA 1" >> config.h
@@ -116,4 +222,4 @@ if [ $HAVE_OSSAUDIO == yes ]; then
    echo "NEED_OSSAUDIO = 1" >> config.mk
 fi
 
-
+echo "PREFIX = $PREFIX" >> config.mk

@@ -92,14 +92,14 @@ install: install-lib install-server install-client
 
 
 install-lib: $(TARGET_LIB)
-	install -m755 $(TARGET_LIB) $(PREFIX)/lib
+	install -m755 $(TARGET_LIB) $(DESTDIR)/$(PREFIX)/lib
 	install -m644 librsound/rsound.h $(PREFIX)/include
 
 install-server: $(TARGET_SERVER)
-	install -m755 $(TARGET_SERVER) $(PREFIX)/bin
+	install -m755 $(TARGET_SERVER) $(DESTDIR)/$(PREFIX)/bin
 
 install-client: $(TARGET_CLIENT)
-	install -m755 $(TARGET_CLIENT) $(PREFIX)/bin
+	install -m755 $(TARGET_CLIENT) $(DESTDIR)/$(PREFIX)/bin
 
 uninstall:
 	rm -rf $(PREFIX)/bin/rsd
