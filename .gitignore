@@ -1,5 +1,5 @@
 *.o
-*.so
+*.so*
 *.a
 *.pc
 /src/rsdplay
