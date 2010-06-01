@@ -79,14 +79,14 @@ do
    case "$1" in
 
       --enable-*)
-         enable=`echo $1 | sed 's|^--enable-\(\S\+\)$|\1|'`
+         enable=`echo $1 | sed 's|^--enable-||'`
          eval HAVE_`echo $enable | tr '[a-z]' '[A-Z]'`=yes
          shift
          continue
          ;;
 
       --disable-*)
-         disable=`echo $1 | sed 's|^--disable-\(\S\+\)$|\1|'`
+         disable=`echo $1 | sed 's|^--disable-||'`
          eval HAVE_`echo $disable | tr '[a-z]' '[A-Z]'`=no
          shift
          continue

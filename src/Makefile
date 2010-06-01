@@ -4,6 +4,7 @@ TARGET_SERVER = rsd
 TARGET_CLIENT = rsdplay
 TARGET_LIB = librsound/librsound.so
 TARGET_LIB_OBJ = librsound/librsound.o
+TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
 CFLAGS += -Wall
 
@@ -54,20 +55,25 @@ ifeq ($(NEED_RT), 1)
    TARGET_LIB_LIBS += -lrt
 endif
 
-TARGET_CLIENT_OBJ = client.o endian.o $(TARGET_LIB_OBJ)
+TARGET_CLIENT_OBJ = client.o endian.o $(TARGET_LIB_OBJ_STATIC)
 
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
 TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) audio.o endian.o daemon.o rsound-common.o proto.o
 
-all: $(TARGET_LIB) $(TARGET_CLIENT) $(TARGET_SERVER)
+all: client lib server
+
+client: $(TARGET_CLIENT)
+
+lib: $(TARGET_LIB)
+
+server: $(TARGET_SERVER)
 
 $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 	$(CC) $(CFLAGS) -o $(TARGET_CLIENT) $(TARGET_CLIENT_OBJ) $(TARGET_LIB_LIBS)
 
 
-$(TARGET_LIB): $(TARGET_LIB_OBJ)
-	$(CC) -shared -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
-
+$(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
+	$(CC) -shared -Wl,-soname,librsound.so.1 -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	$(CC) -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS)
@@ -75,6 +81,10 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 
 librsound/librsound.o: librsound/librsound.c config.h
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
+
+$(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
+	ar r $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
+
 
 rsound-common.o: rsound-common.c config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -85,26 +95,28 @@ rsound-common.o: rsound-common.c config.h
 clean:
 	rm -rf rsd 
 	rm -rf rsdplay 
-	rm -rf librsound/*.{o,so}
+	rm -rf librsound/*.{o,so,a}
 	rm -rf *.o
 
 install: install-lib install-server install-client
 
 
-install-lib: $(TARGET_LIB)
-	install -m755 $(TARGET_LIB) $(DESTDIR)/$(PREFIX)/lib
-	install -m644 librsound/rsound.h $(PREFIX)/include
+install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC)
+	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib
+	ln -sf librsound.so $(DESTDIR)$(PREFIX)/lib/librsound.so.1
+	install -m644 $(TARGET_LIB_OBJ_STATIC) $(DESTDIR)$(PREFIX)/lib
+	install -m644 librsound/rsound.h $(DESTDIR)$(PREFIX)/include
 
 install-server: $(TARGET_SERVER)
-	install -m755 $(TARGET_SERVER) $(DESTDIR)/$(PREFIX)/bin
+	install -m755 $(TARGET_SERVER) $(DESTDIR)$(PREFIX)/bin
 
 install-client: $(TARGET_CLIENT)
-	install -m755 $(TARGET_CLIENT) $(DESTDIR)/$(PREFIX)/bin
+	install -m755 $(TARGET_CLIENT) $(DESTDIR)$(PREFIX)/bin
 
 uninstall:
 	rm -rf $(PREFIX)/bin/rsd
 	rm -rf $(PREFIX)/bin/rsdplay
-	rm -rf $(PREFIX)/lib/librsound.so
+	rm -rf $(PREFIX)/lib/librsound.*
 	rm -rf $(PREFIX)/include/rsound.h
 
 
