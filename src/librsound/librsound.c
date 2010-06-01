@@ -1323,6 +1323,11 @@ int rsd_free(rsound_t *rsound)
       free(rsound->host);
    if (rsound->port)
       free(rsound->port);
+
+   pthread_mutex_destroy(&rsound->thread.mutex);
+   pthread_mutex_destroy(&rsound->thread.cond_mutex);
+   pthread_cond_destroy(&rsound->thread.cond);
+
    free(rsound);
    return 0;
 }
