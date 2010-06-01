@@ -421,10 +421,12 @@ static int rsnd_send_header_info(rsound_t *rd)
          return -1;
       }
 
-      rc = send ( rd->conn.socket, header + written, HEADER_SIZE - written, 0);
-      if ( rc <= 0 )
+      rc = 0;
+      if ( fd.revents & POLLOUT )
       {
-         return -1;
+         rc = send ( rd->conn.socket, header + written, HEADER_SIZE - written, 0);
+         if ( rc <= 0 )
+            return -1;
       }
       written += rc;
    }
