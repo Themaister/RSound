@@ -18,6 +18,7 @@
 
 #include "audio.h"
 #include "portaudio.h"
+#include "endian.h"
 
 
 typedef struct

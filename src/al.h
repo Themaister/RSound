@@ -17,6 +17,7 @@
 #define AL_H
 
 #include "audio.h"
+#include "endian.h"
 #include <AL/al.h>
 #include <AL/alc.h>
 

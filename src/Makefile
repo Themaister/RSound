@@ -70,13 +70,13 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	$(CC) -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS)
 
 
-librsound/librsound.o: librsound/librsound.c
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
+librsound/librsound.o: librsound/librsound.c config.h
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 rsound-common.o: rsound-common.c config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 	
-%.o: %.c config.h
+%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
@@ -88,14 +88,14 @@ clean:
 install: install-lib install-server install-client
 
 
-install-lib:
+install-lib: $(TARGET_LIB)
 	install -m755 $(TARGET_LIB) $(PREFIX)/lib
 	install -m644 librsound/rsound.h $(PREFIX)/include
 
-install-server:
+install-server: $(TARGET_SERVER)
 	install -m755 $(TARGET_SERVER) $(PREFIX)/bin
 
-install-client:
+install-client: $(TARGET_CLIENT)
 	install -m755 $(TARGET_CLIENT) $(PREFIX)/bin
 
 uninstall:
