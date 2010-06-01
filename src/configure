@@ -11,7 +11,7 @@ RSD_VERSION=0.9.2
 
 PREFIX=/usr/local
 
-function check_lib()
+check_lib()
 {
    echo "void $3(void); int main(void) { $3(); return 0; }" > $TEMP_C
 
@@ -22,9 +22,10 @@ function check_lib()
    rm -rf $TEMP_EXE
 }
 
-function check_header()
+check_header()
 {
-   echo -e "#include<$2>\n int main(void) { return 0; }" > $TEMP_C
+   echo "#include<$2>" > $TEMP_C
+   echo "int main(void) { return 0; }" >> $TEMP_C
    eval HAVE_$1=no
 
    $CC -o $TEMP_EXE $TEMP_C 2>/dev/null >/dev/null && eval HAVE_$1=yes
@@ -43,14 +44,15 @@ check_lib PORTAUDIO portaudio Pa_OpenStream
 check_lib RT rt clock_gettime
 
 HAVE_OSS=no
-if [ $HAVE_SYS_SOUNDCARD_H == yes ] || [ $HAVE_SOUNDCARD_H == yes ]; then
+if [ $HAVE_SYS_SOUNDCARD_H = yes ]; then
+   HAVE_OSS=yes
+elif [ $HAVE_SOUNDCARD_H = yes ]; then
    HAVE_OSS=yes
 fi
 
-
 ### Command line stuff
 
-function print_help()
+print_help()
 {
    echo "Usage:"
    echo "   --prefix=\$prefix: Installs under \$prefix directory"
@@ -59,70 +61,6 @@ function print_help()
    echo ""
    echo "Modules:"
    echo "   alsa oss libao portaudio openal pulse muroar"
-}
-
-function enable_opt()
-{
-   case $1 in
-
-      alsa)
-         HAVE_ALSA=yes
-         ;;
-      oss)
-         HAVE_OSS=yes
-         ;;
-      libao)
-         HAVE_AO=yes
-         ;;
-      portaudio)
-         HAVE_PORTAUDIO=yes
-         ;;
-      openal)
-         HAVE_AL=yes
-         ;;
-      pulse)
-         HAVE_PULSE=yes
-         ;;
-      muroar)
-         HAVE_MUROAR=yes
-         ;;
-      *)
-         print_help
-         exit 1
-
-   esac
-}
-
-function disable_opt()
-{
-   case $1 in
-
-      alsa)
-         HAVE_ALSA=no
-         ;;
-      oss)
-         HAVE_OSS=no
-         ;;
-      libao)
-         HAVE_AO=no
-         ;;
-      portaudio)
-         HAVE_PORTAUDIO=no
-         ;;
-      openal)
-         HAVE_AL=no
-         ;;
-      pulse)
-         HAVE_PULSE=no
-         ;;
-      muroar)
-         HAVE_MUROAR=no
-         ;;
-      *)
-         print_help
-         exit 1
-
-   esac
 }
 
 ### Parse stuff :V
@@ -142,14 +80,14 @@ do
 
       --enable-*)
          enable=`echo $1 | sed 's|^--enable-\(\S\+\)$|\1|'`
-         enable_opt $enable
+         eval HAVE_`echo $enable | tr '[a-z]' '[A-Z]'`=yes
          shift
          continue
          ;;
 
       --disable-*)
          disable=`echo $1 | sed 's|^--disable-\(\S\+\)$|\1|'`
-         disable_opt $disable
+         eval HAVE_`echo $disable | tr '[a-z]' '[A-Z]'`=no
          shift
          continue
          ;;
@@ -171,54 +109,54 @@ echo "#define RSD_VERSION \"$RSD_VERSION\"" >> config.h
 echo "CC = $CC" >> config.mk
 echo "CFLAGS = $CFLAGS" >> config.mk
 
-if [ $HAVE_ALSA == yes ]; then
+if [ $HAVE_ALSA = yes ]; then
    echo "#define _ALSA 1" >> config.h
    echo "HAVE_ALSA = 1" >> config.mk
 fi
 
-if [ $HAVE_SYS_SOUNDCARD_H == yes ]; then
+if [ $HAVE_SYS_SOUNDCARD_H = yes ]; then
    echo "#define HAVE_SYS_SOUNDCARD_H 1" >> config.h
 fi
 
-if [ $HAVE_SOUNDCARD_H == yes ]; then
+if [ $HAVE_SOUNDCARD_H = yes ]; then
    echo "#define HAVE_SOUNDCARD_H 1" >> config.h
 fi
 
-if [ $HAVE_OSS == yes ]; then
+if [ $HAVE_OSS = yes ]; then
    echo "#define _OSS 1" >> config.h
    echo "HAVE_OSS = 1" >> config.mk
 fi
 
-if [ $HAVE_AO == yes ]; then
+if [ $HAVE_AO = yes ]; then
    echo "#define _AO 1" >> config.h
    echo "HAVE_LIBAO = 1" >> config.mk
 fi
 
-if [ $HAVE_PULSE == yes ]; then
+if [ $HAVE_PULSE = yes ]; then
    echo "#define _PULSE 1" >> config.h
    echo "HAVE_PULSE = 1" >> config.mk
 fi
 
-if [ $HAVE_MUROAR == yes ]; then
+if [ $HAVE_MUROAR = yes ]; then
    echo "#define _MUROAR 1" >> config.h
    echo "HAVE_MUROAR = 1" >> config.mk
 fi
 
-if [ $HAVE_AL == yes ]; then
+if [ $HAVE_AL = yes ]; then
    echo "#define _AL 1" >> config.h
    echo "HAVE_AL = 1" >> config.mk
 fi
 
-if [ $HAVE_PORTAUDIO == yes ]; then
+if [ $HAVE_PORTAUDIO = yes ]; then
    echo "#define _PORTA 1" >> config.h
    echo "HAVE_PORTAUDIO = 1" >> config.mk
 fi
 
-if [ $HAVE_RT == yes ]; then
+if [ $HAVE_RT = yes ]; then
    echo "NEED_RT = 1" >> config.mk
 fi
 
-if [ $HAVE_OSSAUDIO == yes ]; then
+if [ $HAVE_OSSAUDIO = yes ]; then
    echo "NEED_OSSAUDIO = 1" >> config.mk
 fi
 

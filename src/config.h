@@ -2,6 +2,7 @@
 #define RSD_VERSION "0.9.2"
 #define _ALSA 1
 #define HAVE_SYS_SOUNDCARD_H 1
+#define _OSS 1
 #define _AO 1
 #define _PULSE 1
 #define _MUROAR 1
