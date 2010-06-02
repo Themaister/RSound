@@ -21,6 +21,11 @@
 #define HEADER_SIZE 44 
 #define DEFAULT_CHUNK_SIZE 512
 
+#undef _POSIX_C_SOURCE
+#undef _GNU_SOURCE
+#define _POSIX_C_SOURCE 201005L
+#define _GNU_SOURCE
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/select.h>

@@ -20,11 +20,16 @@
 extern "C" {
 #endif
 
+#undef _POSIX_C_SOURCE
+#undef _GNU_SOURCE
+#define _POSIX_C_SOURCE 201005L
+#define _GNU_SOURCE
+
+#include <unistd.h>
 #include <pthread.h>
 #include <sys/time.h>
 #include <time.h>
 #include <stdint.h>
-#include <unistd.h>
 
 #define RSD_DEFAULT_HOST "localhost"
 #define RSD_DEFAULT_PORT "12345"

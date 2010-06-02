@@ -48,26 +48,25 @@ do
       --enable-*)
          enable=`echo $1 | sed 's|^--enable-||'`
          eval HAVE_`echo $enable | tr '[a-z]' '[A-Z]'`=yes
-         shift
-         continue
          ;;
 
       --disable-*)
          disable=`echo $1 | sed 's|^--disable-||'`
          eval HAVE_`echo $disable | tr '[a-z]' '[A-Z]'`=no
-         shift
-         continue
          ;;
 
       -h|--help)
          print_help
          exit 0
          ;;
+      *)
+         print_help
+         exit 1
+         ;;
 
    esac
 
-   print_help
-   exit 1
+   shift
 
 done
 
