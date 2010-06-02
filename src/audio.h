@@ -13,23 +13,16 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef AUDIO_H
-#define AUDIO_H
+#ifndef __AUDIO_H
+#define __AUDIO_H
 
 #define MONO 1
 #define STEREO 2
 #define HEADER_SIZE 44 
 #define DEFAULT_CHUNK_SIZE 512
 
-#undef __STRICT_ANSI__
-#undef _POSIX_C_SOURCE
-#undef _GNU_SOURCE
-#undef _ISOC99_SOURCE
-#define _POSIX_C_SOURCE 201005L
-#define _GNU_SOURCE 1
-#define _ISOC99_SOURCE 1
-
 #include <sys/types.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <netdb.h>
@@ -40,7 +33,6 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <time.h>
-#include <unistd.h>
 
 // Defines audio formats supported by rsound. Might be extended in the future :)
 enum rsd_format

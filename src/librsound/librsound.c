@@ -15,21 +15,16 @@
 
 #include "rsound.h"
 
-#undef __STRICT_ANSI__
-#undef _ISOC99_SOURCE
-#define _ISOC99_SOURCE 1
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <netdb.h>
 #include <unistd.h>
 #include <poll.h>
 #include <errno.h> 

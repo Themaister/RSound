@@ -8,7 +8,7 @@ TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
 PKGCONF_PATH = $(PREFIX)/lib/pkgconfig/rsound.pc
 
-CFLAGS += -Wall -std=c99
+CFLAGS += -Wall
 
 TARGET_SERVER_LIBS = -lpthread
 TARGET_LIB_LIBS = -lpthread
@@ -99,7 +99,9 @@ rsound-common.o: rsound-common.c config.h
 clean:
 	rm -rf rsd 
 	rm -rf rsdplay 
-	rm -rf librsound/*.{o,so*,a}
+	rm -rf librsound/librsound.so*
+	rm -rf librsound/librsound.o
+	rm -rf librsound/librsound.a
 	rm -rf *.o
 
 install: install-lib install-server install-client
