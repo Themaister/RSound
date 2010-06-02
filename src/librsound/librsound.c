@@ -15,6 +15,10 @@
 
 #include "rsound.h"
 
+#undef __STRICT_ANSI__
+#undef _ISOC99_SOURCE
+#define _ISOC99_SOURCE 1
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
