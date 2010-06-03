@@ -91,7 +91,9 @@ librsound/librsound.o: librsound/librsound.c config.h
 	@echo "CC `echo $< | sed 's|^\S\+/\(\S\+\)|\1|'`"
 
 $(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
-	@ar r $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
+	@$(AR) r $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
+	@echo "AR `echo $@ | sed 's|^\S\+/\([^.]\+\).*|\1.a|'`"
+
 
 
 rsound-common.o: rsound-common.c config.h
