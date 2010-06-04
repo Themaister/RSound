@@ -1,5 +1,5 @@
 diff --git a/Makefile.am b/Makefile.am
-index 86b0246..475cea8 100644
+index 04caccf..8ad2d2e 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -48,6 +48,7 @@ mpd_headers = \
@@ -10,7 +10,7 @@ index 86b0246..475cea8 100644
  	src/filter_internal.h \
  	src/filter_config.h \
  	src/filter_plugin.h \
-@@ -624,6 +625,7 @@ OUTPUT_CFLAGS = \
+@@ -632,6 +633,7 @@ OUTPUT_CFLAGS = \
  OUTPUT_LIBS = \
  	$(AO_LIBS) \
  	$(ALSA_LIBS) \
@@ -18,7 +18,7 @@ index 86b0246..475cea8 100644
  	$(JACK_LIBS) \
  	$(OPENAL_LIBS) \
  	$(PULSE_LIBS) \
-@@ -639,8 +641,7 @@ OUTPUT_API_SRC = \
+@@ -647,8 +649,7 @@ OUTPUT_API_SRC = \
  	src/output_command.c \
  	src/output_init.c
  
@@ -28,7 +28,7 @@ index 86b0246..475cea8 100644
  
  MIXER_API_SRC = \
  	src/mixer_control.c \
-@@ -656,6 +657,10 @@ OUTPUT_SRC += src/output/alsa_plugin.c
+@@ -664,6 +665,10 @@ OUTPUT_SRC += src/output/alsa_plugin.c
  MIXER_SRC += src/mixer/alsa_mixer_plugin.c
  endif
  
@@ -40,7 +40,7 @@ index 86b0246..475cea8 100644
  OUTPUT_SRC += src/output/ao_plugin.c
  endif
 diff --git a/configure.ac b/configure.ac
-index b5573dc..1fae924 100644
+index 2a63e26..b468211 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -40,7 +40,6 @@ AC_SUBST(AM_CFLAGS,"")
@@ -81,7 +81,7 @@ index b5573dc..1fae924 100644
  dnl ----------------------------------- FIFO ----------------------------------
  if test x$enable_fifo = xyes; then
  	AC_CHECK_FUNC([mkfifo],
-@@ -1375,6 +1390,7 @@ AM_CONDITIONAL(ENABLE_SOLARIS_OUTPUT, test x$enable_solaris_output = xyes)
+@@ -1391,6 +1406,7 @@ AM_CONDITIONAL(ENABLE_WIN32_OUTPUT, test x$enable_win32_output = xyes)
  dnl --------------------- Post Audio Output Plugins Tests ---------------------
  if
  	test x$enable_alsa = xno &&
@@ -89,7 +89,7 @@ index b5573dc..1fae924 100644
  	test x$enable_ao = xno &&
  	test x$enable_fifo = xno &&
  	test x$enable_httpd_output = xno &&
-@@ -1508,6 +1524,7 @@ results(id3,[ID3])
+@@ -1526,6 +1542,7 @@ results(id3,[ID3])
  
  echo -en '\nPlayback support:\n\t'
  results(alsa,ALSA)
@@ -250,7 +250,7 @@ index 0000000..1a64493
 +
 +
 diff --git a/src/output_list.c b/src/output_list.c
-index d94749e..6c989ba 100644
+index c5fd05b..cb9af91 100644
 --- a/src/output_list.c
 +++ b/src/output_list.c
 @@ -36,6 +36,7 @@ extern const struct audio_output_plugin mvp_output_plugin;
@@ -258,16 +258,16 @@ index d94749e..6c989ba 100644
  extern const struct audio_output_plugin httpd_output_plugin;
  extern const struct audio_output_plugin recorder_output_plugin;
 +extern const struct audio_output_plugin rsound_output_plugin;
+ extern const struct audio_output_plugin win32_output_plugin;
  
  const struct audio_output_plugin *audio_output_plugins[] = {
- #ifdef HAVE_SHOUT
-@@ -81,6 +82,9 @@ const struct audio_output_plugin *audio_output_plugins[] = {
+@@ -82,6 +83,9 @@ const struct audio_output_plugin *audio_output_plugins[] = {
  #ifdef ENABLE_RECORDER_OUTPUT
  	&recorder_output_plugin,
  #endif
 +#ifdef HAVE_RSOUND
 +   &rsound_output_plugin,
 +#endif
- 	NULL
- };
- 
+ #ifdef ENABLE_WIN32_OUTPUT
+ 	&win32_output_plugin,
+ #endif
