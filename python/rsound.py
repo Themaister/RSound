@@ -106,7 +106,7 @@ class RSound:
       rsd_delay_wait(self.rd)
 
    def setHost(self, host):
-      chost = create_string_buffer(host)
+      chost = create_string_buffer(str(host))
       rsd_set_param(self.rd, RSD_HOST, chost)
 
    def setPort(self, port):
