@@ -122,6 +122,8 @@ install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
 	install -m644 $(TARGET_LIB_OBJ_STATIC) $(DESTDIR)$(PREFIX)/lib
 	install -m644 librsound/rsound.h $(DESTDIR)$(PREFIX)/include
 	install -m644 rsound.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig
+	install -m644 ../doc/rsd.1 $(DESTDIR)$(PREFIX)/share/man/man1
+	install -m644 ../doc/rsdplay.1 $(DESTDIR)$(PREFIX)/share/man/man1
 
 install-server: $(TARGET_SERVER)
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
@@ -150,6 +152,8 @@ uninstall:
 	rm -rf $(PREFIX)/lib/librsound.*
 	rm -rf $(PREFIX)/include/rsound.h
 	rm -rf $(PREFIX)/lib/pkgconfig/rsound.pc
+	rm -rf $(PREFIX)/share/man/man1/rsd.1
+	rm -rf $(PREFIX)/share/man/man1/rsdplay.1
 
 
 .PHONY: clean client lib server install install-lib install-server install-client all uninstall
