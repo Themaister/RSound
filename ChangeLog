@@ -1,3 +1,11 @@
+[RSound 0.9.2] - 2010-06-06:
+
+-	New build system :)
+-	Many bugfixes
+-	Python module uses librsound directly.
+
+
+
 [RSound 0.9alpha] - 2010-04-15:
 
 -  No ctl socket really needed. rsd will now ignore a missing ctl socket. 
