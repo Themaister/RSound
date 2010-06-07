@@ -57,6 +57,7 @@ rsd_delay_wait = librsound.rsd_delay_wait
 rsd_delay_wait.restype = None
 rsd_delay_wait.argtypes = [c_void_p]
 
+
 RSD_SAMPLERATE = 0
 RSD_CHANNELS = 1
 RSD_HOST = 2
@@ -64,6 +65,7 @@ RSD_PORT = 3
 RSD_BUFSIZE = 4
 RSD_LATENCY = 5
 RSD_FORMAT = 6
+RSD_IDENTITY = 7
 
 RSD_S16_LE = 0x0001
 RSD_S16_BE = 0x0002
@@ -101,6 +103,10 @@ class RSound:
    def setLatency(self, lat):
       i_lat = c_int(lat)
       rsd_set_param(self.rd, RSD_LATENCY, byref(i_lat))
+
+   def setIdentity(self, ident):
+      cident = create_string_buffer(str(ident))
+      rsd_set_param(self.rd, RSD_IDENTITY, cident)
 
    def delay_wait(self):
       rsd_delay_wait(self.rd)
