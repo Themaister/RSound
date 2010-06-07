@@ -91,6 +91,7 @@ static size_t rsnd_get_ptr(rsound_t *rd);
 static int rsnd_reset(rsound_t *rd);
 
 // Recieving delay information from server
+static int rsnd_send_identity_info(rsound_t *rd);
 static int rsnd_send_info_query(rsound_t *rd);
 static int rsnd_update_server_info(rsound_t *rd);
 
@@ -607,6 +608,9 @@ static int rsnd_create_connection(rsound_t *rd)
          return -1;
       }
 
+      if ( (rd->conn_type & RSD_CONN_PROTO) && strlen(rd->identity) > 0 )
+         rsnd_send_identity_info(rd);
+
       rd->ready_for_data = 1;
    }
 
@@ -825,11 +829,43 @@ static size_t rsnd_get_ptr(rsound_t *rd)
    return ptr;
 }
 
+static int rsnd_send_identity_info(rsound_t *rd)
+{
+#define RSD_PROTO_MAXSIZE 256
+
+   struct pollfd fd = {
+      .fd = rd->conn.ctl_socket,
+      .events = POLLOUT
+   };
+
+   if ( poll(&fd, 1, 0) < 0 )
+   {
+      perror("poll");
+      return -1;
+   }
+
+   if ( fd.revents & POLLOUT )
+   {
+      char tmpbuf[RSD_PROTO_MAXSIZE];
+      char sendbuf[RSD_PROTO_MAXSIZE];
+
+      snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, "IDENTITY %s", rd->identity);
+      tmpbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
+      snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
+      sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
+
+      if ( send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) < 0 )
+         return -1;
+   }
+
+   return 0;
+}
+
+
 // Sends delay info request to server on the ctl socket. This code section isn't critical, and will work if it works. 
 // It will never block.
 static int rsnd_send_info_query(rsound_t *rd)
 {
-#define RSD_PROTO_MAXSIZE 256
    struct pollfd fd = {
       .fd = rd->conn.ctl_socket,
       .events = POLLOUT
@@ -1200,6 +1236,11 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
             rd->framesize = rsnd_format_to_framesize(RSD_S16_LE);
             *((int*)param) = (int)RSD_S16_LE;
          }
+         break;
+
+      case RSD_IDENTITY:
+         strncpy(rd->identity, param, sizeof(rd->identity));
+         rd->identity[sizeof(rd->identity)-1] = '\0';
          break;
 
       default:

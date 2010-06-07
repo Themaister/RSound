@@ -55,7 +55,8 @@ extern "C" {
       RSD_PORT,
       RSD_BUFSIZE,
       RSD_LATENCY,
-      RSD_FORMAT
+      RSD_FORMAT,
+      RSD_IDENTITY
    };
 
    /* Do not use directly */
@@ -74,7 +75,7 @@ extern "C" {
       pthread_cond_t cond;
    } rsound_thread_t;
 
-   /* No not use directly */
+   /* Do not use directly */
    typedef struct backend_info
    {
       /* Inherit latency from backend that must be added to the calculated latency when we call rsd_delay() client side. */
@@ -112,6 +113,7 @@ extern "C" {
       int framesize;
 
       rsound_thread_t thread;
+      char identity[256];
    } rsound_t;
 
    /* -- API --
@@ -146,7 +148,9 @@ RSD_LATENCY: Sets maximum audio latency in milliseconds, (must be used with rsd_
 Most applications do not need this. Might be overridden if too small. Expects (int *) in param. Optional.
 RSD_FORMAT: Sets sample format. It defaults to S16_LE, so you probably will not use this. Expects (int *) in param, with
 available values found in the format enum. If invalid format is given, param might be changed to reflect the sample format the library will use.
+RSD_IDENTITY: Sets an identity string associated with the client.
 */
+
    int rsd_set_param (rsound_t *rd, enum rsd_settings option, void* param);
 
    /* Establishes connection to server. Might fail if connection can't be established or that one of 
