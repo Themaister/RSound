@@ -877,6 +877,12 @@ static void* rsd_thread(void *thread_data)
    /* Recieve data, write to sound card. Rinse, repeat :') */
    for(;;)
    {
+      if ( strlen(conn.identity) > 0 && verbose )
+      {
+         fprintf(stderr, " :: %s\n", conn.identity);
+         conn.identity[0] = '\0';
+      }
+
       memset(buffer, 0, size);
 
       rc = recieve_data(data, &conn, buffer, size);
