@@ -87,7 +87,6 @@ int handle_ctl_request(connection_t *conn, void *data)
       memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
       rc = recv(conn->ctl_socket, rsd_proto_header, len, 0);
 
-
       if ( rc <= 0 )
          return 0;
 
@@ -135,10 +134,6 @@ int handle_ctl_request(connection_t *conn, void *data)
 static int get_proto(rsd_proto_t *proto, char *rsd_proto_header)
 {
    const char *substr;
-
-   // Oops! Looks like we have a broken header.
-   if ( strstr(rsd_proto_header, "RSD") != NULL )
-      return -1;
 
    // Jumps forward in the buffer until we hit a valid character as per protocol.
    while ( *rsd_proto_header == ' ' )

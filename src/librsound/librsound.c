@@ -849,7 +849,7 @@ static int rsnd_send_identity_info(rsound_t *rd)
       char tmpbuf[RSD_PROTO_MAXSIZE];
       char sendbuf[RSD_PROTO_MAXSIZE];
 
-      snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, "IDENTITY %s", rd->identity);
+      snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, " IDENTITY %s", rd->identity);
       tmpbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
       snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
       sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
