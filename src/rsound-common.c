@@ -77,7 +77,7 @@ static int recieve_data(void*, connection_t, char*, size_t);
 /* Writes a file with the process id, so that a subsequent --kill can kill it cleanly. */
 void write_pid_file(void)
 {
-   FILE *pidfile = fopen(PIDFILE, "w");
+   FILE *pidfile = fopen(PIDFILE, "a");
    if ( pidfile )
    {
       fprintf(pidfile, "%d\n", (int)getpid());
@@ -218,13 +218,23 @@ void parse_input(int argc, char **argv)
             pidfile = fopen(PIDFILE, "r");
             if ( pidfile )
             {
-               if ( fscanf(pidfile, "%d", &pid) )
+               int valid = 1;
+               pid_t pidlist[1024];
+               int i, index = 0;
+               while ( !feof(pidfile) && valid && index < 1024 )
                {
-                  kill(pid, SIGTERM);
-                  fclose(pidfile);
-                  unlink(PIDFILE);
-                  exit(0);
+                  if ( fscanf(pidfile, "%d", &pid) == 1 )
+                     pidlist[index++] = (pid_t)pid;
+                  else
+                     valid = 0;
                }
+
+               fclose(pidfile);
+
+               for ( i = 0; i < index; i++ )
+                  kill(pidlist[i], SIGTERM);
+
+               exit(0);
             }
             else
             {
