@@ -102,6 +102,8 @@ static int start_rsd(int fd, rsound_t *rd)
 
    if ( rd->conn.socket == -1 )
    {
+      char *ident = "OSS emulation";
+      rsd_set_param(rd, RSD_IDENTITY, ident);
       if ( rsd_start(rd) < 0 )
          return -1;
    }
