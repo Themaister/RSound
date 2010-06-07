@@ -72,7 +72,7 @@ extern const rsd_backend_callback_t rsd_pulse;
 
 static void print_help(void);
 static void* rsd_thread(void*);
-static int recieve_data(void*, connection_t, char*, size_t);
+static int recieve_data(void*, connection_t*, char*, size_t);
 
 /* Writes a file with the process id, so that a subsequent --kill can kill it cleanly. */
 void write_pid_file(void)
@@ -462,7 +462,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    int rc = 0;
    char header[HEADER_SIZE] = {0};
 
-   rc = recieve_data(NULL, conn, header, HEADER_SIZE);
+   rc = recieve_data(NULL, &conn, header, HEADER_SIZE);
    if ( rc != HEADER_SIZE )
    {
       fprintf(stderr, "Didn't read enough data for WAV header.");
@@ -719,20 +719,20 @@ error:
    which currently means that we should stop the connection immediately.
    New protocol: If the control socket is set, we should handle it! */
 
-static int recieve_data(void *data, connection_t conn, char* buffer, size_t size)
+static int recieve_data(void *data, connection_t *conn, char* buffer, size_t size)
 {
    int rc;
    size_t read = 0;
    struct pollfd fd[2];
    size_t read_size;
-   fd[0].fd = conn.socket;
+   fd[0].fd = conn->socket;
    fd[0].events = POLLIN;
-   fd[1].fd = conn.ctl_socket;
+   fd[1].fd = conn->ctl_socket;
    fd[1].events = POLLIN;
 
    // Will not check ctl_socket if it's never used.
    int fds; 
-   if ( conn.ctl_socket > 0 )
+   if ( conn->ctl_socket > 0 )
       fds = 2;
    else
       fds = 1;
@@ -764,7 +764,7 @@ static int recieve_data(void *data, connection_t conn, char* buffer, size_t size
       else if ( fd[0].revents & POLLIN )
       {
          read_size = size - read > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - read;
-         rc = recv(conn.socket, buffer + read, read_size, 0);
+         rc = recv(conn->socket, buffer + read, read_size, 0);
          if ( rc <= 0 )
             return 0;
 
@@ -879,7 +879,7 @@ static void* rsd_thread(void *thread_data)
    {
       memset(buffer, 0, size);
 
-      rc = recieve_data(data, conn, buffer, size);
+      rc = recieve_data(data, &conn, buffer, size);
       if ( rc == 0 )
       {
          if ( debug )

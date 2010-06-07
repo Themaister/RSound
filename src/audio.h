@@ -90,6 +90,7 @@ typedef struct
    int socket;
    int ctl_socket;
    int64_t serv_ptr;
+   char identity[256];
 } connection_t;
 
 

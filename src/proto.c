@@ -25,6 +25,7 @@ typedef struct rsd_proto
    int proto;
    int64_t client_ptr;
    int64_t serv_ptr;
+   char identity[256];
 } rsd_proto_t;
 
 static int get_proto(rsd_proto_t *proto, char *rsd_proto_header);
@@ -32,14 +33,14 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto);
 
 // Here we handle all requests from the client that are available in the network buffer. We are using non-blocking socket.
 // If recv() returns less than we expect, we bail out as there is not more data to be read.
-int handle_ctl_request(connection_t conn, void *data)
+int handle_ctl_request(connection_t *conn, void *data)
 {
 
    char rsd_proto_header[RSD_PROTO_MAXSIZE + 1];
    rsd_proto_t proto;
 
    struct pollfd fd = {
-      .fd = conn.ctl_socket,
+      .fd = conn->ctl_socket,
       .events = POLLIN
    };
 
@@ -59,7 +60,7 @@ int handle_ctl_request(connection_t conn, void *data)
       }
 
       memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
-      rc = recv(conn.ctl_socket, rsd_proto_header, RSD_PROTO_CHUNKSIZE, 0);
+      rc = recv(conn->ctl_socket, rsd_proto_header, RSD_PROTO_CHUNKSIZE, 0);
 
       if ( rc <= 0 )
       {
@@ -84,7 +85,7 @@ int handle_ctl_request(connection_t conn, void *data)
       }
 
       memset(rsd_proto_header, 0, sizeof(rsd_proto_header));
-      rc = recv(conn.ctl_socket, rsd_proto_header, len, 0);
+      rc = recv(conn->ctl_socket, rsd_proto_header, len, 0);
 
 
       if ( rc <= 0 )
@@ -111,13 +112,17 @@ int handle_ctl_request(connection_t conn, void *data)
             break;
 
          case RSD_PROTO_INFO:
-            proto.serv_ptr = conn.serv_ptr;
+            proto.serv_ptr = conn->serv_ptr;
             if ( backend->latency != NULL )
             {
                proto.serv_ptr -= backend->latency(data);
             }
-            if ( send_proto(conn.ctl_socket, &proto) < 0 )
+            if ( send_proto(conn->ctl_socket, &proto) < 0 )
                return -1;
+            break;
+
+         case RSD_PROTO_IDENTITY:
+            strncpy(conn->identity, proto.identity, sizeof(conn->identity));
             break;
 
          default:
@@ -159,6 +164,14 @@ static int get_proto(rsd_proto_t *proto, char *rsd_proto_header)
       int64_t client_ptr;
       client_ptr = strtoull(rsd_proto_header, NULL, 10);
       proto->client_ptr = client_ptr;
+      return 0;
+   }
+   else if ( (substr = strstr(rsd_proto_header, "IDENTITY ")) != NULL )
+   {
+      proto->proto = RSD_PROTO_IDENTITY;
+      rsd_proto_header += strlen("IDENTITY ");
+      strncpy(proto->identity, rsd_proto_header, sizeof(proto->identity));
+      proto->identity[sizeof(proto->identity)-1] = '\0';
       return 0;
    }
    return -1;
