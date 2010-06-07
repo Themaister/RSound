@@ -300,13 +300,10 @@ static void parse_input(int argc, char **argv)
 
    }
 
-   if ( optind < argc )
+   while ( optind < argc )
    {
-      while ( optind < argc )
-      {
-         strncpy(host, argv[optind++], 1023);
-         host[1023] = 0;
-      }
+      strncpy(host, argv[optind++], 1023);
+      host[1023] = 0;
    }
 }
 

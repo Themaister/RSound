@@ -311,6 +311,14 @@ void parse_input(int argc, char **argv)
             fprintf(stderr, "Error parsing arguments.\n");
             exit(1);
       }
+
+
+   }
+
+   if ( optind < argc )
+   {
+      print_help();
+      exit(1);
    }
 
    if ( backend == NULL )
