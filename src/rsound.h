@@ -26,6 +26,7 @@ void cleanup(int);
 void initialize_audio(void);
 
 extern char device[];
+extern char bindaddr[];
 extern char port[];
 extern char unix_sock[];
 extern int verbose;

@@ -26,6 +26,7 @@
 
 char device[128] = "default";
 char port[128] = "12345";
+char bindaddr[128] = "";
 char unix_sock[128] = "";
 int verbose = 0;
 int debug = 0;
@@ -47,7 +48,7 @@ union
    struct sockaddr_storage* storage;
    struct sockaddr_in* v4;
    struct sockaddr_in6* v6;
-} u[2];
+} static u[2];
 
 int main(int argc, char ** argv)
 {

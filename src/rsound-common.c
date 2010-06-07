@@ -179,6 +179,7 @@ void parse_input(int argc, char **argv)
       { "kill", 0, NULL, 'K' },
       { "debug", 0, NULL, 'B' },
       { "sock", 1, NULL, 'S' },
+      { "bind", 1, NULL, 'H' },
       { NULL, 0, NULL, 0 }
    };
 
@@ -201,6 +202,11 @@ void parse_input(int argc, char **argv)
          case 'p':
             strncpy(port, optarg, 127);
             port[127] = 0;
+            break;
+
+         case 'H':
+            strncpy(bindaddr, optarg, 127);
+            bindaddr[127] = 0;
             break;
 
          case '?':
@@ -380,7 +386,7 @@ static void print_help()
 {
    printf("rsd - version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", RSD_VERSION);
    printf("==========================================================================\n");
-   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
+   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
    printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t"
          "    Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
@@ -414,6 +420,7 @@ static void print_help()
 
    printf("-D/--daemon: Runs as daemon.\n");
    printf("-p/--port: Defines which port to listen on.\n");
+   printf("--bind: Defines which address to bind to. Default is 0.0.0.0.\n");
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
    printf("-v/--verbose: Enables verbosity\n");
    printf("-h/--help: Prints this help\n\n");
@@ -650,7 +657,11 @@ int set_up_socket()
    }
    else
    {
-      if ((rc = getaddrinfo(NULL, port, &hints, &servinfo)) != 0)
+      const char *bind = NULL;
+      if ( strlen(bindaddr) > 0 )
+         bind = bindaddr;
+
+      if ((rc = getaddrinfo(bind, port, &hints, &servinfo)) != 0)
       {
          fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(rc));
          return -1;
