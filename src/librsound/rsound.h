@@ -51,6 +51,10 @@ extern "C" {
 #define RSD_U16_NE   RSD_U16_NE
 #define RSD_ALAW     RSD_ALAW
 #define RSD_MULAW    RSD_MULAW
+
+#define RSD_DELAY_MS    RSD_DELAY_MS
+#define RSD_SAMPLESIZE  RSD_SAMPLESIZE
+#define RSD_EXEC        RSD_EXEC
 /* End feature tests */
 
 
