@@ -116,7 +116,7 @@ install: install-lib install-server install-client
 
 
 install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
-	mkdir -p $(DESTDIR)$(PREFIX)/{lib/pkgconfig,include}
+	mkdir -p $(DESTDIR)$(PREFIX)/{lib/pkgconfig,include,share/man/man1}
 	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib
 	cp -P librsound/librsound.so librsound/librsound.so.1 $(DESTDIR)$(PREFIX)/lib
 	install -m644 $(TARGET_LIB_OBJ_STATIC) $(DESTDIR)$(PREFIX)/lib
