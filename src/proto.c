@@ -124,6 +124,13 @@ int handle_ctl_request(connection_t *conn, void *data)
             strncpy(conn->identity, proto.identity, sizeof(conn->identity));
             break;
 
+         case RSD_PROTO_CLOSECTL:
+            send_proto(conn->ctl_socket, &proto);
+            if ( conn->ctl_socket != 0 )
+               close(conn->ctl_socket);
+            conn->ctl_socket = 0;
+            break;
+
          default:
             return -1;
       }
@@ -169,6 +176,12 @@ static int get_proto(rsd_proto_t *proto, char *rsd_proto_header)
       proto->identity[sizeof(proto->identity)-1] = '\0';
       return 0;
    }
+   else if ( (substr = strstr(rsd_proto_header, "CLOSECTL")) != NULL )
+   {
+      proto->proto = RSD_PROTO_CLOSECTL;
+      return 0;
+   }
+
    return -1;
 }
 
@@ -191,16 +204,25 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto)
 
       char sendbuf[RSD_PROTO_MAXSIZE] = {0};
       char tempbuf[RSD_PROTO_MAXSIZE] = {0};
+      int rc;
       switch ( proto->proto )
       {
          case RSD_PROTO_INFO:
             snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld %lld", (long long int)proto->client_ptr, (long long int)proto->serv_ptr);
             snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tempbuf), tempbuf);
             //fprintf(stderr, "Sent info: \"%s\"\n", sendbuf);
-            int rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
+            rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
             if ( rc < 0 )
                return -1;
             break;
+
+         case RSD_PROTO_CLOSECTL:
+            strncpy(sendbuf, "RSD   12 CLOSECTL OK", sizeof(sendbuf)-1);
+            rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
+            if ( rc < 0 )
+               return -1;
+            break;
+            
 
          default:
             return -1;

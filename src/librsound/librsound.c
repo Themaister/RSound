@@ -90,8 +90,9 @@ static size_t rsnd_get_delay(rsound_t *rd);
 static size_t rsnd_get_ptr(rsound_t *rd);
 static int rsnd_reset(rsound_t *rd);
 
-// Recieving delay information from server
+// Protocol functions
 static int rsnd_send_identity_info(rsound_t *rd);
+static int rsnd_close_ctl(rsound_t *rd);
 static int rsnd_send_info_query(rsound_t *rd);
 static int rsnd_update_server_info(rsound_t *rd);
 
@@ -832,6 +833,7 @@ static size_t rsnd_get_ptr(rsound_t *rd)
 static int rsnd_send_identity_info(rsound_t *rd)
 {
 #define RSD_PROTO_MAXSIZE 256
+#define RSD_PROTO_CHUNKSIZE 8
 
    struct pollfd fd = {
       .fd = rd->conn.ctl_socket,
@@ -858,6 +860,81 @@ static int rsnd_send_identity_info(rsound_t *rd)
          return -1;
    }
 
+   return 0;
+}
+
+static int rsnd_close_ctl(rsound_t *rd)
+{
+   if ( !(rd->conn_type & RSD_CONN_PROTO) )
+      return 0;
+
+   struct pollfd fd = {
+      .fd = rd->conn.ctl_socket,
+      .events = POLLOUT
+   };
+
+   if ( poll(&fd, 1, 0) < 0 )
+   {
+      perror("poll");
+      return -1;
+   }
+
+   if ( fd.revents & POLLOUT )
+   {
+      const char *sendbuf = "RSD    9 CLOSECTL";
+      send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0);
+   }
+   else if ( fd.revents & POLLHUP )
+      return 0;
+
+   // Let's wait for reply (or POLLHUP)
+
+   fd.events = POLLIN;
+
+   for(;;)
+   {
+      if ( poll(&fd, 1, 2000) < 0 )
+      {
+         perror("poll");
+         return -1;
+      }
+
+      if ( fd.revents & POLLHUP )
+         break;
+
+      else if ( fd.revents & POLLIN )
+      {
+         const char *subchar;
+         int index = 0;
+         char buf[RSD_PROTO_MAXSIZE*2] = {0};
+         int rc;
+
+         // We just read everything in large chunks until we find what we're looking for
+         if ( (rc = recv(rd->conn.ctl_socket, buf + index, RSD_PROTO_MAXSIZE*2 - 1 - index, 0)) < 0 )
+            return -1;
+
+         // Can we find it directly?
+         if ( strstr(buf, "RSD   12 CLOSECTL OK") != NULL )
+            break;
+         else if ( strstr(buf, "RSD   15 CLOSECTL ERROR") != NULL )
+            return -1;
+
+         subchar = strrchr(buf, 'R');
+         if ( subchar == NULL )
+            index = 0;
+
+         else
+         {
+            strcpy(buf, subchar);
+            index = strlen(buf);
+         }
+
+      }
+      else
+         return -1;
+   }
+
+   close(rd->conn.ctl_socket);
    return 0;
 }
 
@@ -899,7 +976,6 @@ static int rsnd_send_info_query(rsound_t *rd)
 // In that case, we read the packet.
 static int rsnd_update_server_info(rsound_t *rd)
 {
-#define RSD_PROTO_CHUNKSIZE 8
 
    // We only bother to send info if we're not blocking.
    struct pollfd fd = {
@@ -1179,6 +1255,44 @@ int rsd_start(rsound_t *rsound)
 
    return 0;
 }
+
+int rsd_exec(rsound_t *rsound)
+{
+   assert(rsound != NULL);
+
+   // Makes sure we have a working connection
+   if ( rsound->conn.socket < 0 )
+   {
+      if ( rsd_start(rsound) < 0 )
+         return -1;
+   }
+
+   if ( rsnd_close_ctl(rsound) < 0 )
+      return -1;
+
+   int fd = rsound->conn.socket;
+
+   rsnd_stop_thread(rsound);
+
+   // Unsets NONBLOCK
+   int flags = fcntl(fd, F_GETFL);
+   if ( flags < 0 )
+   {
+      rsnd_start_thread(rsound);
+      return -1;
+   }
+
+   flags &= ~O_NONBLOCK;
+   if ( fcntl(fd, F_SETFL, flags) < 0 )
+   {
+      rsnd_start_thread(rsound);
+      return -1;
+   }
+
+   rsd_free(rsound);
+   return fd;
+}
+
 
 /* ioctl()-ish param setting :D */
 int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)

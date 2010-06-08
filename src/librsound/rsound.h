@@ -186,6 +186,12 @@ extern "C" {
       with rsd_set_param(), and before rsd_write(). */ 
    int rsd_start (rsound_t *rd);
 
+   /* Shuts down the rsound data structures, but returns the file descriptor associated with the connection.
+      The control socket will be shut down. If this function returns a negative number, the exec failed, 
+      but the data structures will not be teared down. 
+      Should a valid file descriptor be returned, it will always be non-blocking. */
+   int rsd_exec (rsound_t *rd);
+
    /* Disconnects from server. All audio data still in network buffer and other buffers will be dropped. 
       To continue playing, you will need to rsd_start() again. */
    int rsd_stop (rsound_t *rd);
