@@ -36,13 +36,14 @@ All librsound calls are named with rsd_*.
 int rsd_init(rsound_t** handle);
 int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);
 int rsd_start(rsound_t* handle);
+int rsd_exec(rsound_t* handle);
 int rsd_stop(rsound_t* handle);
 size_t rsd_write(rsound_t* handle, const char* buf, size_t size);
 size_t rsd_pointer(rsound_t* handle);
 size_t rsd_get_avail(rsound_t* handle);
 size_t rsd_delay(rsound_t* handle);
-inline size_t rsd_delay_ms(rsound_t* handle);
-inline int rsd_samplesize(rsound_t* handle);
+size_t rsd_delay_ms(rsound_t* handle);
+int rsd_samplesize(rsound_t* handle);
 void rsd_delay_wait(rsound_t* handle);
 int rsd_pause(rsound_t* handle, int enable);
 int rsd_free(rsound_t* handle);
@@ -92,6 +93,7 @@ Description:
    RSD_BUFSIZE
    RSD_LATENCY
    RSD_FORMAT
+   RSD_IDENTITY
 
 
 RSD_SAMPLERATE:
@@ -173,12 +175,39 @@ RSD_FORMAT:
    RSD_U16_NE - unsigned 16 bit, native-endian
    RSD_U8     - unsigned 8 bit
    RSD_S8     - signed 8 bit
+   RSD_ALAW   - a-law
+   RSD_MULAW  - mu-law
 
    librsound will default to RSD_S16_LE if this is never set.
 
 Example:
    int format = RSD_S16_NE;
    rsd_set_param(handle, RSD_FORMAT, &format);
+
+Note:
+   To check if a sample format is implemented in your version, you can check for #defines.
+
+   E.g.:
+   #ifdef RSD_S16_NE
+   ... // do stuff
+   #endif
+
+
+RSD_IDENTITY:
+   This sets an identity string associated with the stream. Often set to the name of the application itself.
+   Should the length of the string be too long (~250 bytes), it will be truncated.
+
+Example:
+   char *name = "Test application";
+   rsd_set_param(handle, RSD_IDENTITY, name);
+
+Note:
+   This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
+
+   #ifdef RSD_IDENTITY
+   ... // do stuff
+   #endif
+   
 
 
 ===================================
@@ -193,6 +222,41 @@ Description:
 
 Example:
 rsd_start(handle);
+
+
+
+==================================
+int rsd_exec(rsound_t* handle);
+==================================
+
+Description:
+   This function call will free the rsound structure given in handle and return the file descriptor used by the data stream.
+   If the stream has not already been started, rsd_start() will be called.
+   The handle must not be used after calling this function if this call succeeds.
+   The returned socket will be non-blocking.
+
+Errors:
+   Should rsd_exec() return a negative number, this will indicate that either rsd_start() failed or the request could not be honored.
+   Should this happen, the data structure will not be freed, and it will act as though this function was never called.
+
+Note:
+   This is a new librsound function. To check if it's implemented, you can check for #ifdef RSD_EXEC
+
+Example:
+   rsd_start(handle);
+
+   rsd_write(handle, buf, sizeof(buf));
+   // ... Do some writing here.
+
+   // Let's work with the metal!
+
+   int fd = rsd_exec(handle);
+
+   write(fd, buf, sizeof(buf));
+
+   // ... write some more
+
+   close(fd);
 
 
 ==================================
@@ -272,7 +336,7 @@ Example:
 
 
 =============================================
-inline size_t rsd_delay_ms(rsound_t* handle);
+size_t rsd_delay_ms(rsound_t* handle);
 =============================================
 
 Description:
@@ -283,7 +347,7 @@ Example:
 
 
 =============================================
-inline int rsd_samplesize(rsound_t* handle);
+int rsd_samplesize(rsound_t* handle);
 =============================================
 
 Description:
@@ -414,8 +478,8 @@ At this point, the server cannot send more data on the data socket, so it can sa
 The server shall read all data from the data socket and send this data to an "audio driver". 
 How the server chooses to process this audio data is up to the implementation.
 
-When the client decides to stop the stream, it will simply close() the sockets in question.
-The server can drop the data in the network buffers if it chooses to.
+When the client decides to stop the data stream or the control stream, it will simply close() the sockets in question.
+The server can drop the data in the network buffers if it chooses to. 
 
 
 
@@ -448,9 +512,11 @@ The commands that the rsound protocol uses are:
 NULL
 STOP
 INFO
+IDENTITY
+CLOSECTL
 
 NULL: This is used for testing. It does not do anything. The server will not respond to the client in any way.
-Example message: "RSD    5 NULL". Note that the body is 5 chars long " NULL" is here the body. 
+Example message: "RSD    5 NULL". Note that the body is 5 chars long since " NULL" is here the body (including the space). 
 The '\0' byte associated with string termination in C is not included.
 
 
@@ -475,8 +541,8 @@ Try to empty the network buffer each time the server does control handling.
 The server will take this message, and respond with appending the number of bytes actually played back to the speakers (or something similiar). 
 To do this, the server will record number of bytes written to the audio driver and subtract the audio latency of the driver, 
 effectively calculating the number of bytes "written" to the speakers. 
-Note that this value should _never_ be larger than the value recieved from the client. 
-That is clearly a sign of having a full control socket network buffer. 
+Note that this value should obviously _never_ be larger than the value recieved from the client. 
+That is clearly a sign of having a full control socket network buffer, or buggy code somewhere in either library or otherwise. 
 The server will then reply to the control socket with something like this:
 
 "RSD   21 INFO 1532455 1502333"
@@ -486,3 +552,18 @@ it can determine that there is a (1532455 - 1502333) delta between writing to th
 Network latencies are assumed to be so small, that they aren't noticable.
 
 
+IDENTITY: This is used for the client to identity itself with a name. It is up to the server to show/log this message. The server does not respond to the client.
+The server should not use this for any form of authentication.
+Example message: "RSD   24 IDENTITY Example client"
+
+
+CLOSECTL: When the server recieves this, the client will no longer use the control socket for anything, 
+and closing down the socket on the client side should never make the server drop the data connection. The server can safely close the control socket. Before closing down the control socket, the server will respond to the client either with "CLOSECTL OK" or "CLOSECTL ERROR".
+
+Example:
+   Recieves: 
+   "RSD    9 CLOSECTL"
+
+   Responds with: 
+   "RSD   12 CLOSECTL OK" or
+   "RSD   15 CLOSECTL ERROR"
