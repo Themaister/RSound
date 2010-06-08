@@ -2,6 +2,7 @@
 
 from ctypes import *
 import sys
+import socket
 
 librsound = cdll.LoadLibrary('librsound.so')
 
@@ -56,6 +57,10 @@ rsd_get_avail.argtypes = [c_void_p, c_int]
 rsd_delay_wait = librsound.rsd_delay_wait
 rsd_delay_wait.restype = None
 rsd_delay_wait.argtypes = [c_void_p]
+
+rsd_exec = librsound.rsd_exec
+rsd_exec.restype = c_int
+rsd_exec.argtypes = [c_void_p]
 
 
 RSD_SAMPLERATE = 0
@@ -119,6 +124,13 @@ class RSound:
       cport = create_string_buffer(str(port))
       rsd_set_param(self.rd, RSD_PORT, cport)
 
+   def exec_(self):
+      fd = rsd_exec(self.rd)
+      if fd >= 0:
+         self.rd = None
+         return socket.fromfd(fd, socket.AF_INET, socket.SOCK_STREAM)
+      else:
+         return None
 
    def start(self):
       if rsd_start(self.rd) == 0:
