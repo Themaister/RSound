@@ -36,6 +36,7 @@ static int format = 0;
 
 static char port[128] = "";
 static char host[1024] = "";
+static char ident[256] = "rsdplay";
 
 static int set_other_params(rsound_t *rd);
 static void parse_input(int argc, char **argv);
@@ -173,6 +174,7 @@ static int set_other_params(rsound_t *rd)
    rsd_set_param(rd, RSD_SAMPLERATE, &rate);
    rsd_set_param(rd, RSD_CHANNELS, &channels);
    rsd_set_param(rd, RSD_FORMAT, &format);
+   rsd_set_param(rd, RSD_IDENTITY, ident);
    return 0;
 }
 
@@ -200,7 +202,8 @@ static void print_help()
          "\tYou can pass 8 and 16 also, which is equal to U8 and S16LE respectively.\n");
    printf("-h/--help: Prints this help\n");
    printf("-f/--file: Uses file rather than stdin\n");
-   printf("-s/--server: More explicit way of assigning hostname\n\n");
+   printf("-s/--server: More explicit way of assigning hostname\n");
+   printf("-i/--identity: Defines the identity associated with this client. Defaults to \"rsdplay\"\n");
 }
 
 static void parse_input(int argc, char **argv)
@@ -215,10 +218,11 @@ static void parse_input(int argc, char **argv)
       { "channels", 1, NULL, 'c'},
       { "file", 1, NULL, 'f'},
       { "server", 1, NULL, 's'},
+      { "identity", 1, NULL, 'i'},
       { NULL, 0, NULL, 0 }
    };
 
-   char optstring[] = "r:p:hc:f:B:s:";
+   char optstring[] = "r:p:hc:f:B:s:i:";
    while ( 1 )
    {
       c = getopt_long ( argc, argv, optstring, opts, &option_index );
@@ -230,6 +234,11 @@ static void parse_input(int argc, char **argv)
       {
          case 'r':
             raw_rate = atoi(optarg);
+            break;
+
+         case 'i':
+            strncpy(ident, optarg, sizeof(ident));
+            ident[sizeof(ident)-1] = '\0';
             break;
 
          case 'f':

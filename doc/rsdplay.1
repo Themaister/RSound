@@ -21,7 +21,7 @@ rsdplay \- Simple PCM audio player for librsound
 Prints help text.
 
 .TP
-\fB-s HOSTNAME, --server HOSTNAME\fR
+\fB--server HOSTNAME, -s HOSTNAME\fR
 More explicit way of assigning hostname.
 
 .TP
@@ -47,6 +47,10 @@ Defines the sample rate of a raw input stream. Requires \fB--raw\fR to be set.
 .TP
 \fB--file FILE, -f FILE\fR
 Uses FILE as input source, rather than \fBstdin\fR.
+
+.TP
+\fB--identity TAG, -i TAG\fR
+Defines TAG as identity string for rsdplay. Defaults to "rsdplay".
 
 .SH "ENVIRONMENTAL VARIABLES"
 
