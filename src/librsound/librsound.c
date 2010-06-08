@@ -866,7 +866,7 @@ static int rsnd_send_identity_info(rsound_t *rd)
 static int rsnd_close_ctl(rsound_t *rd)
 {
    if ( !(rd->conn_type & RSD_CONN_PROTO) )
-      return 0;
+      return -1;
 
    struct pollfd fd = {
       .fd = rd->conn.ctl_socket,
