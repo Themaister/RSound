@@ -31,6 +31,30 @@ extern "C" {
 #define RSD_DEFAULT_PORT "12345"
 #define RSD_DEFAULT_OBJECT "rsound"
 
+/* Feature tests */
+#define RSD_SAMPLERATE  RSD_SAMPLERATE 
+#define RSD_CHANNELS    RSD_CHANNELS
+#define RSD_HOST        RSD_HOST
+#define RSD_PORT        RSD_PORT
+#define RSD_BUFSIZE     RSD_BUFSIZE
+#define RSD_LATENCY     RSD_LATENCY
+#define RSD_FORMAT      RSD_FORMAT
+#define RSD_IDENTITY    RSD_IDENTITY
+
+#define RSD_S16_LE   RSD_S16_LE
+#define RSD_S16_BE   RSD_S16_BE
+#define RSD_U16_LE   RSD_U16_LE
+#define RSD_U16_BE   RSD_U16_BE
+#define RSD_U8       RSD_U8
+#define RSD_S8       RSD_S8
+#define RSD_S16_NE   RSD_S16_NE
+#define RSD_U16_NE   RSD_U16_NE
+#define RSD_ALAW     RSD_ALAW
+#define RSD_MULAW    RSD_MULAW
+/* End feature tests */
+
+
+
    /* Defines sample formats available. Defaults to S16_LE should it never be set. */
    enum rsd_format
    {
@@ -59,34 +83,14 @@ extern "C" {
       RSD_IDENTITY
    };
 
-   /* Do not use directly */
-   typedef struct connection
-   {
-      volatile int socket;
-      volatile int ctl_socket;
-   } connection_t;
-
-   /* Do not use directly */
-   typedef struct rsound_thread
-   {
-      pthread_t threadId;
-      pthread_mutex_t mutex;
-      pthread_mutex_t cond_mutex;
-      pthread_cond_t cond;
-   } rsound_thread_t;
-
-   /* Do not use directly */
-   typedef struct backend_info
-   {
-      /* Inherit latency from backend that must be added to the calculated latency when we call rsd_delay() client side. */
-      uint32_t latency;
-      uint32_t chunk_size;
-   } backend_info_t;
-
    /* Defines the main structure for use with the API. */
    typedef struct rsound
    {
-      connection_t conn;
+      struct {
+         volatile int socket;
+         volatile int ctl_socket;
+      } conn;
+
       char *host;
       char *port;
       char *buffer;
@@ -103,7 +107,11 @@ extern "C" {
       int bytes_in_buffer;
       int delay_offset;
       int max_latency;
-      backend_info_t backend_info;
+
+      struct {
+         uint32_t latency;
+         uint32_t chunk_size;
+      } backend_info;
 
       volatile int ready_for_data;
 
@@ -112,7 +120,13 @@ extern "C" {
       uint16_t format;
       int framesize;
 
-      rsound_thread_t thread;
+      struct {
+         pthread_t threadId;
+         pthread_mutex_t mutex;
+         pthread_mutex_t cond_mutex;
+         pthread_cond_t cond;
+      } thread;
+
       char identity[256];
    } rsound_t;
 
@@ -120,36 +134,50 @@ extern "C" {
       All functions (except for rsd_write() return 0 for success, and -1 for error. errno is currently not set. */
 
    /* Initializes an rsound_t structure. To make sure no memory leaks occur, you need to rsd_free() it after use.
-      A typical use of the API is as follows:
+   A typical use of the API is as follows:
       rsound_t *rd;
       rsd_init(&rd);
       rsd_set_param(rd, RSD_HOST, "foohost");
-    *sets more params*
-    rsd_start(rd);
-    rsd_write(rd, buf, size); 
-    rsd_stop(rd);
-    rsd_free(rd);
+      *sets more params*
+      rsd_start(rd);
+      rsd_write(rd, buf, size); 
+      rsd_stop(rd);
+      rsd_free(rd);
     */
    int rsd_init (rsound_t **rd);
 
    /* Sets params associated with an rsound_t. These options (int options) include:
 
-RSD_HOST: Server to connect to. Expects (char *) in param. If not set, will default 
-to environmental variable RSD_SERVER or "localhost". 
+   RSD_HOST: Server to connect to. Expects (char *) in param. 
+   If not set, will default to environmental variable RSD_SERVER or "localhost". 
 
-RSD_PORT: Set port. Expects (char *) in param. If not set, will default to environmental 
-variable RSD_PORT or "12345".
+   RSD_PORT: Set port. Expects (char *) in param. 
+   If not set, will default to environmental variable RSD_PORT or "12345".
 
-RSD_CHANNELS: Set number of audio channels. Expects (int *) in param. Mandatory.
-RSD_SAMPLERATE: Set samplerate of audio stream. Expects (int *) in param. Mandatory.
-RSD_BUFSIZE: Sets internal buffersize for the stream. Might be overridden if too small. 
-Expects (int *) in param. Optional.
-RSD_LATENCY: Sets maximum audio latency in milliseconds, (must be used with rsd_delay_wait() or this will have no effect). 
-Most applications do not need this. Might be overridden if too small. Expects (int *) in param. Optional.
-RSD_FORMAT: Sets sample format. It defaults to S16_LE, so you probably will not use this. Expects (int *) in param, with
-available values found in the format enum. If invalid format is given, param might be changed to reflect the sample format the library will use.
-RSD_IDENTITY: Sets an identity string associated with the client.
-*/
+   RSD_CHANNELS: Set number of audio channels. Expects (int *) in param. Mandatory.
+
+   RSD_SAMPLERATE: Set samplerate of audio stream. Expects (int *) in param. Mandatory.
+
+   RSD_BUFSIZE: Sets internal buffersize for the stream. 
+   Might be overridden if too small. 
+   Expects (int *) in param. Optional.
+
+   RSD_LATENCY: Sets maximum audio latency in milliseconds, 
+   (must be used with rsd_delay_wait() or this will have no effect). 
+   Most applications do not need this. 
+   Might be overridden if too small. 
+   Expects (int *) in param. Optional.
+
+   RSD_FORMAT: Sets sample format. 
+   It defaults to S16_LE, so you probably will not use this. 
+   Expects (int *) in param, with available values found in the format enum. 
+   If invalid format is given, param might be changed to reflect the sample format the library will use.
+
+   RSD_IDENTITY: Sets an identity string associated with the client.
+   Takes a (char *) parameter with the stream name.
+   Will be truncated if longer than 256 bytes.
+
+   */
 
    int rsd_set_param (rsound_t *rd, enum rsd_settings option, void* param);
 
