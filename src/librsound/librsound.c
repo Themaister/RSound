@@ -925,7 +925,7 @@ static int rsnd_close_ctl(rsound_t *rd)
 
          else
          {
-            strcpy(buf, subchar);
+            memmove(buf, subchar, strlen(subchar) + 1);
             index = strlen(buf);
          }
 
