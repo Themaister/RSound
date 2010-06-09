@@ -25,6 +25,8 @@ typedef struct
 {
    ALuint source;
    ALuint *buffers;
+   ALuint *res_buf;
+   int res_ptr;
    ALenum format;
    int num_buffers;
    int channels;

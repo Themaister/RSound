@@ -19,7 +19,7 @@
 static ALCdevice *global_handle;
 static ALCcontext *global_context;
 
-#define BUF_SIZE 2048
+#define BUF_SIZE 512
 
 static void al_close(void *data)
 {
@@ -32,6 +32,7 @@ static void al_close(void *data)
       {
          alDeleteBuffers(al->num_buffers, al->buffers);
          free(al->buffers);
+         free(al->res_buf);
       }
    }
 }
@@ -113,16 +114,60 @@ static int al_open(void* data, wav_header_t *w)
 
    al->rate = w->sampleRate;
 
-   al->num_buffers = al->rate / 10000 + 1;
-   al->buffers = malloc(al->num_buffers * sizeof(int));
-   if ( al->buffers == NULL )
+   al->num_buffers = al->rate / 2500 + 1;
+   al->buffers = malloc(al->num_buffers * sizeof(ALuint));
+   al->res_buf = malloc(al->num_buffers * sizeof(ALuint));
+   if ( al->buffers == NULL || al->res_buf == NULL )
       return -1;
 
    alGenSources(1, &al->source);
    alGenBuffers(al->num_buffers, al->buffers);
    al->queue = 0;
+   al->res_ptr = 0;
 
    return 0;
+}
+
+static int al_unqueue_buffers(al_t *al)
+{
+   ALint val;
+
+   alGetSourcei(al->source, AL_BUFFERS_PROCESSED, &val);
+
+   if ( val > 0 )
+   {
+      alSourceUnqueueBuffers(al->source, val, &al->res_buf[al->res_ptr]);
+      al->res_ptr += val;
+      return val;
+   }
+
+   return 0;
+}
+
+static ALuint al_get_buffer(al_t *al)
+{
+   // Checks if we need to block to get vacant buffer.
+   ALuint buffer;
+
+   if ( al->res_ptr == 0 )
+   {
+      struct timespec tv = {
+         .tv_sec = 0,
+         .tv_nsec = 1000000
+      };
+
+      for(;;)
+      {
+         if ( al_unqueue_buffers(al) > 0 )
+            break;
+
+         nanosleep(&tv, NULL);
+      }
+   }
+
+   buffer = al->res_buf[--al->res_ptr];
+
+   return buffer;
 }
 
 static size_t al_write(void *data, const void* inbuf, size_t size)
@@ -148,6 +193,7 @@ static size_t al_write(void *data, const void* inbuf, size_t size)
 
    // Fills up the buffer before we start playing.
 
+
    if ( al->queue < al->num_buffers )
    {
       alBufferData(al->buffers[al->queue++], al->format, buffer_ptr, osize, al->rate);
@@ -169,27 +215,7 @@ static size_t al_write(void *data, const void* inbuf, size_t size)
       return size;
    }
 
-   ALuint buffer;
-   ALint val;
-
-   // Waits until we have a buffer we can unqueue.
-
-   struct timespec tv = {
-      .tv_sec = 0,
-      .tv_nsec = 1000000
-   };
-
-   // Do we need to unqueue first?
-   for(;;)
-   {
-      alGetSourcei(al->source, AL_BUFFERS_PROCESSED, &val);
-      if ( val > 0 )
-         break;
-
-      nanosleep(&tv, NULL);
-   } 
-
-   alSourceUnqueueBuffers(al->source, 1, &buffer);
+   ALuint buffer = al_get_buffer(al);
 
    // Buffers up the data
    alBufferData(buffer, al->format, buffer_ptr, osize, al->rate);
@@ -198,6 +224,7 @@ static size_t al_write(void *data, const void* inbuf, size_t size)
       return 0;
 
    // Checks if we're playing
+   ALint val;
    alGetSourcei(al->source, AL_SOURCE_STATE, &val);
    if ( val != AL_PLAYING )
       alSourcePlay(al->source);
@@ -210,16 +237,26 @@ static size_t al_write(void *data, const void* inbuf, size_t size)
 
 static void al_get_backend(void *data, backend_info_t *backend_info)
 {
-   al_t *al = data;
-   backend_info->latency = BUF_SIZE * al->num_buffers;
+   (void) data;
+   backend_info->latency = BUF_SIZE;
    backend_info->chunk_size = BUF_SIZE;
 }
 
-// Not 100% correct, since the buffer is not neccesarily full at all times.
 static int al_latency(void *data)
 {
    al_t *al = data;
-   return BUF_SIZE * al->num_buffers;
+
+   int latency;
+   if ( al->queue < al->num_buffers )
+   {
+      latency = al->queue * BUF_SIZE;
+   }
+   else
+   {
+      al_unqueue_buffers(al);
+      latency = BUF_SIZE * (al->num_buffers - al->res_ptr);
+   }
+   return latency;
 }
 
 const rsd_backend_callback_t rsd_al = {
