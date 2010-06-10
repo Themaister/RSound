@@ -772,29 +772,28 @@ static int rsnd_stop_thread(rsound_t *rd)
 {
    if ( rd->thread_active )
    {
+
+      RSD_DEBUG("Shutting down thread.");
+
       rd->thread_active = 0;
 
-      /* Being really forceful with this unlocking, but ... who knows. Better safe than sorry. */
-
-      pthread_mutex_unlock(&rd->thread.mutex);
-      pthread_mutex_unlock(&rd->thread.cond_mutex);
       if ( pthread_cancel(rd->thread.threadId) < 0 )
       {
          pthread_cond_signal(&rd->thread.cond);
          RSD_WARN("*** Warning, failed to cancel playback thread. ***");
-         pthread_mutex_unlock(&rd->thread.mutex);
-         pthread_mutex_unlock(&rd->thread.cond_mutex);
          return 0;
       }
       pthread_cond_signal(&rd->thread.cond);
       if ( pthread_join(rd->thread.threadId, NULL) < 0 )
          RSD_WARN("*** Warning, did not terminate thread. ***");
-      pthread_mutex_unlock(&rd->thread.mutex);
-      pthread_mutex_unlock(&rd->thread.cond_mutex);
+      
       return 0;
    }
    else
+   {
+      RSD_DEBUG("Thread is already shut down.");
       return 0;
+   }
 }
 
 /* Calculates audio delay in bytes */
@@ -890,6 +889,8 @@ static int rsnd_close_ctl(rsound_t *rd)
    // Let's wait for reply (or POLLHUP)
 
    fd.events = POLLIN;
+   int index = 0;
+   char buf[RSD_PROTO_MAXSIZE*2] = {0};
 
    for(;;)
    {
@@ -905,8 +906,6 @@ static int rsnd_close_ctl(rsound_t *rd)
       else if ( fd.revents & POLLIN )
       {
          const char *subchar;
-         int index = 0;
-         char buf[RSD_PROTO_MAXSIZE*2] = {0};
          int rc;
 
          // We just read everything in large chunks until we find what we're looking for
@@ -922,7 +921,6 @@ static int rsnd_close_ctl(rsound_t *rd)
          subchar = strrchr(buf, 'R');
          if ( subchar == NULL )
             index = 0;
-
          else
          {
             memmove(buf, subchar, strlen(subchar) + 1);
@@ -1187,10 +1185,7 @@ static int rsnd_reset(rsound_t *rd)
    rd->thread_active = 0;
    rd->delay_offset = 0;
    pthread_mutex_unlock(&rd->thread.mutex);
-   pthread_mutex_unlock(&rd->thread.cond_mutex);
    pthread_cond_signal(&rd->thread.cond);
-   pthread_mutex_unlock(&rd->thread.mutex);
-   pthread_mutex_unlock(&rd->thread.cond_mutex);
 
    return 0;
 }
@@ -1482,12 +1477,16 @@ int rsd_free(rsound_t *rsound)
    if (rsound->port)
       free(rsound->port);
 
-   pthread_mutex_unlock(&rsound->thread.mutex);
-   pthread_mutex_unlock(&rsound->thread.cond_mutex);
+   int err;
 
-   pthread_mutex_destroy(&rsound->thread.mutex);
-   pthread_mutex_destroy(&rsound->thread.cond_mutex);
-   pthread_cond_destroy(&rsound->thread.cond);
+   if ( (err = pthread_mutex_destroy(&rsound->thread.mutex)) != 0 )
+      RSD_WARN("Error: %s\n", strerror(err));
+
+   if ( (err = pthread_mutex_destroy(&rsound->thread.cond_mutex)) != 0 )
+      RSD_WARN("Error: %s\n", strerror(err));
+
+   if ( (err = pthread_cond_destroy(&rsound->thread.cond)) != 0 )
+      RSD_WARN("Error: %s\n", strerror(err));
 
    free(rsound);
    return 0;
