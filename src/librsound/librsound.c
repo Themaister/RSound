@@ -1295,6 +1295,9 @@ int rsd_exec(rsound_t *rsound)
       return -1;
    }
 
+   // Flush the buffer
+   send(fd, rsound->buffer, rsound->buffer_pointer, 0);
+
    rsd_free(rsound);
    return fd;
 }
