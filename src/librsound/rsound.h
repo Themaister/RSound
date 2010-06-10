@@ -62,6 +62,7 @@ extern "C" {
    /* Defines sample formats available. Defaults to S16_LE should it never be set. */
    enum rsd_format
    {
+      RSD_NO_FMT = 0x0000,
       RSD_S16_LE = 0x0001,
       RSD_S16_BE = 0x0002,
       RSD_U16_LE = 0x0004,
