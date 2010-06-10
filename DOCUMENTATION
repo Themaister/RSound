@@ -233,7 +233,7 @@ Description:
    This function call will free the rsound structure given in handle and return the file descriptor used by the data stream.
    If the stream has not already been started, rsd_start() will be called.
    The handle must not be used after calling this function if this call succeeds.
-   The returned socket will be non-blocking.
+   The returned socket will be blocking.
 
 Errors:
    Should rsd_exec() return a negative number, this will indicate that either rsd_start() failed or the request could not be honored.

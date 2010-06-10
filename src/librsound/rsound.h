@@ -196,7 +196,7 @@ extern "C" {
    /* Shuts down the rsound data structures, but returns the file descriptor associated with the connection.
       The control socket will be shut down. If this function returns a negative number, the exec failed, 
       but the data structures will not be teared down. 
-      Should a valid file descriptor be returned, it will always be non-blocking. */
+      Should a valid file descriptor be returned, it will always be blocking. */
    int rsd_exec (rsound_t *rd);
 
    /* Disconnects from server. All audio data still in network buffer and other buffers will be dropped. 
