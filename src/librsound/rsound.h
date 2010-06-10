@@ -236,7 +236,7 @@ extern "C" {
       This function essentially calls on start() and stop(). This behavior might be changed later. */
    int rsd_pause (rsound_t *rd, int enable);
 
-   /* Frees an rsound_t struct. */
+   /* Frees an rsound_t struct. Make sure that the stream is properly closed down with rsd_stop() before calling rsd_free(). */
    int rsd_free (rsound_t *rd);
 
 #ifdef __cplusplus

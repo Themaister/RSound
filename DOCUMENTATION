@@ -399,14 +399,15 @@ Params:
 
 Description:
    This is basically a wrapper to rsd_start() and rsd_stop() currently.
-   This function might be differently implemented in other implementation of rsound.
+   This function might be differently implemented in other implementations of rsound.
 
 =================================
 int rsd_free(rsound_t* handle);
 =================================
 
 Description:
-   Frees the rsound structure. This is called last, after rsd_stop() and the likes.
+   Frees the rsound structure. Calling this function on a started stream is undefined behavior.
+   Use rsd_stop() to close the stream before calling rsd_free().
 
 
 
