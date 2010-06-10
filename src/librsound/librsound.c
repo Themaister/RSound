@@ -1482,6 +1482,9 @@ int rsd_free(rsound_t *rsound)
    if (rsound->port)
       free(rsound->port);
 
+   pthread_mutex_unlock(&rsound->thread.mutex);
+   pthread_mutex_unlock(&rsound->thread.cond_mutex);
+
    pthread_mutex_destroy(&rsound->thread.mutex);
    pthread_mutex_destroy(&rsound->thread.cond_mutex);
    pthread_cond_destroy(&rsound->thread.cond);
