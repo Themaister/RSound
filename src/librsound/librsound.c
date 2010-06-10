@@ -731,18 +731,23 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       }
       pthread_mutex_unlock(&rd->thread.mutex);
 
+      pthread_cond_signal(&rd->thread.cond);
       /* Sleeps until we can write to the FIFO. */
+      //RSD_DEBUG("fill_buffer: going to sleep.");
       pthread_mutex_lock(&rd->thread.cond_mutex);
       pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
+      //RSD_DEBUG("fill_buffer: Woke up.");
    }
 
    pthread_mutex_lock(&rd->thread.mutex);
    memcpy(rd->buffer + rd->buffer_pointer, buf, size);
    rd->buffer_pointer += (int)size;
    pthread_mutex_unlock(&rd->thread.mutex);
+   //RSD_DEBUG("fill_buffer: Wrote to buffer.");
 
    /* Send signal to thread that buffer has been updated */
+   //RSD_DEBUG("fill_buffer: Waking up thread.");
    pthread_cond_signal(&rd->thread.cond);
 
    return size;
@@ -783,9 +788,16 @@ static int rsnd_stop_thread(rsound_t *rd)
          RSD_WARN("*** Warning, failed to cancel playback thread. ***");
          return 0;
       }
+
+      int err;
+      if ( (err = pthread_mutex_unlock(&rd->thread.cond_mutex)) != 0 )
+         RSD_WARN("%s\n", strerror(err));
+
       pthread_cond_signal(&rd->thread.cond);
       if ( pthread_join(rd->thread.threadId, NULL) < 0 )
          RSD_WARN("*** Warning, did not terminate thread. ***");
+      else
+         RSD_DEBUG("Thread joined successfully.");
       
       return 0;
    }
@@ -1152,9 +1164,13 @@ static void* rsnd_thread ( void * thread_data )
       pthread_testcancel();
       if ( rd->thread_active )
       {
+         RSD_DEBUG("Thread going to sleep.");
+         pthread_cond_signal(&rd->thread.cond);
          pthread_mutex_lock(&rd->thread.cond_mutex);
          pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
+         RSD_DEBUG("Thread woke up.");
          pthread_mutex_unlock(&rd->thread.cond_mutex);
+         RSD_DEBUG("Thread unlocked cond_mutex.");
       }
       /* Abort request, chap. */
       else
