@@ -55,6 +55,8 @@ extern "C" {
 #define RSD_DELAY_MS    RSD_DELAY_MS
 #define RSD_SAMPLESIZE  RSD_SAMPLESIZE
 #define RSD_EXEC        RSD_EXEC
+
+#define RSD_NO_FMT RSD_NO_FMT
 /* End feature tests */
 
 
