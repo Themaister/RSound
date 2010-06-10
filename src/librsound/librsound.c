@@ -730,9 +730,9 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       }
       pthread_mutex_unlock(&rd->thread.mutex);
 
-      pthread_cond_signal(&rd->thread.cond);
       /* Sleeps until we can write to the FIFO. */
       //RSD_DEBUG("fill_buffer: going to sleep.");
+      pthread_cond_signal(&rd->thread.cond);
       pthread_mutex_lock(&rd->thread.cond_mutex);
       pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
@@ -1070,9 +1070,10 @@ static int rsnd_update_server_info(rsound_t *rd)
    return 0;
 }
 
+// Sort of simulates the behavior of pthread_cancel()
 #define THREAD_CANCEL \
    if ( !rd->thread_active ) \
-      goto thread_end;
+      break
 
 /* Ze thread */
 static void* rsnd_thread ( void * thread_data )
@@ -1089,7 +1090,7 @@ static void* rsnd_thread ( void * thread_data )
       for(;;)
       {
 
-         THREAD_CANCEL
+         THREAD_CANCEL;
 
          // We ask the server to send its latest backend data. Do not really care about errors atm.
          // We only bother to check after 1 sec of audio has been played, as it might be quite inaccurate in the start of the stream.
@@ -1108,13 +1109,13 @@ static void* rsnd_thread ( void * thread_data )
          }
          pthread_mutex_unlock(&rd->thread.mutex);
 
-         THREAD_CANCEL
+         THREAD_CANCEL;
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size);
 
          /* If this happens, we should make sure that subsequent and current calls to rsd_write() will fail. */
          if ( rc <= 0 )
          {
-            THREAD_CANCEL
+            THREAD_CANCEL;
             rsnd_reset(rd);
 
             /* Wakes up a potentially sleeping fill_buffer() */
@@ -1155,8 +1156,6 @@ static void* rsnd_thread ( void * thread_data )
       }
 
       /* If we're still good to go, sleep. We are waiting for fill_buffer() to fill up some data. */
-
-thread_end:
 
       if ( rd->thread_active )
       {
