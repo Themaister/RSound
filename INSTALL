@@ -7,6 +7,9 @@ You will need at least one of these (headers and libraries):
    oss
    libao
    portaudio
+   openal
+   muroar
+   pulseaudio
 
 =========================
 To compile (Unix-like):
@@ -20,6 +23,9 @@ To explicitly disable support, you can add these
 --disable-oss
 --disable-libao
 --disable-portaudio
+--disable-muroar
+--disable-openal
+--disable-pulse
 
 You can refer to which modules you can (un)install by checking ./configure --help
 
@@ -48,7 +54,7 @@ $ ./configure
 $ make
 $ make install
 
-and copy over rsound.exe and rsoundserv.exe to where it might fit. To distribute
+and copy over rsd.exe and rsdplay.exe to where they might fit. To distribute
 the applications you will need to include:
 
 cyggcc_s-1.dll

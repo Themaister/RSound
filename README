@@ -1,12 +1,13 @@
 This package provides two programs.
 
-rsd -          The server which PCM data is streamed to over TCP/IP, 
+rsd        -   The server which PCM data is streamed to over TCP/IP or Unix domain sockets, 
                sound is played back with a low latency depending on what backend is used.
                It supports several connections to be played back at the same time.
 
-rsdplay -      The client which streams PCM data recieved from stdin to a rsoundserv.
-               The code in rsound is mostly for reference as the code can be implemented
-               in many different applications.
+
+rsdplay    -   The client which streams PCM data recieved from stdin to a rsoundserv.
+               The code in rsdplay is mostly for reference.
+
 
 For integration with applications, librsound can be used.
 
@@ -18,4 +19,4 @@ Microsoft Windows (Cygwin) - PortAudio, (OSS), libao, OpenAL
             this platform makes it very likely that rsound will compile without
             any major problems.
 
-On how to use these programs, refer to the --help in the respective programs.
+On how to use these programs, refer to the --help in the respective programs, or the man-pages.
