@@ -881,7 +881,8 @@ static int rsnd_close_ctl(rsound_t *rd)
    if ( fd.revents & POLLOUT )
    {
       const char *sendbuf = "RSD    9 CLOSECTL";
-      send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0);
+      if ( send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) < 0 )
+         return -1;
    }
    else if ( fd.revents & POLLHUP )
       return 0;
@@ -1208,7 +1209,16 @@ int rsd_stop(rsound_t *rd)
    rsnd_stop_thread(rd);
 
    const char buf[] = "RSD    5 STOP";
-   send(rd->conn.ctl_socket, buf, strlen(buf), 0);
+
+   struct pollfd fd = {
+      .fd = rd->conn.ctl_socket,
+      .events = POLLOUT
+   };
+
+   // Do not really care about errors here. 
+   // The socket will be closed down in any case in rsnd_reset().
+   if ((poll(&fd, 1, 0) >= 0) && (fd.revents & POLLOUT))
+      send(rd->conn.ctl_socket, buf, strlen(buf), 0);
 
    rsnd_reset(rd);
    return 0;
@@ -1296,7 +1306,20 @@ int rsd_exec(rsound_t *rsound)
    }
 
    // Flush the buffer
-   send(fd, rsound->buffer, rsound->buffer_pointer, 0);
+   ssize_t written = 0;
+   ssize_t rc;
+
+   while ( written < rsound->buffer_pointer )
+   {
+      rc = send(fd, rsound->buffer + written, rsound->buffer_pointer - written, 0);
+      if ( rc <= 0 ) // Nothing we can do, just return -1
+      {
+         close(fd);
+         return -1;
+      }
+
+      written += rc;
+   }
 
    rsd_free(rsound);
    return fd;
