@@ -837,23 +837,20 @@ static void* rsd_thread(void *thread_data)
    }
 
    // We only bother with setting buffer size if we're doing TCP.
-   if ( rsd_conn_type != RSD_CONN_UNIX )
+   if ( rsd_conn_type == RSD_CONN_TCP )
    {
+      int flag = 1;
       int bufsiz = backend_info.chunk_size * 32;
       setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
 
       if ( conn.ctl_socket )
       {
-         bufsiz = backend_info.chunk_size * 32;
          setsockopt(conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
-         bufsiz = backend_info.chunk_size * 32;
          setsockopt(conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
+         setsockopt(conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
       }
 
-      int flag = 1;
       setsockopt(conn.socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
-      flag = 1;
-      setsockopt(conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
    }
 
    /* Now we can send backend info to client. */
