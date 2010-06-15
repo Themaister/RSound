@@ -83,7 +83,8 @@ static int rsnd_connect_server( rsound_t *rd );
 static int rsnd_send_header_info(rsound_t *rd);
 static int rsnd_get_backend_info ( rsound_t *rd );
 static int rsnd_create_connection(rsound_t *rd);
-static size_t rsnd_send_chunk(int socket, char* buf, size_t size);
+static ssize_t rsnd_send_chunk(int socket, const void *buf, size_t size, int blocking);
+static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking);
 static int rsnd_start_thread(rsound_t *rd);
 static int rsnd_stop_thread(rsound_t *rd);
 static size_t rsnd_get_delay(rsound_t *rd);
@@ -288,8 +289,6 @@ static int rsnd_send_header_info(rsound_t *rd)
    /* Defines the size of a wave header */
 #define HEADER_SIZE 44
    char header[HEADER_SIZE] = {0};
-   int rc = 0;
-   struct pollfd fd;
    uint16_t temp16;
    uint32_t temp32;
 
@@ -404,33 +403,8 @@ static int rsnd_send_header_info(rsound_t *rd)
 
    // End static header
 
-   fd.fd = rd->conn.socket;
-   fd.events = POLLOUT;
-
-   size_t written = 0;
-
-   /* Really makes sure that we do send the whole header. Sets a timeout of 10 seconds. */
-   while ( written < HEADER_SIZE )
-   {
-      if ( poll(&fd, 1, 10000) < 0 )
-      {
-         return -1;
-      }
-
-      if ( fd.revents & POLLHUP )
-      {
-         return -1;
-      }
-
-      rc = 0;
-      if ( fd.revents & POLLOUT )
-      {
-         rc = send ( rd->conn.socket, header + written, HEADER_SIZE - written, 0);
-         if ( rc <= 0 )
-            return -1;
-      }
-      written += rc;
-   }
+   if ( rsnd_send_chunk(rd->conn.socket, header, HEADER_SIZE, 1) != HEADER_SIZE )
+      return -1;
 
    return 0;
 }
@@ -442,42 +416,11 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 #define LATENCY 0
 #define CHUNKSIZE 1
 
-
-   size_t recieved = 0;
-
    // Header is 2 uint32_t's. = 8 bytes.
    uint32_t rsnd_header[2] = {0};
-   int rc;
 
-   struct pollfd fd;
-   fd.fd = rd->conn.socket;
-   fd.events = POLLIN;
-
-   /* Really makes sure we recieve the whole header. (If this doesn't go through in one go, it'd make me really scared.) */
-   while ( recieved < RSND_HEADER_SIZE )
-   {
-
-      if ( poll(&fd, 1, 10000) < 0 )
-      {
-         return -1;
-      }
-
-      if ( fd.revents & POLLHUP )
-      {
-         return -1;
-      }
-
-      rc = 0;
-      if ( fd.revents & POLLIN )
-      {
-         rc = recv(rd->conn.socket, (char*)rsnd_header + recieved, RSND_HEADER_SIZE - recieved, 0);
-         if ( rc <= 0)
-            return -1;
-      }
-
-      recieved += rc;
-   }
-
+   if ( rsnd_recv_chunk(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 1) != RSND_HEADER_SIZE )
+      return -1;
 
    /* Again, we can't be 100% certain that sizeof(backend_info_t) is equal on every system */
 
@@ -523,19 +466,8 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
    // Can we read the last 8 bytes so we can use the protocol interface?
    // This is non-blocking.
-   if ( poll(&fd, 1, 0) < 0 )
-   {
-      perror("poll");
-      return -1;
-   }
-
-   // Avoid blocking if we're on cygwin <.<
-   if ( fd.revents & POLLIN )
-   {
-      rc = recv(rd->conn.socket, rsnd_header, 8, 0);
-      if ( rc == 8 )
-         rd->conn_type |= RSD_CONN_PROTO; 
-   }
+   if ( rsnd_recv_chunk(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 0) == RSND_HEADER_SIZE )
+      rd->conn_type |= RSD_CONN_PROTO; 
 
    // We no longer want to read from this socket.
    shutdown(rd->conn.socket, SHUT_RD);
@@ -618,38 +550,41 @@ static int rsnd_create_connection(rsound_t *rd)
    return 0;
 }
 
-/* Sends a chunk over the network. Makes sure that everything is sent. Returns 0 if connection is lost, >0 if success. */
-static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
+/* Sends a chunk over the network. Makes sure that everything is sent if blocking. Returns -1 if connection is lost, non-negative if success. */
+static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blocking)
 {
-   int rc = 0;
-   size_t wrote = 0;
-   size_t send_size = 0;
-   struct pollfd fd;
-   fd.fd = socket;
-   fd.events = POLLOUT;
+   ssize_t rc = 0;
+   ssize_t wrote = 0;
+   ssize_t send_size = 0;
+   struct pollfd fd = {
+      .fd = socket,
+      .events = POLLOUT
+   };
+
+   int sleep_time = (blocking) ? 10000 : 0;
 
 #define MAX_PACKET_SIZE 1024
 
    while ( wrote < size )
    {
-      if ( poll(&fd, 1, 10000) < 0 )
+      if ( poll(&fd, 1, sleep_time) < 0 )
       {
          perror("poll");
-         return 0;
+         return -1;
       }
 
 
       if ( fd.revents & POLLHUP )
       {
          RSD_WARN("*** Remote side hung up! ***");
-         return 0;
+         return -1;
       }
 
       if ( fd.revents & POLLOUT )
       {
          /* We try to limit ourselves to 1KiB packet sizes. */
          send_size = (size - wrote) > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - wrote;
-         rc = send(socket, buf + wrote, send_size, 0);
+         rc = send(socket, (const uint8_t*)buf + wrote, send_size, 0);
          if ( rc < 0 )
          {
             RSD_ERR("Error sending chunk, %s\n", strerror(errno));
@@ -658,12 +593,68 @@ static size_t rsnd_send_chunk(int socket, char* buf, size_t size)
          wrote += rc;
       }
       else
-         return 0;
-      /* If server hasn't stopped blocking after 10 secs, then we should probably shut down the stream. */
+      {
+         /* If server hasn't stopped blocking after 10 secs, then we should probably shut down the stream. */
+         if ( blocking )
+            return -1;
+         else
+            return wrote;
+      }
 
    }
    return wrote;
 }
+
+/* Recieved chunk. Makes sure that everything is recieved if blocking. Returns -1 if connection is lost, non-negative if success. */
+static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
+{
+   ssize_t rc = 0;
+   ssize_t has_read = 0;
+   ssize_t read_size = 0;
+   struct pollfd fd = {
+      .fd = socket,
+      .events = POLLIN
+   };
+
+   int sleep_time = (blocking) ? 5000 : 0;
+
+   while ( has_read < size )
+   {
+      if ( poll(&fd, 1, sleep_time) < 0 )
+      {
+         perror("poll");
+         return -1;
+      }
+
+      if ( fd.revents & POLLHUP )
+      {
+         return -1;
+      }
+
+      if ( fd.revents & POLLIN )
+      {
+         read_size = (size - has_read) > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - has_read;
+         rc = recv(socket, (uint8_t*)buf + has_read, read_size, 0);
+         if ( rc < 0 )
+         {
+            RSD_ERR("Error receiving chunk, %s\n", strerror(errno));
+            return rc;
+         }
+         has_read += rc;
+      }
+      else
+      {
+         if ( blocking )
+            return -1;
+         else
+            return has_read;
+      }
+   }
+
+   return has_read;
+}
+
+
 
 /* Calculates how many bytes there are in total in the virtual buffer. This is calculated client side.
    It should be accurate enough unless we have big problems with buffer underruns.
@@ -838,30 +829,16 @@ static int rsnd_send_identity_info(rsound_t *rd)
 #define RSD_PROTO_MAXSIZE 256
 #define RSD_PROTO_CHUNKSIZE 8
 
-   struct pollfd fd = {
-      .fd = rd->conn.ctl_socket,
-      .events = POLLOUT
-   };
+   char tmpbuf[RSD_PROTO_MAXSIZE];
+   char sendbuf[RSD_PROTO_MAXSIZE];
 
-   if ( poll(&fd, 1, 0) < 0 )
-   {
-      perror("poll");
+   snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, " IDENTITY %s", rd->identity);
+   tmpbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
+   snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
+   sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
+
+   if ( rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != strlen(sendbuf) )
       return -1;
-   }
-
-   if ( fd.revents & POLLOUT )
-   {
-      char tmpbuf[RSD_PROTO_MAXSIZE];
-      char sendbuf[RSD_PROTO_MAXSIZE];
-
-      snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, " IDENTITY %s", rd->identity);
-      tmpbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
-      snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
-      sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
-
-      if ( send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) < 0 )
-         return -1;
-   }
 
    return 0;
 }
@@ -946,31 +923,16 @@ static int rsnd_close_ctl(rsound_t *rd)
 // It will never block.
 static int rsnd_send_info_query(rsound_t *rd)
 {
-   struct pollfd fd = {
-      .fd = rd->conn.ctl_socket,
-      .events = POLLOUT
-   };
+   char tmpbuf[RSD_PROTO_MAXSIZE];
+   char sendbuf[RSD_PROTO_MAXSIZE];
 
-   if ( poll(&fd, 1, 0) < 0 )
-   {
-      perror("poll");
+   snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld", (long long int)rd->total_written);
+   tmpbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
+   snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
+   sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
+
+   if ( rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != strlen(sendbuf) )
       return -1;
-   }
-
-   if ( fd.revents & POLLOUT )
-   {
-      char tmpbuf[RSD_PROTO_MAXSIZE];
-      char sendbuf[RSD_PROTO_MAXSIZE];
-
-      snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld", (long long int)rd->total_written);
-      tmpbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
-      snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
-      sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
-
-      if ( send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) < 0 )
-         return -1;
-      return 0;
-   }
 
    return 0;
 }
@@ -980,11 +942,7 @@ static int rsnd_send_info_query(rsound_t *rd)
 static int rsnd_update_server_info(rsound_t *rd)
 {
 
-   // We only bother to send info if we're not blocking.
-   struct pollfd fd = {
-      .fd = rd->conn.ctl_socket,
-      .events = POLLIN
-   };
+   ssize_t rc;
 
    long long int client_ptr = -1;
    long long int serv_ptr = -1;
@@ -993,56 +951,48 @@ static int rsnd_update_server_info(rsound_t *rd)
    // We read until we have the last (most recent) data in the network buffer.
    for (;;)
    {
-      if ( poll(&fd, 1, 0) < 0 )
-      {
-         perror("poll");
-         return -1;
-      }
+      const char *substr;
+      char *tmpstr;
+      memset(temp, 0, sizeof(temp));
 
-      if ( fd.revents & POLLIN )
-      {
-         const char *substr;
-         char *tmpstr;
-         memset(temp, 0, sizeof(temp));
-
-         // We first recieve the small header. We just use the larger buffer as it is disposable.
-         if ( recv(rd->conn.ctl_socket, temp, RSD_PROTO_CHUNKSIZE, 0) < RSD_PROTO_CHUNKSIZE )
-            return -1;
-
-         temp[RSD_PROTO_CHUNKSIZE] = '\0';
-
-         if ( (substr = strstr(temp, "RSD")) == NULL )
-            return -1;
-
-         // Jump over "RSD" in header
-         substr += 3;
-
-         // The length of the argument message is stored in the small 8 byte header.
-         long int len = strtol(substr, NULL, 0);
-
-         // Recieve the rest of the data.
-         if ( recv(rd->conn.ctl_socket, temp, len, 0) < len )
-            return -1;
-
-         // We only bother if this is an INFO message.
-         substr = strstr(temp, "INFO");
-         if ( substr == NULL )
-            return -1;
-
-         // Jump over "INFO" in header
-         substr += 4;
-
-         client_ptr = strtoull(substr, &tmpstr, 0);
-         if ( client_ptr == 0 || *tmpstr == '\0' )
-            return -1;
-
-         substr = tmpstr;
-         serv_ptr = strtoull(substr, NULL, 0);
-         if ( serv_ptr <= 0  )
-            return -1;
-      }
-      else // We've read everything we can.
+      // We first recieve the small header. We just use the larger buffer as it is disposable.
+      rc = rsnd_recv_chunk(rd->conn.ctl_socket, temp, RSD_PROTO_CHUNKSIZE, 0);
+      if ( rc == 0 )
          break;
+      else if ( rc < RSD_PROTO_CHUNKSIZE )
+         return -1;
+
+      temp[RSD_PROTO_CHUNKSIZE] = '\0';
+
+      if ( (substr = strstr(temp, "RSD")) == NULL )
+         return -1;
+
+      // Jump over "RSD" in header
+      substr += 3;
+
+      // The length of the argument message is stored in the small 8 byte header.
+      long int len = strtol(substr, NULL, 0);
+
+      // Recieve the rest of the data.
+      if ( rsnd_recv_chunk(rd->conn.ctl_socket, temp, len, 0) < len )
+         return -1;
+
+      // We only bother if this is an INFO message.
+      substr = strstr(temp, "INFO");
+      if ( substr == NULL )
+         continue;
+
+      // Jump over "INFO" in header
+      substr += 4;
+
+      client_ptr = strtoull(substr, &tmpstr, 0);
+      if ( client_ptr == 0 || *tmpstr == '\0' )
+         return -1;
+
+      substr = tmpstr;
+      serv_ptr = strtoull(substr, NULL, 0);
+      if ( serv_ptr <= 0 )
+         return -1;
    }
 
    if ( client_ptr > 0 && serv_ptr > 0 )
@@ -1115,10 +1065,10 @@ static void* rsnd_thread ( void * thread_data )
          pthread_mutex_unlock(&rd->thread.mutex);
 
          THREAD_CANCEL;
-         rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size);
+         rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size, 1);
 
          /* If this happens, we should make sure that subsequent and current calls to rsd_write() will fail. */
-         if ( rc <= 0 )
+         if ( rc != rd->backend_info.chunk_size )
          {
             THREAD_CANCEL;
             rsnd_reset(rd);
@@ -1221,15 +1171,9 @@ int rsd_stop(rsound_t *rd)
 
    const char buf[] = "RSD    5 STOP";
 
-   struct pollfd fd = {
-      .fd = rd->conn.ctl_socket,
-      .events = POLLOUT
-   };
-
    // Do not really care about errors here. 
    // The socket will be closed down in any case in rsnd_reset().
-   if ((poll(&fd, 1, 0) >= 0) && (fd.revents & POLLOUT))
-      send(rd->conn.ctl_socket, buf, strlen(buf), 0);
+   rsnd_send_chunk(rd->conn.ctl_socket, buf, strlen(buf), 0);
 
    rsnd_reset(rd);
    return 0;
@@ -1317,19 +1261,11 @@ int rsd_exec(rsound_t *rsound)
    }
 
    // Flush the buffer
-   ssize_t written = 0;
-   ssize_t rc;
 
-   while ( written < rsound->buffer_pointer )
+   if ( rsnd_send_chunk(fd, rsound->buffer, rsound->buffer_pointer, 1) != rsound->buffer_pointer )
    {
-      rc = send(fd, rsound->buffer + written, rsound->buffer_pointer - written, 0);
-      if ( rc <= 0 ) // Nothing we can do, just return -1
-      {
-         close(fd);
-         return -1;
-      }
-
-      written += rc;
+      close(fd);
+      return -1;
    }
 
    rsd_free(rsound);
