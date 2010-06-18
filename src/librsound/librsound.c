@@ -97,6 +97,8 @@ static int rsnd_close_ctl(rsound_t *rd);
 static int rsnd_send_info_query(rsound_t *rd);
 static int rsnd_update_server_info(rsound_t *rd);
 
+static int rsnd_poll(struct pollfd *fd, int numfd, int timeout);
+
 static void* rsnd_thread ( void * thread_data );
 
 // Does some logging
@@ -497,9 +499,8 @@ static int rsnd_create_connection(rsound_t *rd)
          .events = POLLOUT
       };
 
-      if ( poll(&fd, 1, 2000) < 0 )
+      if ( rsnd_poll(&fd, 1, 2000) < 0 )
       {
-         perror("poll");
          rsd_stop(rd);
          return -1;
       }
@@ -568,15 +569,8 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
 
    while ( wrote < size )
    {
-      if ( poll(&fd, 1, sleep_time) < 0 )
-      {
-         if ( errno == EINTR )
-            continue;
-
-         perror("poll");
+      if ( rsnd_poll(&fd, 1, sleep_time) < 0 )
          return -1;
-      }
-
 
       if ( fd.revents & POLLHUP )
       {
@@ -625,14 +619,8 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
 
    while ( has_read < size )
    {
-      if ( poll(&fd, 1, sleep_time) < 0 )
-      {
-         if ( errno == EINTR )
-            continue;
-
-         perror("poll");
+      if ( rsnd_poll(&fd, 1, sleep_time) < 0 )
          return -1;
-      }
 
       if ( fd.revents & POLLHUP )
       {
@@ -662,6 +650,22 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
    return has_read;
 }
 
+static int rsnd_poll(struct pollfd *fd, int numfd, int timeout)
+{
+   for(;;)
+   {
+      if ( poll(fd, numfd, timeout) < 0 )
+      {
+         if ( errno == EINTR )
+            continue;
+
+         perror("poll");
+         return -1;
+      }
+      break;
+   }
+   return 0;
+}
 
 
 /* Calculates how many bytes there are in total in the virtual buffer. This is calculated client side.
@@ -861,11 +865,8 @@ static int rsnd_close_ctl(rsound_t *rd)
       .events = POLLOUT
    };
 
-   if ( poll(&fd, 1, 0) < 0 )
-   {
-      perror("poll");
+   if ( rsnd_poll(&fd, 1, 0) < 0 )
       return -1;
-   }
 
    if ( fd.revents & POLLOUT )
    {
@@ -884,11 +885,8 @@ static int rsnd_close_ctl(rsound_t *rd)
 
    for(;;)
    {
-      if ( poll(&fd, 1, 2000) < 0 )
-      {
-         perror("poll");
+      if ( rsnd_poll(&fd, 1, 2000) < 0 )
          return -1;
-      }
 
       if ( fd.revents & POLLHUP )
          break;
