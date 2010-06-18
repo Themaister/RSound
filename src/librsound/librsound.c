@@ -550,7 +550,8 @@ static int rsnd_create_connection(rsound_t *rd)
    return 0;
 }
 
-/* Sends a chunk over the network. Makes sure that everything is sent if blocking. Returns -1 if connection is lost, non-negative if success. */
+/* Sends a chunk over the network. Makes sure that everything is sent if blocking. Returns -1 if connection is lost, non-negative if success.
+ * If blocking, and not enough data is recieved, it will return -1. */
 static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blocking)
 {
    ssize_t rc = 0;
@@ -569,6 +570,9 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
    {
       if ( poll(&fd, 1, sleep_time) < 0 )
       {
+         if ( errno == EINTR )
+            continue;
+
          perror("poll");
          return -1;
       }
@@ -605,7 +609,8 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
    return wrote;
 }
 
-/* Recieved chunk. Makes sure that everything is recieved if blocking. Returns -1 if connection is lost, non-negative if success. */
+/* Recieved chunk. Makes sure that everything is recieved if blocking. Returns -1 if connection is lost, non-negative if success.
+ * If blocking, and not enough data is recieved, it will return -1. */
 static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
 {
    ssize_t rc = 0;
@@ -622,6 +627,9 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
    {
       if ( poll(&fd, 1, sleep_time) < 0 )
       {
+         if ( errno == EINTR )
+            continue;
+
          perror("poll");
          return -1;
       }
