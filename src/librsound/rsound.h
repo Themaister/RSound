@@ -52,9 +52,10 @@ extern "C" {
 #define RSD_ALAW     RSD_ALAW
 #define RSD_MULAW    RSD_MULAW
 
-#define RSD_DELAY_MS    RSD_DELAY_MS
-#define RSD_SAMPLESIZE  RSD_SAMPLESIZE
-#define RSD_EXEC        RSD_EXEC
+#define RSD_DELAY_MS       RSD_DELAY_MS
+#define RSD_SAMPLESIZE     RSD_SAMPLESIZE
+#define RSD_EXEC           RSD_EXEC
+#define RSD_SIMPLE_START   RSD_SIMPLE_START
 
 #define RSD_NO_FMT RSD_NO_FMT
 /* End feature tests */
@@ -152,6 +153,15 @@ extern "C" {
       rsd_free(rd);
     */
    int rsd_init (rsound_t **rd);
+
+
+   /* This is a simpler function that initializes an rsound struct, sets params as given, 
+      and starts the stream. Should this function fail, the structure will stay uninitialized.
+      Should NULL be passed in either host, port or ident, defaults will be used. */
+
+   int rsd_simple_start (rsound_t **rd, const char* host, const char* port, const char* ident,
+                           int rate, int channels, int format);
+
 
    /* Sets params associated with an rsound_t. These options (int options) include:
 

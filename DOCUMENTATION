@@ -34,6 +34,7 @@ All librsound calls are named with rsd_*.
 
 
 int rsd_init(rsound_t** handle);
+int rsd_simple_start(rsound_t** handle, const char* host, const char* port, const char* ident, int rate, int channels, int format);
 int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);
 int rsd_start(rsound_t* handle);
 int rsd_exec(rsound_t* handle);
@@ -66,6 +67,33 @@ rsd_init(&handle);
 
 Error handling has been omitted for clarity.
 
+
+================================================================================================
+int rsd_simple_start(rsound_t** handle, const char* host, const char* port, const char* ident, 
+                     int rate, int channels, int format);
+================================================================================================
+
+Params:
+   handle: Pointer to rsound_t* struct.
+   host: host as set with RSD_HOST. Can be NULL.
+   port: port as set with RSD_PORT. Can be NULL.
+   ident: identity as set with RSD_IDENTITY. Can be NULL.
+   rate: Audio sample rate. (RSD_SAMPLERATE)
+   channels: Number of audio channels. (RSD_CHANNELS)
+   format: Audio format. (RSD_FORMAT)
+
+Description:
+   Handles rsd_init(), rsd_set_params() and rsd_start() in one step. Should it error,
+   it will make sure that no memory is leaked. The handle is considered uninitialized
+   should this function fail. If it does not, a working connection is established.
+
+Example code:
+   rsound_t *handle;
+   rsd_simple_start(&handle, "localhost", "12345", "simple player",
+                     44100, 2, RSD_S16_NE);
+
+Note: This is a newer function call. To check for support in your version, you can check
+      for the macro definition #ifdef RSD_SIMPLE_START
 
 ============================================================================
 int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);

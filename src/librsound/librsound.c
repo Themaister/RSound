@@ -662,8 +662,10 @@ static int rsnd_poll(struct pollfd *fd, int numfd, int timeout)
          perror("poll");
          return -1;
       }
-      break;
+      return 0;
    }
+
+   // Avoids warning
    return 0;
 }
 
@@ -1453,6 +1455,36 @@ int rsd_init(rsound_t** rsound)
       rsd_set_param(*rsound, RSD_PORT, rsdport);
    else
       rsd_set_param(*rsound, RSD_PORT, RSD_DEFAULT_PORT);
+
+   return 0;
+}
+
+int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, const char* ident,
+                     int rate, int channels, int fmt)
+{
+   if ( rsd_init(rsound) < 0 )
+      return -1;
+
+   if ( host != NULL )
+      rsd_set_param(*rsound, RSD_HOST, (void*)host);
+   if ( port != NULL )
+      rsd_set_param(*rsound, RSD_PORT, (void*)port);
+   if ( ident != NULL )
+      rsd_set_param(*rsound, RSD_IDENTITY, (void*)ident);
+
+   if (  rsd_set_param(*rsound, RSD_SAMPLERATE, &rate) < 0 ||
+         rsd_set_param(*rsound, RSD_CHANNELS, &channels) < 0 ||
+         rsd_set_param(*rsound, RSD_FORMAT, &fmt) < 0 )
+   {
+      rsd_free(*rsound);
+      return -1;
+   }
+
+   if ( rsd_start(*rsound) < 0 )
+   {
+      rsd_free(*rsound);
+      return -1;
+   }
 
    return 0;
 }
