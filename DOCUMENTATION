@@ -34,7 +34,7 @@ All librsound calls are named with rsd_*.
 
 
 int rsd_init(rsound_t** handle);
-int rsd_simple_start(rsound_t** handle, const char* host, const char* port, const char* ident, int rate, int channels, int format);
+int rsd_simple_start(rsound_t** handle, const char* host, const char* port, const char* ident, int rate, int channels, enum rsd_format format);
 int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);
 int rsd_start(rsound_t* handle);
 int rsd_exec(rsound_t* handle);
@@ -70,7 +70,7 @@ Error handling has been omitted for clarity.
 
 ================================================================================================
 int rsd_simple_start(rsound_t** handle, const char* host, const char* port, const char* ident, 
-                     int rate, int channels, int format);
+                     int rate, int channels, enum rsd_format format);
 ================================================================================================
 
 Params:
