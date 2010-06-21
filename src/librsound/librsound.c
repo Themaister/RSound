@@ -1460,10 +1460,12 @@ int rsd_init(rsound_t** rsound)
 }
 
 int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, const char* ident,
-                     int rate, int channels, int fmt)
+                     int rate, int channels, enum rsd_format format)
 {
    if ( rsd_init(rsound) < 0 )
       return -1;
+
+   int fmt = format;
 
    if ( host != NULL )
       rsd_set_param(*rsound, RSD_HOST, (void*)host);
