@@ -92,7 +92,7 @@ int main(int argc, char **argv)
       if ( rc <= 0 )
          break;
 
-      rc = write_all(rsd_fd, buffer, READ_SIZE);
+      rc = write_all(rsd_fd, buffer, rc);
       if ( rc <= 0 )
          break;
    }
@@ -114,7 +114,7 @@ static ssize_t read_all(int fd, void *buf, size_t size)
       rc = read(fd, (uint8_t*)buf + has_read, size - has_read);
 
       if ( rc <= 0 )
-         return rc;
+         return has_read;
 
       has_read += rc;
    }
