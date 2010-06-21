@@ -38,10 +38,13 @@ static char port[128] = "";
 static char host[1024] = "";
 static char ident[256] = "rsdplay";
 
-static int set_other_params(rsound_t *rd);
+static int set_rsd_params(rsound_t *rd);
 static void parse_input(int argc, char **argv);
 
-static int infd = 0;
+static ssize_t read_all(int fd, void *buf, size_t size);
+static ssize_t write_all(int fd, const void *buf, size_t size);
+
+static int infd = STDIN_FILENO;
 
 int main(int argc, char **argv)
 {
@@ -61,58 +64,89 @@ int main(int argc, char **argv)
    if ( strlen(port) > 0 )
       rsd_set_param(rd, RSD_PORT, (void*)port);
 
-   if ( set_other_params(rd) < 0 )
+   if ( set_rsd_params(rd) < 0 )
    {
       fprintf(stderr, "Couldn't read data.\n");
       rsd_free(rd);
-      exit(1);
+      return 1;
    }
 
-   if ( rsd_start(rd) < 0 )
+   int rsd_fd = rsd_exec(rd);
+   if ( rsd_fd < 0 )
    {
       fprintf(stderr, "Failed to establish connection to server\n");
       rsd_free(rd);
-      exit(1);
+      return 1;
    }
 
    buffer = malloc ( READ_SIZE );
    if ( buffer == NULL )
    {
       fprintf(stderr, "Failed to allocate memory for buffer\n");
-      exit(1);
+      return 1;
    }
 
-   while(1)
+   for(;;)
    {
-      memset(buffer, 0, READ_SIZE);
-      rc = read(infd, buffer, READ_SIZE);
+      rc = read_all(infd, buffer, READ_SIZE);
       if ( rc <= 0 )
-         goto quit;
+         break;
 
-      rc = rsd_write(rd, buffer, READ_SIZE);
+      rc = write_all(rsd_fd, buffer, READ_SIZE);
       if ( rc <= 0 )
-      {
-         fprintf(stderr, "Server closed connection.\n");
-         goto quit;
-      }
-
+         break;
    }
-quit:
-   rsd_stop(rd);
-   rsd_free(rd);
+
+   free(buffer);
+   close(rsd_fd);
    close(infd);
 
    return 0;
 }
 
-static int set_other_params(rsound_t *rd)
+static ssize_t read_all(int fd, void *buf, size_t size)
+{
+   ssize_t has_read = 0;
+   ssize_t rc;
+
+   while ( has_read < size )
+   {
+      rc = read(fd, (uint8_t*)buf + has_read, size - has_read);
+
+      if ( rc <= 0 )
+         return rc;
+
+      has_read += rc;
+   }
+
+   return has_read;
+}
+
+static ssize_t write_all(int fd, const void *buf, size_t size)
+{
+   ssize_t has_written = 0;
+   ssize_t rc;
+
+   while ( has_written < size )
+   {
+      rc = write(fd, (const uint8_t*)buf + has_written, size - has_written);
+
+      if ( rc <= 0 )
+         return rc;
+
+      has_written += rc;
+   }
+
+   return has_written;
+}
+
+static int set_rsd_params(rsound_t *rd)
 {
    int rate, channels, bits;
    uint16_t temp_channels, temp_bits, temp_fmt;
    uint32_t temp_rate;
 
    int rc;
-   int read_in = 0;
    char buf[HEADER_SIZE] = {0};
 
 #define RATE 24
@@ -122,13 +156,9 @@ static int set_other_params(rsound_t *rd)
 
    if ( !raw_mode )
    {  
-      while ( read_in < HEADER_SIZE )
-      {
-         rc = read( infd, buf + read_in, HEADER_SIZE - read_in );
-         if ( rc <= 0 )
-            return -1;
-         read_in += rc;
-      }
+      rc = read_all( infd, buf, HEADER_SIZE );
+      if ( rc <= 0 )
+         return -1;
 
       // We read raw little endian data from the wave input file. This needs to be converted to
       // host byte order when we pass it to rsd_set_param() later.
