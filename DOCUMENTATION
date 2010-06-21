@@ -293,7 +293,7 @@ int rsd_stop(rsound_t* handle);
 ==================================
 
 Description: 
-   Disconnects from the server. This will flush all buffers, 
+   Disconnects from the server. This will drain all buffers, 
    and will not assure that all audio has been played back before returning.
    It shouldn't really fail, and if it happens for some reason, 
    there isn't much the programmer can or should do about it.
