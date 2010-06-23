@@ -4,5 +4,6 @@
 *.pc
 /src/rsdplay
 /src/rsd
+/src/tests/rsd-simple-start
 /src/config.h
 /src/config.mk
