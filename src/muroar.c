@@ -100,7 +100,7 @@ static size_t muroar_rsd_write(void *data, const void* buf, size_t size)
 {
    muroar_t *sound = data;
    if ( muroar_write(sound->fh, (void*)buf, size) != (ssize_t)size )
-      return -1;
+      return 0;
    return size;
 }
 
