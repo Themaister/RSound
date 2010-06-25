@@ -135,7 +135,7 @@ void new_sound_thread ( connection_t connection )
    }
 
    /* If we're not using serveral threads, we must wait for the last thread to join. */
-   if ( no_threading && (int)last_thread != 0 )
+   if ( no_threading && last_thread != 0 )
       pthread_join(last_thread, NULL);
 
    /* Creates new thread */

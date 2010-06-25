@@ -8,7 +8,7 @@ TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
 PKGCONF_PATH = $(PREFIX)/lib/pkgconfig/rsound.pc
 
-CFLAGS += -Wall
+CFLAGS += -Wall -std=c99 -D_GNU_SOURCE
 
 TARGET_SERVER_LIBS = -lpthread
 TARGET_LIB_LIBS = -lpthread
@@ -21,7 +21,7 @@ ifeq ($(HAVE_ALSA), 1)
 endif
 
 ifeq ($(HAVE_OSS), 1)
-ifeq ($(HAVE_OSSAUDIO), 1)
+ifeq ($(NEED_OSSAUDIO), 1)
    OPT_SERV_LIBS += -lossaudio
 endif
    OPT_SERV_OBJ += oss.o
