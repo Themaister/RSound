@@ -1,6 +1,6 @@
-==============
-Dependencies:
-==============
+===============
+ Dependencies:
+===============
 
 You will need at least one of these (headers and libraries):
    alsa-lib
@@ -11,9 +11,9 @@ You will need at least one of these (headers and libraries):
    muroar
    pulseaudio
 
-=========================
-To compile (Unix-like):
-=========================
+==========================
+ To compile (Unix-like):
+==========================
 
 Custom configure script, but will recognize some autotool-isms like --prefix, etc.
 It will try to detect backend support.
@@ -33,9 +33,11 @@ $ ./configure
 $ make
 # make install
 
-======================
-To compile (Cygwin):
-======================
+Note: On BSD-systems, you'll have to use gmake.
+
+=======================
+ To compile (Cygwin):
+=======================
 
 Windows is supported via:
    libao
@@ -60,3 +62,8 @@ the applications you will need to include:
 cyggcc_s-1.dll
 cygportaudio-2.dll / cygao-2.dll
 cygwin1.dll
+
+Note: The cygwin build is considered deprecated, and has some unresolved bugs related to 100% CPU usage. 
+A native Win32 port can be found at:
+http://github.com/Themaister/RSound/downloads
+

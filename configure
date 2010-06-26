@@ -16,7 +16,7 @@ HAVE_MUROAR=auto
 HAVE_PULSE=auto
 
 PREFIX=/usr/local
-RSD_VERSION=0.9.3
+RSD_VERSION=0.9.4
 
 ### Command line stuff
 
