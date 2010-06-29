@@ -29,7 +29,7 @@ endif
 
 ifeq ($(HAVE_LIBAO), 1)
    OPT_SERV_LIBS += -lao
-   OPT_SERV_OBJ += ao.c
+   OPT_SERV_OBJ += ao.o
 endif
 
 ifeq ($(HAVE_PULSE), 1)
