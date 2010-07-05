@@ -556,7 +556,7 @@ static int rsnd_create_connection(rsound_t *rd)
 static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blocking)
 {
    ssize_t rc = 0;
-   ssize_t wrote = 0;
+   size_t wrote = 0;
    ssize_t send_size = 0;
    struct pollfd fd = {
       .fd = socket,
@@ -600,7 +600,7 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
       }
 
    }
-   return wrote;
+   return (ssize_t)wrote;
 }
 
 /* Recieved chunk. Makes sure that everything is recieved if blocking. Returns -1 if connection is lost, non-negative if success.
@@ -608,7 +608,7 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
 static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
 {
    ssize_t rc = 0;
-   ssize_t has_read = 0;
+   size_t has_read = 0;
    ssize_t read_size = 0;
    struct pollfd fd = {
       .fd = socket,
@@ -647,7 +647,7 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
       }
    }
 
-   return has_read;
+   return (ssize_t)has_read;
 }
 
 static int rsnd_poll(struct pollfd *fd, int numfd, int timeout)
@@ -851,7 +851,7 @@ static int rsnd_send_identity_info(rsound_t *rd)
    snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
    sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
 
-   if ( rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != strlen(sendbuf) )
+   if ( rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != (ssize_t)strlen(sendbuf) )
       return -1;
 
    return 0;
@@ -939,7 +939,7 @@ static int rsnd_send_info_query(rsound_t *rd)
    snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
    sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
 
-   if ( rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != strlen(sendbuf) )
+   if ( rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != (ssize_t)strlen(sendbuf) )
       return -1;
 
    return 0;
@@ -1076,7 +1076,7 @@ static void* rsnd_thread ( void * thread_data )
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size, 1);
 
          /* If this happens, we should make sure that subsequent and current calls to rsd_write() will fail. */
-         if ( rc != rd->backend_info.chunk_size )
+         if ( rc != (int)rd->backend_info.chunk_size )
          {
             THREAD_CANCEL;
             rsnd_reset(rd);

@@ -106,7 +106,7 @@ int main(int argc, char **argv)
 
 static ssize_t read_all(int fd, void *buf, size_t size)
 {
-   ssize_t has_read = 0;
+   size_t has_read = 0;
    ssize_t rc;
 
    while ( has_read < size )
@@ -119,12 +119,12 @@ static ssize_t read_all(int fd, void *buf, size_t size)
       has_read += rc;
    }
 
-   return has_read;
+   return (ssize_t)has_read;
 }
 
 static ssize_t write_all(int fd, const void *buf, size_t size)
 {
-   ssize_t has_written = 0;
+   size_t has_written = 0;
    ssize_t rc;
 
    while ( has_written < size )
@@ -137,7 +137,7 @@ static ssize_t write_all(int fd, const void *buf, size_t size)
       has_written += rc;
    }
 
-   return has_written;
+   return (ssize_t)has_written;
 }
 
 static int set_rsd_params(rsound_t *rd)

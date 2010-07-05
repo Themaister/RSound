@@ -73,24 +73,62 @@ done
 
 check_lib()
 {
+   echo -n "Checking function $3 in -l$2 ... "
    echo "void $3(void); int main(void) { $3(); return 0; }" > $TEMP_C
 
    eval HAVE_$1=no
-   $CC -o $TEMP_EXE $TEMP_C -l$2 2>/dev/null >/dev/null && eval HAVE_$1=yes
+   answer=no
+   $CC -o $TEMP_EXE $TEMP_C -l$2 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
+
+   echo $answer
 
    rm -rf $TEMP_C $TEMP_EXE
 }
 
 check_header()
 {
+   echo -n "Checking presence of header file $2 ... "
    echo "#include<$2>" > $TEMP_C
    echo "int main(void) { return 0; }" >> $TEMP_C
    eval HAVE_$1=no
+   answer=no
 
-   $CC -o $TEMP_EXE $TEMP_C 2>/dev/null >/dev/null && eval HAVE_$1=yes
+   $CC -o $TEMP_EXE $TEMP_C 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
+
+   echo $answer
 
    rm -rf $TEMP_C $TEMP_EXE
 }
+
+check_switch()
+{
+   echo -n "Checking for availability of switch $2 ... "
+   echo "int main(void) { return 0; }" > $TEMP_C
+   eval HAVE_$1=no
+   answer=no
+   $CC -o $TEMP_EXE $TEMP_C $2 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
+
+   echo $answer
+
+   rm -rf $TEMP_C $TEMP_EXE
+}
+
+check_switch GNU99 -std=gnu99
+check_switch C99 -std=c99
+check_switch WEXTRA -Wextra
+
+if [ $HAVE_GNU99 = yes ]; then
+   CFLAGS="$CFLAGS -std=gnu99 -Wall" 
+elif [ $HAVE_C99 = yes ]; then
+   CFLAGS="$CFLAGS -std=c99 -Wall"
+else
+   echo "The C compiler \"$CC\" does not support C99. Cannot build."
+   exit 1
+fi
+
+if [ $HAVE_WEXTRA = yes ]; then
+   CFLAGS="$CFLAGS -Wextra"
+fi
 
 check_lib PTHREAD pthread pthread_create
 if [ $HAVE_PTHREAD = no ]; then
@@ -192,6 +230,8 @@ echo "PREFIX = $PREFIX" >> src/config.mk
 
 ### Output log
 
+echo ""
+echo ""
 echo "============================"
 echo "Configuration successful."
 echo "============================"

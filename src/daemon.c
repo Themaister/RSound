@@ -42,13 +42,13 @@ static int valid_ips(struct sockaddr_storage *their_addr);
 static void log_message(const char* ip);
 
 // Union for casting without aliasing violations.
-union
+static union
 {
    struct sockaddr* addr;
    struct sockaddr_storage* storage;
    struct sockaddr_in* v4;
    struct sockaddr_in6* v6;
-} static u[2];
+} u[2];
 
 int main(int argc, char ** argv)
 {

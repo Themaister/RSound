@@ -8,8 +8,6 @@ TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
 PKGCONF_PATH = $(PREFIX)/lib/pkgconfig/rsound.pc
 
-CFLAGS += -Wall -std=c99 -D_GNU_SOURCE
-
 TARGET_SERVER_LIBS = -lpthread
 TARGET_LIB_LIBS = -lpthread
 OPT_SERV_LIBS =
