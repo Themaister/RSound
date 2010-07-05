@@ -76,33 +76,33 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
-	@$(CC) -shared -Wl,-soname,librsound.so.1 -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
 	@echo "LD `echo $@ | sed 's|^\S\+/\([^.]\+\).*|\1.so|'`"
+	@$(CC) -shared -Wl,-soname,librsound.so.1 -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
 	@ln -sf librsound.so.1.0.1 librsound/librsound.so.1
 	@ln -sf librsound.so.1.0.1 librsound/librsound.so
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
-	@$(CC) -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS)
 	@echo "LD $@"
+	@$(CC) -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS)
 
 
 librsound/librsound.o: librsound/librsound.c config.h
-	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 	@echo "CC `echo $< | sed 's|^\S\+/\(\S\+\)|\1|'`"
+	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 $(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
-	@$(AR) r $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
 	@echo "AR `echo $@ | sed 's|^\S\+/\([^.]\+\).*|\1.a|'`"
+	@$(AR) r $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
 
 
 
 rsound-common.o: rsound-common.c config.h
-	@$(CC) $(CFLAGS) -c -o $@ $<
 	@echo "CC $<"
+	@$(CC) $(CFLAGS) -c -o $@ $<
 	
 %.o: %.c
-	@$(CC) $(CFLAGS) -c -o $@ $<
 	@echo "CC $<"
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
 	rm -rf rsd 
