@@ -122,7 +122,7 @@ if [ $HAVE_GNU99 = yes ]; then
 elif [ $HAVE_C99 = yes ]; then
    CFLAGS="$CFLAGS -std=c99 -Wall"
 else
-   echo "The C compiler \"$CC\" does not support C99. Cannot build."
+   echo "The C compiler \"$CC\" does not seem to support C99. Cannot build."
    exit 1
 fi
 
@@ -247,4 +247,5 @@ echo "   Prefix: $PREFIX"
 echo "   CC:     $CC"
 echo "   CFLAGS: $CFLAGS"
 echo ""
-echo ":: Type 'make' to compile. If you're on BSD system, you must use 'gmake'."
+echo ":: Type 'make' to compile ('gmake' for BSD systems)."
+
