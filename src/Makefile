@@ -112,6 +112,10 @@ clean:
 	rm -rf librsound/librsound.a
 	rm -rf *.o
 
+distclean: clean
+	rm -rf config.h
+	rm -rf config.mk
+
 install: install-lib install-server install-client
 
 
@@ -156,4 +160,4 @@ uninstall:
 	rm -rf $(PREFIX)/share/man/man1/rsdplay.1
 
 
-.PHONY: clean client lib server install install-lib install-server install-client all uninstall
+.PHONY: clean distclean client lib server install install-lib install-server install-client all uninstall
