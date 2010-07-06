@@ -109,6 +109,7 @@ clean:
 	rm -rf librsound/librsound.o
 	rm -rf librsound/librsound.a
 	rm -rf *.o
+	rm -rf rsound.pc
 
 distclean: clean
 	rm -rf config.h
