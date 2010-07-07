@@ -35,7 +35,7 @@ print_help()
 
 while [ ! -z "$1" ]
 do
-   prefix=`echo $1 | sed -e 's|^--prefix=\(\S\+\)$|\1|' -e 's|\(\S\+\)/|\1|'`
+   prefix=`echo $1 | sed -e 's|^--prefix=\(\S\S*\)$|\1|' -e 's|\(\S\S*\)/|\1|'`
 
    if [ "$prefix" != "$1" ]; then
       PREFIX="$prefix"
