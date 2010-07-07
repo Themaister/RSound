@@ -92,15 +92,12 @@ $(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
 	@echo "AR `echo $@ | sed 's|^\S\+/\([^.]\+\).*|\1.a|'`"
 	@$(AR) rcs $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
 
-
-
-rsound-common.o: rsound-common.c config.h
-	@echo "CC $<"
-	@$(CC) $(CFLAGS) -c -o $@ $<
 	
 %.o: %.c
 	@echo "CC $<"
 	@$(CC) $(CFLAGS) -c -o $@ $<
+
+rsound-common.o: config.h
 
 clean:
 	rm -rf rsd 
