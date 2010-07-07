@@ -138,16 +138,16 @@ install-client: $(TARGET_CLIENT)
 
 install-pkgconf:
 	@echo "prefix=$(PREFIX)" > rsound.pc
-	@echo "exec_prefix=$(PREFIX)" >> rsound.pc
-	@echo "libdir=$(PREFIX)/lib" >> rsound.pc
-	@echo "includedir=$(PREFIX)/include" >> rsound.pc
+	@echo "exec_prefix=\$${prefix}" >> rsound.pc
+	@echo "libdir=\$${prefix}/lib" >> rsound.pc
+	@echo "includedir=\$${prefix}/include" >> rsound.pc
 	@echo "" >> rsound.pc
 	@echo "Name: RSound" >> rsound.pc
 	@echo "Description: An audio library designed for seamless networked transfer of audio streams." >> rsound.pc
 	@echo "Requires:" >> rsound.pc
 	@echo "Version: 0.9.2" >> rsound.pc
-	@echo "Libs: -L$(PREFIX)/lib -lrsound" >> rsound.pc
-	@echo "Cflags: -I$(PREFIX)/include" >> rsound.pc
+	@echo "Libs: -L\$${prefix}/lib -lrsound" >> rsound.pc
+	@echo "Cflags: -I\$${prefix}/include" >> rsound.pc
 
 uninstall:
 	rm -rf $(PREFIX)/bin/rsd
