@@ -354,18 +354,18 @@ void parse_input(int argc, char **argv)
       backend = &rsd_oss;
 #endif
 #else
-#ifdef _PULSE
-      backend = &rsd_pulse;
-#elif _ALSA
+#ifdef _ALSA
       backend = &rsd_alsa;
 #elif _OSS
       backend = &rsd_oss;
-#elif _AO
-      backend = &rsd_ao;
-#elif _PORTA
-      backend = &rsd_porta;
 #elif _AL
       backend = &rsd_al;
+#elif _PORTA
+      backend = &rsd_porta;
+#elif _PULSE
+      backend = &rsd_pulse;
+#elif _AO
+      backend = &rsd_ao;
 #elif _MUROAR
       backend = &rsd_muroar;
 #endif
@@ -378,6 +378,7 @@ void parse_input(int argc, char **argv)
    if ( backend == NULL )
    {
       fprintf(stderr, "rsd was not compiled with any output support, exiting ...");
+      exit(1);
    }
 
 }
