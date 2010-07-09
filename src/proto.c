@@ -129,7 +129,7 @@ int handle_ctl_request(connection_t *conn, void *data)
             if ( conn->ctl_socket != 0 )
                close(conn->ctl_socket);
             conn->ctl_socket = 0;
-            break;
+            return 0; // No point in continuing here.
 
          default:
             return -1;

@@ -733,14 +733,16 @@ static int recieve_data(void *data, connection_t *conn, char* buffer, size_t siz
 
    // Will not check ctl_socket if it's never used.
    int fds; 
-   if ( conn->ctl_socket > 0 )
-      fds = 2;
-   else
-      fds = 1;
 
    while ( read < size )
    {
-      if ( poll(fd, fds, 50) < 0)
+      // We check this in a loop since ctl_socket might change in handle_ctl_request().
+      if ( conn->ctl_socket > 0 )
+         fds = 2;
+      else
+         fds = 1;
+
+      if ( poll(fd, fds, 1000) < 0)
          return 0;
 
       // If POLLIN is active on ctl socket handle this request, or if POLLHUP, shut the stream down.
