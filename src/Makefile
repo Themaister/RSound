@@ -142,7 +142,7 @@ install-pkgconf:
 	@echo "Name: RSound" >> rsound.pc
 	@echo "Description: An audio library designed for seamless networked transfer of audio streams." >> rsound.pc
 	@echo "Requires:" >> rsound.pc
-	@echo "Version: 0.9.4" >> rsound.pc
+	@echo "Version: $(RSD_VERSION)" >> rsound.pc
 	@echo "Libs: -L\$${prefix}/lib -lrsound" >> rsound.pc
 	@echo "Cflags: -I\$${prefix}/include" >> rsound.pc
 

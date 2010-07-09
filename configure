@@ -166,6 +166,7 @@ echo "" > src/config.h
 echo "" > src/config.mk
 
 echo "#define RSD_VERSION \"$RSD_VERSION\"" >> src/config.h
+echo "RSD_VERSION = $RSD_VERSION" >> src/config.mk
 
 echo "CC = $CC" >> src/config.mk
 echo "CFLAGS = $CFLAGS" >> src/config.mk
