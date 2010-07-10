@@ -1,5 +1,7 @@
 *.o
 *.so*
+*.dll
+*.exe
 *.a
 *.pc
 /src/rsdplay
