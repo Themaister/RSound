@@ -64,6 +64,17 @@ cygportaudio-2.dll / cygao-2.dll
 cygwin1.dll
 
 Note: The cygwin build is considered deprecated, and has some unresolved bugs related to 100% CPU usage. 
-A native Win32 port can be found at:
-http://github.com/Themaister/RSound/downloads
+
+======================
+ To compile (Win32):
+======================
+
+A native win32 port is included in the source tree.
+
+To build, make sure that the toolchain can be found in your PATH.
+Also, copy pthreadGC2.dll found in the win32-pthread package into src/win32/bin/.
+
+To compile, type: mingw32-make mingw32
+
+Binaries will be found in src/win32/bin.
 
