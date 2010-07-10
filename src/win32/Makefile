@@ -7,12 +7,11 @@ CFLAGS := -O2 -Wall -Wextra -std=gnu99
 INCLUDE_DIRS := -Iinclude -Iinclude/pthread
 LIB_DIRS := -Lbin -Llib
 
-TARGET_SERVER = rsd.exe
-TARGET_CLIENT = rsdplay.exe
+TARGET_SERVER = bin/rsd.exe
+TARGET_CLIENT = bin/rsdplay.exe
 TARGET_LIB = bin/rsound.dll
 TARGET_LIB_OBJ = ../librsound/librsound.o src/poll.o
 TARGET_LIB_IMPLIB = lib/librsound.a
-
 
 TARGET_SERVER_LIBS = -lpthreadGC2 -lws2_32
 TARGET_LIB_LIBS = -lpthreadGC2 -lws2_32
