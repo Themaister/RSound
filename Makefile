@@ -1,4 +1,5 @@
-SUBDIR = src
+SUBDIR := src
+WIN32 := src/win32
 
 all:
 	@$(MAKE) --directory=$(SUBDIR) all
@@ -23,5 +24,8 @@ install-client:
 uninstall:
 	@$(MAKE) --directory=$(SUBDIR) uninstall
 
+mingw32:
+	@$(MAKE) --directory=$(WIN32) all
 
-.PHONY: all client lib server clean distclean install install-lib install-server install-client uninstall
+
+.PHONY: all client lib server clean distclean install install-lib install-server install-client uninstall mingw32
