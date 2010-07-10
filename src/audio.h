@@ -21,17 +21,20 @@
 #define HEADER_SIZE 44 
 #define DEFAULT_CHUNK_SIZE 512
 
+#ifndef _WIN32
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <errno.h>
-#include <stdint.h>
 #include <pthread.h>
+#endif
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include <time.h>
 
 // Defines audio formats supported by rsound. Might be extended in the future :)

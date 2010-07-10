@@ -22,16 +22,33 @@
 #include "endian.h"
 #include "audio.h"
 #include "proto.h"
+
+#ifndef _WIN32
 #include <fcntl.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#else
+#define _WIN32_WINNT 0x0501
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <pthread.h>
+#endif
 
+#include <signal.h>
+#include <getopt.h>
+#include <poll.h>
+
+/* Not really portable, need to find something better */
+#define PIDFILE "/tmp/.rsound.pid"
 
 /* Pulls in callback structs depending on compilation options. */
 
+#ifndef _WIN32
 #ifdef _ALSA
 extern const rsd_backend_callback_t rsd_alsa;
 #endif
@@ -59,15 +76,11 @@ extern const rsd_backend_callback_t rsd_muroar;
 #ifdef _PULSE
 extern const rsd_backend_callback_t rsd_pulse;
 #endif
+#endif
 
-#include <getopt.h>
-#include <poll.h>
-#include <signal.h>
 
 #define MAX_PACKET_SIZE 1024
 
-/* Not really portable, need to find something better */
-#define PIDFILE "/tmp/.rsound.pid"
 
 
 static void print_help(void);
@@ -75,6 +88,7 @@ static void* rsd_thread(void*);
 static int recieve_data(void*, connection_t*, char*, size_t);
 
 /* Writes a file with the process id, so that a subsequent --kill can kill it cleanly. */
+#ifndef _WIN32
 void write_pid_file(void)
 {
    FILE *pidfile = fopen(PIDFILE, "a");
@@ -84,6 +98,7 @@ void write_pid_file(void)
       fclose(pidfile);
    }
 }
+#endif
 
 void initialize_audio ( void )
 {
@@ -91,6 +106,20 @@ void initialize_audio ( void )
       backend->initialize();
 }
 
+#ifdef _WIN32
+void cleanup( void )
+{
+	extern int listen_socket;
+
+	if ( listen_socket > 0 )
+		closesocket(listen_socket);
+
+	if ( backend->shutdown )
+		backend->shutdown();
+
+	WSACleanup();
+}
+#else
 void cleanup( int signal )
 {
    extern int listen_socket;
@@ -108,10 +137,13 @@ void cleanup( int signal )
       backend->shutdown();
    exit(0);
 }
+#endif
 
 void new_sound_thread ( connection_t connection )
 {
+#ifndef _WIN32
    static pthread_t last_thread = 0;
+#endif
    pthread_t thread;
 
    connection_t *conn = calloc(1, sizeof(*conn));
@@ -119,6 +151,13 @@ void new_sound_thread ( connection_t connection )
    conn->ctl_socket = connection.ctl_socket;
 
    /* Prefer non-blocking sockets due to its consistent performance with poll()/recv() */
+#ifdef _WIN32
+   u_long iMode = 1;
+	ioctlsocket(conn->socket, FIONBIO, &iMode);
+	iMode = 1;
+	if ( conn->ctl_socket > 0 )
+		ioctlsocket(conn->ctl_socket, FIONBIO, &iMode);
+#else
    if ( fcntl(conn->socket, F_SETFL, O_NONBLOCK) < 0)
    {
       fprintf(stderr, "Setting non-blocking socket failed.\n");
@@ -133,10 +172,13 @@ void new_sound_thread ( connection_t connection )
          goto error;
       }
    }
+#endif
 
+#ifndef _WIN32
    /* If we're not using serveral threads, we must wait for the last thread to join. */
    if ( no_threading && last_thread != 0 )
       pthread_join(last_thread, NULL);
+#endif
 
    /* Creates new thread */
    if ( pthread_create(&thread, NULL, rsd_thread, (void*)conn) < 0 )
@@ -146,11 +188,15 @@ void new_sound_thread ( connection_t connection )
    }
 
    /* If we're not going to join, we need to detach it. */
+#ifndef _WIN32
    if ( !no_threading )
+#endif
       pthread_detach(thread);
 
    /* Sets the static variable for use with next new_sound_thread() call. */
+#ifndef _WIN32
    last_thread = thread;
+#endif
    return;
 
    /* Cleanup if fcntl failed. */
@@ -163,27 +209,35 @@ error:
 /* getopt command-line parsing. Sets the variables declared in daemon.c */
 void parse_input(int argc, char **argv)
 {
+#ifndef _WIN32
    FILE *pidfile;
    int pid;
+#endif
 
    int c, option_index = 0;
 
    struct option opts[] = {
       { "port", 1, NULL, 'p' },
       { "help", 0, NULL, 'h' },
+      { "verbose", 0, NULL, 'v' },
+      { "debug", 0, NULL, 'B' },
+      { "bind", 1, NULL, 'H' },
+#ifndef _WIN32
       { "backend", 1, NULL, 'b' },
+      { "sock", 1, NULL, 'S' },
+      { "kill", 0, NULL, 'K' },
+      { "single", 0, NULL, 'T' },
       { "device", 1, NULL, 'd' },
       { "daemon", 0, NULL, 'D' },
-      { "verbose", 0, NULL, 'v' },
-      { "single", 0, NULL, 'T' },
-      { "kill", 0, NULL, 'K' },
-      { "debug", 0, NULL, 'B' },
-      { "sock", 1, NULL, 'S' },
-      { "bind", 1, NULL, 'H' },
+#endif
       { NULL, 0, NULL, 0 }
    };
 
+#ifdef _WIN32
+   char optstring[] = "p:vh";
+#else
    char optstring[] = "d:b:p:Dvh";
+#endif
 
    for(;;)
    {
@@ -194,10 +248,12 @@ void parse_input(int argc, char **argv)
 
       switch ( c )
       {
+#ifndef _WIN32
          case 'd':
             strncpy(device, optarg, 127);
             device[127] = 0;
             break;
+#endif
 
          case 'p':
             strncpy(port, optarg, 127);
@@ -217,9 +273,12 @@ void parse_input(int argc, char **argv)
             print_help();
             exit(0);
 
+#ifndef _WIN32
          case 'T':
             no_threading = 1;
             break;
+#endif
+#ifndef _WIN32
          case 'K':
             pidfile = fopen(PIDFILE, "r");
             if ( pidfile )
@@ -249,6 +308,9 @@ void parse_input(int argc, char **argv)
             }
 
             break;
+#endif
+
+#ifndef _WIN32
          case 'b':
 #ifdef _ALSA
             if ( !strcmp( "alsa", optarg ) )
@@ -303,10 +365,13 @@ void parse_input(int argc, char **argv)
             fprintf(stderr, "\nValid backend not given. Exiting ...\n\n");
             print_help();
             exit(1);
+#endif
 
+#ifndef _WIN32
          case 'D':
             daemonize = 1;
             break;
+#endif
 
          case 'v':
             verbose = 1;
@@ -317,11 +382,13 @@ void parse_input(int argc, char **argv)
             verbose = 1;
             break;
 
+#ifndef _WIN32
          case 'S':
             strncpy(unix_sock, optarg, 127);
             unix_sock[127] = '\0';
             rsd_conn_type = RSD_CONN_UNIX;
             break;
+#endif
 
          default:
             fprintf(stderr, "Error parsing arguments.\n");
@@ -337,6 +404,7 @@ void parse_input(int argc, char **argv)
       exit(1);
    }
 
+#ifndef _WIN32
    if ( backend == NULL )
    {
 
@@ -373,6 +441,8 @@ void parse_input(int argc, char **argv)
 #endif
 
    }
+#endif
+
 
    /* Shouldn't really happen, but ... */
    if ( backend == NULL )
@@ -394,6 +464,7 @@ static void print_help()
 
    printf("\n-b/--backend: Specifies which audio backend to use.\n");
    printf("Supported backends: ");
+
 #ifdef _PULSE
    printf("pulse ");
 #endif
@@ -616,12 +687,16 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
    if ( fd.revents & POLLHUP )
       return -1;
    if ( fd.revents & POLLOUT )
-      rc = send(conn.socket, header, RSND_HEADER_SIZE, 0);
+      rc = send(conn.socket, (char*)header, RSND_HEADER_SIZE, 0);
    if ( rc != RSND_HEADER_SIZE)
       return -1;
 
    // RSD will no longer use this for writing
+#ifdef _WIN32
+   shutdown(conn.socket, SD_SEND);
+#else
    shutdown(conn.socket, SHUT_WR);
+#endif
 
    return 0;
 }
@@ -629,14 +704,29 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
 /* Sets up listening socket for further use */
 int set_up_socket()
 {
+
+#ifdef _WIN32
+   WSADATA wsaData;
+	int retval;
+
+	if ((retval = WSAStartup(MAKEWORD(2,2), &wsaData)) != 0)
+	{
+		fprintf(stderr, "Error starting Winsock\n");
+		WSACleanup();
+		exit(1);
+	}
+#endif
+
    int rc;
    int s;
-   struct addrinfo hints, *servinfo;
+   struct addrinfo hints, *servinfo = NULL;
+#ifndef _WIN32
    struct sockaddr_un un;
+#endif
    int yes = 1;
 
    memset(&hints, 0, sizeof (struct addrinfo));
-#ifdef __CYGWIN__
+#if defined (__CYGWIN__) || defined (_WIN32)
    /* Because Windows apparently fails, and doesn't like AF_UNSPEC. */
    hints.ai_family = AF_INET;
 #else
@@ -645,6 +735,7 @@ int set_up_socket()
    hints.ai_socktype = SOCK_STREAM;
    hints.ai_flags = AI_PASSIVE;
 
+#ifndef _WIN32
    if ( rsd_conn_type == RSD_CONN_UNIX )
    {
       servinfo = &hints;
@@ -657,6 +748,7 @@ int set_up_socket()
       un.sun_path[sizeof(un.sun_path)-1] = '\0';
    }
    else
+#endif
    {
       const char *bind = NULL;
       if ( strlen(bindaddr) > 0 )
@@ -671,9 +763,11 @@ int set_up_socket()
 
    if ( debug )
    {
+#ifndef _WIN32
       if ( servinfo->ai_family == AF_UNIX )
          fprintf(stderr, "Creating domain socket: %s\n", unix_sock);
       else
+#endif
          fprintf(stderr, "Binding on port %s\n", port);
    }
 
@@ -684,9 +778,11 @@ int set_up_socket()
       goto error;
    }
 
+#ifndef _WIN32
    if ( servinfo->ai_family != AF_UNIX )
+#endif
    {
-      if ( setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) 
+      if ( setsockopt(s, SOL_SOCKET, SO_REUSEADDR, CONST_CAST &yes, sizeof(int)) == -1) 
       {
          perror("setsockopt");
          goto error;
@@ -696,22 +792,36 @@ int set_up_socket()
    rc = bind(s, servinfo->ai_addr, servinfo->ai_addrlen);
    if ( rc == -1 )
    {
+#ifndef _WIN32
       if ( servinfo->ai_family == AF_UNIX )
          fprintf(stderr, "Error creating domain socket: %s\n", unix_sock);
       else
+#endif
          fprintf(stderr, "Error binding on port %s.\n", port);
       goto error;
    }
 
-   if ( servinfo->ai_family != AF_UNIX )
+#ifdef _WIN32
+   if ( servinfo != NULL )
       freeaddrinfo(servinfo);
    return s;
+#else
+   if ( servinfo != NULL && servinfo->ai_family != AF_UNIX )
+      freeaddrinfo(servinfo);
+   return s;
+#endif
 
    /* In case something goes to hell. */
 error:
-   if ( servinfo->ai_family != AF_UNIX )
+#ifdef _WIN32
+   if ( servinfo != NULL )
       freeaddrinfo(servinfo);
    return -1;
+#else
+   if ( servinfo != NULL && servinfo->ai_family != AF_UNIX )
+      freeaddrinfo(servinfo);
+   return -1;
+#endif
 
 }
 
@@ -844,16 +954,16 @@ static void* rsd_thread(void *thread_data)
    {
       int flag = 1;
       int bufsiz = backend_info.chunk_size * 32;
-      setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
+      setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, CONST_CAST &bufsiz, sizeof(int));
 
       if ( conn.ctl_socket )
       {
-         setsockopt(conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
-         setsockopt(conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
-         setsockopt(conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
+         setsockopt(conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, CONST_CAST &bufsiz, sizeof(int));
+         setsockopt(conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, CONST_CAST &bufsiz, sizeof(int));
+         setsockopt(conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, CONST_CAST &flag, sizeof(int));
       }
 
-      setsockopt(conn.socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
+      setsockopt(conn.socket, IPPROTO_TCP, TCP_NODELAY, CONST_CAST &flag, sizeof(int));
    }
 
    /* Now we can send backend info to client. */
@@ -913,7 +1023,11 @@ static void* rsd_thread(void *thread_data)
 rsd_exit:
    if ( debug )
       fprintf(stderr, "Closed connection.\n\n");
+#ifdef _WIN32
+#undef close
    backend->close(data);
+#define close(x) closesocket(x)
+#endif
    free(buffer);
    free(data);
    close(conn.socket);

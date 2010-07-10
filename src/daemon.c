@@ -14,11 +14,21 @@
  */
 
 #include "rsound.h"
-#include <arpa/inet.h>
+
 #include <poll.h>
+
+#ifdef _WIN32
+#define _WIN32_WINNT 0x0501
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
 #include <signal.h>
 #include <time.h>
 #include <netinet/in.h>
+#endif
 
 /* Default values */
 
@@ -27,19 +37,28 @@
 char device[128] = "default";
 char port[128] = "12345";
 char bindaddr[128] = "";
+
+#ifndef _WIN32
 char unix_sock[128] = "";
-int verbose = 0;
-int debug = 0;
 const rsd_backend_callback_t *backend = NULL;
 int daemonize = 0;
 int no_threading = 0;
+#else
+extern const rsd_backend_callback_t rsd_al;
+const rsd_backend_callback_t *backend = &rsd_al;
+#endif
+
+int verbose = 0;
+int debug = 0;
 int listen_socket = 0;
 int rsd_conn_type = RSD_CONN_TCP;
 
+#ifndef _WIN32
 static void* get_addr(struct sockaddr*);
 static int legal_ip(const char*);
 static int valid_ips(struct sockaddr_storage *their_addr);
 static void log_message(const char* ip);
+#endif
 
 // Union for casting without aliasing violations.
 static union
@@ -63,6 +82,7 @@ int main(int argc, char ** argv)
    /* Parses input and sets the global variables */
    parse_input(argc, argv);
 
+#ifndef _WIN32
    /* Should we fork and kill our parent? :p */
    if ( daemonize )
    {
@@ -73,6 +93,7 @@ int main(int argc, char ** argv)
       if ( i > 0 ) exit(0);
       /* Forking into background */
    }
+#endif
 
    /* Sets up listening socket */
    s = set_up_socket();
@@ -99,15 +120,26 @@ int main(int argc, char ** argv)
       exit(1);
    }
 
+#ifdef _WIN32
+   atexit(cleanup);
+#else
+
    /* Sets up interface for cleanly shutting down the server */
    write_pid_file();
    signal(SIGINT, cleanup);
    signal(SIGTERM, cleanup);
    // SIGPIPE may cause trouble ;)
    signal(SIGPIPE, SIG_IGN);
+#endif
 
    /* In case our backend API needs some initializing functions */
    initialize_audio();
+
+#ifdef _WIN32
+   	printf(	"==============================================================================\n"
+			":: RSD server : Win32 : 0.9.5 - Copyright (C) 2010 Hans-Kristian Arntzen ::\n"
+			"==============================================================================\n");
+#endif
 
 
    /* We're accepting two connects after each other, as we have one stream socket for audio data
@@ -163,6 +195,7 @@ int main(int argc, char ** argv)
          continue;
       }
 
+#ifndef _WIN32
       /* Checks if they are from same source, if not, close the connection. */
       /* Check will be ignored if there is no ctl-socket active. */
       /* TODO: Security here is *retarded* :D */
@@ -172,6 +205,7 @@ int main(int argc, char ** argv)
          close(s_ctl); s_ctl = -1;
          continue;
       }
+#endif
 
       conn.socket = s_new;
       conn.ctl_socket = s_ctl;
@@ -183,6 +217,7 @@ int main(int argc, char ** argv)
    return 0;
 }
 
+#ifndef _WIN32
 static void* get_addr(struct sockaddr *sa)
 {
    union
@@ -258,6 +293,7 @@ static void log_message( const char * ip )
    }
 
 }
+#endif
 
 
 

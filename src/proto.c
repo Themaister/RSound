@@ -18,6 +18,16 @@
 #include "audio.h"
 #include <poll.h>
 
+#ifdef _WIN32
+#define _WIN32_WINNT 0x0501
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#undef close
+#define close(x) closesocket(x)
+#endif
+
 extern const rsd_backend_callback_t *backend;
 
 typedef struct rsd_proto

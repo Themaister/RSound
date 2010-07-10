@@ -18,11 +18,24 @@
 
 #include "audio.h"
 
+#undef CONST_CAST
+#ifdef _WIN32
+#undef close
+#define close(x) closesocket(x)
+#define CONST_CAST (const char*)
+#else
+#define CONST_CAST
+#endif
+
 void parse_input(int, char**);
 void new_sound_thread(connection_t);
 int set_up_socket();
 void write_pid_file(void);
+#ifdef _WIN32
+void cleanup(void);
+#else
 void cleanup(int);
+#endif
 void initialize_audio(void);
 
 extern char device[];

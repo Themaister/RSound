@@ -13,6 +13,19 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdlib.h>
+#include <getopt.h>
+#include <stdio.h>
+#include <string.h>
+#include <fcntl.h>
+#include "endian.h"
+
+#ifdef _WIN32
+#include <io.h>
+#include <rsound.h>
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#else
 #include "librsound/rsound.h"
 #include <signal.h>
 #include <stdlib.h>
@@ -22,9 +35,9 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include "endian.h"
+#include <sys/socket.h>
 #include "config.h"
+#endif
 
 #define READ_SIZE 1024
 #define HEADER_SIZE 44
@@ -41,10 +54,10 @@ static char ident[256] = "rsdplay";
 static int set_rsd_params(rsound_t *rd);
 static void parse_input(int argc, char **argv);
 
-static ssize_t read_all(int fd, void *buf, size_t size);
+static ssize_t read_all(FILE* fd, void *buf, size_t size);
 static ssize_t write_all(int fd, const void *buf, size_t size);
 
-static int infd = STDIN_FILENO;
+static FILE* infile = NULL;
 
 int main(int argc, char **argv)
 {
@@ -58,6 +71,14 @@ int main(int argc, char **argv)
       fprintf(stderr, "Failed to initialize\n");
       exit(1);
    }
+
+#ifdef _WIN32
+   // Because Windows sucks.
+   if ( infile == NULL )
+   {
+      setmode(0, O_BINARY);
+   }
+#endif
 
    if ( strlen(host) > 0 )
       rsd_set_param(rd, RSD_HOST, (void*)host);
@@ -88,7 +109,7 @@ int main(int argc, char **argv)
 
    for(;;)
    {
-      rc = read_all(infd, buffer, READ_SIZE);
+      rc = read_all(infile, buffer, READ_SIZE);
       if ( rc <= 0 )
          break;
 
@@ -98,22 +119,22 @@ int main(int argc, char **argv)
    }
 
    free(buffer);
-   close(rsd_fd);
-   close(infd);
+   if ( infile )
+      fclose(infile);
 
    return 0;
 }
 
-static ssize_t read_all(int fd, void *buf, size_t size)
+static ssize_t read_all(FILE* infile, void *buf, size_t size)
 {
    size_t has_read = 0;
-   ssize_t rc;
+   size_t rc;
 
    while ( has_read < size )
    {
-      rc = read(fd, (uint8_t*)buf + has_read, size - has_read);
+      rc = fread((char*)buf + has_read, 1, size - has_read, (infile) ? infile : stdin);
 
-      if ( rc <= 0 )
+      if ( rc == 0 )
          return has_read;
 
       has_read += rc;
@@ -129,7 +150,7 @@ static ssize_t write_all(int fd, const void *buf, size_t size)
 
    while ( has_written < size )
    {
-      rc = write(fd, (const uint8_t*)buf + has_written, size - has_written);
+      rc = send(fd, (const char*)buf + has_written, size - has_written, 0);
 
       if ( rc <= 0 )
          return rc;
@@ -156,7 +177,7 @@ static int set_rsd_params(rsound_t *rd)
 
    if ( !raw_mode )
    {  
-      rc = read_all( infd, buf, HEADER_SIZE );
+      rc = read_all( infile, buf, HEADER_SIZE );
       if ( rc <= 0 )
          return -1;
 
@@ -272,8 +293,8 @@ static void parse_input(int argc, char **argv)
             break;
 
          case 'f':
-            infd = open(optarg, O_RDONLY);
-            if ( infd < 0 )
+            infile = fopen(optarg, "rb");
+            if ( infile == NULL )
             {
                fprintf(stderr, "Could not open file ...\n");
                exit(1);

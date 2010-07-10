@@ -15,9 +15,23 @@
 
 #include "rsound.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#undef CONST_CAST
+
+#ifdef _WIN32
+#define _WIN32_WINNT 0x0501
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+#undef close
+#define close(x) closesocket(x)
+#define CONST_CAST (const char*)
+
+#else
+
+#define CONST_CAST
+
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netdb.h>
@@ -26,18 +40,25 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <poll.h>
-#include <errno.h> 
-#include <time.h>
-#include <assert.h>
-#include <stdarg.h>
 
 #include "../config.h"
+#endif
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+#include <stdarg.h>
+#include <poll.h>
+#include <time.h>
+#include <errno.h> 
 
 // DECnet
+#ifndef _WIN32
 #ifdef HAVE_DECNET
 #include <netdnet/dn.h>
 #include <netdnet/dnetdb.h>
+#endif
 #endif
 
 /* 
@@ -100,6 +121,26 @@ static int rsnd_update_server_info(rsound_t *rd);
 static int rsnd_poll(struct pollfd *fd, int numfd, int timeout);
 
 static void* rsnd_thread ( void * thread_data );
+
+#ifdef _WIN32
+// Stupid winsock
+static int init_count = 0;
+
+static int init_wsock(void)
+{
+   WSADATA wsaData;
+   int retval;
+
+   if ((retval = WSAStartup(MAKEWORD(2,2), &wsaData)) != 0)
+   {
+      RSD_ERR("Could not start Winsock\n");
+      WSACleanup();
+      return -1;
+   }
+   return 0;
+}
+#endif
+
 
 // Does some logging
 static void rsnd_log(enum rsd_logtype type, char *fmt, ...)
@@ -187,17 +228,19 @@ int rsd_samplesize( rsound_t *rd )
 static int rsnd_connect_server( rsound_t *rd )
 {
    struct addrinfo hints, *res = NULL;
+#ifndef _WIN32
    struct sockaddr_un un;
 #ifdef HAVE_DECNET
    char * object;
    char * delm;
+#endif
 #endif
 
    memset(&hints, 0, sizeof( hints ));
    hints.ai_family = AF_UNSPEC;
    hints.ai_socktype = SOCK_STREAM;
 
-
+#ifndef _WIN32
    if ( rd->host[0] == '/' )
    {
       rd->conn_type = RSD_CONN_UNIX;
@@ -236,6 +279,7 @@ static int rsnd_connect_server( rsound_t *rd )
    }
 #endif
    else
+#endif
    {
       rd->conn_type = RSD_CONN_TCP;
       if ( getaddrinfo(rd->host, rd->port, &hints, &res) != 0 )
@@ -257,6 +301,13 @@ static int rsnd_connect_server( rsound_t *rd )
       goto error;
 
    /* Uses non-blocking IO since it performed more deterministic with poll()/send() */   
+
+#ifdef _WIN32
+   u_long iMode = 1;
+   ioctlsocket(rd->conn.socket, FIONBIO, &iMode);
+   iMode = 1;
+   ioctlsocket(rd->conn.ctl_socket, FIONBIO, &iMode);
+#else
 #ifndef __CYGWIN__
    if ( fcntl(rd->conn.socket, F_SETFL, O_NONBLOCK) < 0)
    {
@@ -270,6 +321,7 @@ static int rsnd_connect_server( rsound_t *rd )
       goto error;
    }
 #endif /* Cygwin doesn't seem to like non-blocking I/O ... */
+#endif
 
    if ( res != NULL && (res->ai_family != AF_UNIX) )
       freeaddrinfo(res);
@@ -454,16 +506,16 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    if ( rd->conn_type & RSD_CONN_TCP )
    {
       int bufsiz = rd->buffer_size;
-      setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
+      setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, CONST_CAST &bufsiz, sizeof(int));
       bufsiz = rd->buffer_size;
-      setsockopt(rd->conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(int));
+      setsockopt(rd->conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, CONST_CAST &bufsiz, sizeof(int));
       bufsiz = rd->buffer_size;
-      setsockopt(rd->conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(int));
+      setsockopt(rd->conn.ctl_socket, SOL_SOCKET, SO_RCVBUF, CONST_CAST &bufsiz, sizeof(int));
 
       int flag = 1;
-      setsockopt(rd->conn.socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
+      setsockopt(rd->conn.socket, IPPROTO_TCP, TCP_NODELAY, CONST_CAST &flag, sizeof(int));
       flag = 1;
-      setsockopt(rd->conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
+      setsockopt(rd->conn.ctl_socket, IPPROTO_TCP, TCP_NODELAY, CONST_CAST &flag, sizeof(int));
    }
 
    // Can we read the last 8 bytes so we can use the protocol interface?
@@ -472,7 +524,11 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       rd->conn_type |= RSD_CONN_PROTO; 
 
    // We no longer want to read from this socket.
+#ifdef _WIN32
+   shutdown(rd->conn.socket, SD_RECEIVE);
+#else
    shutdown(rd->conn.socket, SHUT_RD);
+#endif
 
    return 0;
 }
@@ -582,7 +638,7 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
       {
          /* We try to limit ourselves to 1KiB packet sizes. */
          send_size = (size - wrote) > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - wrote;
-         rc = send(socket, (const uint8_t*)buf + wrote, send_size, 0);
+         rc = send(socket, (const char*)buf + wrote, send_size, 0);
          if ( rc < 0 )
          {
             RSD_ERR("Error sending chunk, %s\n", strerror(errno));
@@ -630,7 +686,7 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
       if ( fd.revents & POLLIN )
       {
          read_size = (size - has_read) > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - has_read;
-         rc = recv(socket, (uint8_t*)buf + has_read, read_size, 0);
+         rc = recv(socket, (char*)buf + has_read, read_size, 0);
          if ( rc < 0 )
          {
             RSD_ERR("Error receiving chunk, %s\n", strerror(errno));
@@ -735,15 +791,21 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       }
       pthread_mutex_unlock(&rd->thread.mutex);
 
+#ifndef _WIN32
       struct timespec tv;
       clock_gettime(CLOCK_REALTIME, &tv);
       tv.tv_sec += 1;
+#endif
 
       /* Sleeps until we can write to the FIFO. */
       //RSD_DEBUG("fill_buffer: going to sleep.");
       pthread_cond_signal(&rd->thread.cond);
       pthread_mutex_lock(&rd->thread.cond_mutex);
+#ifdef _WIN32
+      pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
+#else
       pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &tv);
+#endif
       pthread_mutex_unlock(&rd->thread.cond_mutex);
       //RSD_DEBUG("fill_buffer: Woke up.");
    }
@@ -1125,14 +1187,20 @@ static void* rsnd_thread ( void * thread_data )
          // There is a very slim change of getting a deadlock using the cond_wait scheme.
          // This solution is rather dirty, but avoids complete deadlocks at the very least.
 
+#ifndef _WIN32
          struct timespec tv;
          clock_gettime(CLOCK_REALTIME, &tv);
          tv.tv_sec += 1;
+#endif
 
          RSD_DEBUG("Thread going to sleep.");
          pthread_cond_signal(&rd->thread.cond);
          pthread_mutex_lock(&rd->thread.cond_mutex);
+#ifdef _WIN32
+         pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
+#else
          pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &tv);
+#endif
          RSD_DEBUG("Thread woke up.");
          pthread_mutex_unlock(&rd->thread.cond_mutex);
          RSD_DEBUG("Thread unlocked cond_mutex.");
@@ -1254,6 +1322,10 @@ int rsd_exec(rsound_t *rsound)
    rsnd_stop_thread(rsound);
 
    // Unsets NONBLOCK
+#ifdef _WIN32
+   u_long iMode = 0;
+   ioctlsocket(fd, FIONBIO, &iMode);
+#else
    int flags = fcntl(fd, F_GETFL);
    if ( flags < 0 )
    {
@@ -1267,6 +1339,7 @@ int rsd_exec(rsound_t *rsound)
       rsnd_start_thread(rsound);
       return -1;
    }
+#endif
 
    // Flush the buffer
 
@@ -1369,6 +1442,9 @@ void rsd_delay_wait(rsound_t *rd)
       if ( rd->max_latency < latency_ms )
       {
          int64_t sleep_ms = latency_ms - rd->max_latency;
+#ifdef _WIN32
+         Sleep(sleep_ms);
+#else
          const struct timespec tv = {
             .tv_sec = sleep_ms / 1000,
             .tv_nsec = (sleep_ms * 1000000)%1000000000
@@ -1376,6 +1452,7 @@ void rsd_delay_wait(rsound_t *rd)
 
          /* Sleepy time */
          nanosleep(&tv, NULL);
+#endif
       }
    }
 }
@@ -1455,6 +1532,18 @@ int rsd_init(rsound_t** rsound)
       rsd_set_param(*rsound, RSD_PORT, rsdport);
    else
       rsd_set_param(*rsound, RSD_PORT, RSD_DEFAULT_PORT);
+
+#ifdef _WIN32
+   if ( !init_count )
+   {
+      if ( init_wsock() < 0 )
+      {
+         rsd_free(*rsound);
+         return -1;
+      }
+      init_count++;
+   }
+#endif
 
    return 0;
 }

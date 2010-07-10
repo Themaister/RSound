@@ -16,6 +16,12 @@
 #include "al.h"
 #include "rsound.h"
 
+#ifdef _WIN32
+#define _WIN32_WINNT 0x0501
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 static ALCdevice *global_handle;
 static ALCcontext *global_context;
 
@@ -151,17 +157,22 @@ static ALuint al_get_buffer(al_t *al)
 
    if ( al->res_ptr == 0 )
    {
+#ifndef _WIN32
       struct timespec tv = {
          .tv_sec = 0,
          .tv_nsec = 1000000
       };
+#endif
 
       for(;;)
       {
          if ( al_unqueue_buffers(al) > 0 )
             break;
-
+#ifdef _WIN32
+         Sleep(1);
+#else
          nanosleep(&tv, NULL);
+#endif
       }
    }
 
