@@ -27,5 +27,8 @@ uninstall:
 mingw32:
 	@$(MAKE) --directory=$(WIN32) all
 
+mingw32-clean:
+	@$(MAKE) --directory=$(WIN32) clean
+
 
 .PHONY: all client lib server clean distclean install install-lib install-server install-client uninstall mingw32
