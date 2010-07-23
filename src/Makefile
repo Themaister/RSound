@@ -60,13 +60,19 @@ TARGET_CLIENT_OBJ = client.o endian.o $(TARGET_LIB_OBJ_STATIC)
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
 TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) audio.o endian.o daemon.o rsound-common.o proto.o
 
-all: client lib server
+all: client lib server check-outdated-config
 
-client: $(TARGET_CLIENT)
+client: $(TARGET_CLIENT) check-outdated-config
 
-lib: $(TARGET_LIB)
+lib: $(TARGET_LIB) check-outdated-config
 
-server: $(TARGET_SERVER)
+server: $(TARGET_SERVER) check-outdated-config
+
+check-outdated-config:
+	@[ -f config.h ] || (echo "Cannot locate config.h, aborting ..." && /bin/false)
+	@[ config.h -nt ../configure ] || (echo "Configure script has been updated. Please run configure again." && /bin/false)
+	@[ config.mk -nt ../configure ] || (echo "Configure script has been updated. Please run configure again." && /bin/false)
+
 
 $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 	@echo "LD $@"
@@ -93,11 +99,11 @@ $(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
 	@$(AR) rcs $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
 
 	
-%.o: %.c
+%.o: %.c check-outdated-config
 	@echo "CC $<"
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
-rsound-common.o: config.h
+rsound-common.o: config.h check-outdated-config
 
 clean:
 	rm -rf rsd 
@@ -156,4 +162,4 @@ uninstall:
 	rm -rf $(PREFIX)/share/man/man1/rsdplay.1
 
 
-.PHONY: clean distclean client lib server install install-lib install-server install-client all uninstall
+.PHONY: clean distclean client lib server install install-lib install-server install-client all uninstall check-outdated-config
