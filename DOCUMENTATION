@@ -24,12 +24,17 @@ librsound uses one main struct for all its function calls.
 
 typedef struct rsound rsound_t;
 
+The header file currently exposes the internal structure used for rsound_t, which makes it possible to peek into the data. 
+Doing this however is bad practice and the ABI for this usage might change. You are encouraged only to use the functions stated in this document.
+As for the Win32 port, the internal data structure is not exposed due to pthreads not being a native library.
+
 
 Return values:
 
 librsound uses the POSIX standard return value scheme with 0 (or positive number) and negative number for error.
 librsound does not however use errno or similar. Exceptions to this will be noted. 
-Errors must always be checked for!
+Do note that functions which return with unsigned types like size_t will generally return with 0 as error.
+Errors must always be checked for even if the example code below doesn't do so!
 
 
 Style:
@@ -190,7 +195,9 @@ Example:
 RSD_LATENCY:
    librsound can quite accurately measure audio latency, but if data is written all the time to the buffer, 
    the audio latency can quickly grow quite large. Note that this behaviour is not a problem to general audio 
-   and video programs, but it might be an issue with other applications. Most application will not use this.
+   and video programs, but it might be an issue with other applications, most notably games. 
+   Do not use this unless it's critical for your application.
+
    RSD_LATENCY doesn't directly guarantee a maximum audio latency. When you subsequently call on rsd_delay_wait(), 
    it will sleep until the desired latency has been obtained. By calling rsd_delay_wait() before each call to 
    rsd_write() you can effectively get your desired latency. 
@@ -217,7 +224,7 @@ RSD_FORMAT:
    RSD_ALAW   - a-law
    RSD_MULAW  - mu-law
 
-   librsound will default to RSD_S16_LE if this is never set.
+   librsound will default to RSD_S16_LE if this is never set, as this is the audio format that is generally used for music.
 
 Example:
    int format = RSD_S16_NE;
@@ -233,8 +240,8 @@ Note:
 
 
 RSD_IDENTITY:
-   This sets an identity string associated with the stream. Often set to the name of the application itself.
-   Should the length of the string be too long (~250 bytes), it will be truncated.
+   This sets an identity string associated with the stream. Often set to the name of the application itself, e.g. "CoolPlayer X"
+   Should the length of the string be too long (~250 bytes), it will be truncated. Using this is not mandatory.
 
 Example:
    char *name = "Test application";
@@ -274,10 +281,11 @@ Description:
    The handle must not be used after calling this function if this call succeeds.
    The returned socket will be blocking.
    This call will block until all internal buffers have been written to the network.
+   This function call might be more useful on Unix systems as sockets are general file descriptors, while Win32 sockets are not.
 
 Errors:
    Should rsd_exec() return a negative number, this will indicate that either rsd_start() failed or the request could not be honored.
-   Should this happen, the data structure will not be freed, and it will act as though this function was never called.
+   Should this happen, the data structure will not be freed, and it will attempt to act as though this function was never called.
 
 Note:
    This is a new librsound function. To check if it's implemented, you can check for #ifdef RSD_EXEC
@@ -291,6 +299,7 @@ Example:
    // Let's work with the metal!
 
    int fd = rsd_exec(handle);
+   // Handle is now freed.
 
    write(fd, buf, sizeof(buf));
 
@@ -369,7 +378,7 @@ size_t rsd_delay(rsound_t* handle);
 Description:
    Returns the current audio delay of the stream in terms of bytes. 
    The audio delay is measured as time it takes for a rsd_write() until the data written can be heard.
-   Essential for A/V sync. Only call after rsd_start().
+   Essential for A/V sync. Only call after rsd_start(). It is not guaranteed to be perfectly exact, but is a good estimate.
 
 Example:
    size_t delay = rsd_delay(handle);
@@ -447,7 +456,8 @@ int rsd_free(rsound_t* handle);
 
 Description:
    Frees the rsound structure. Calling this function on a started stream is undefined behavior.
-   Use rsd_stop() to close the stream before calling rsd_free().
+   Use rsd_stop() to close the stream before calling rsd_free(). 
+   rsd_free() returns with an error code, but this can be ignored. It might fail if hell freezes over.
 
 
 
@@ -545,7 +555,7 @@ The first 8 bytes will include the ascii magic key "RSD" and the following 5 byt
 which tells how many bytes the rest of the message consists of. 
 The body will consist of:
 
-space command "space" arg1 "space" arg2 ... 
+space command space arg1 space arg2 ... 
 
 
 The commands that the rsound protocol uses are:
@@ -593,7 +603,8 @@ it can determine that there is a (1532455 - 1502333) delta between writing to th
 Network latencies are assumed to be so small, that they aren't noticable.
 
 
-IDENTITY: This is used for the client to identity itself with a name. It is up to the server to show/log this message. The server does not respond to the client.
+IDENTITY: This is used for the client to identity itself with a name. 
+It is up to the server to show/log this message. The server does not respond to the client.
 The server should not use this for any form of authentication.
 Example message: "RSD   24 IDENTITY Example client"
 
