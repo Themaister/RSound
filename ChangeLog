@@ -1,3 +1,7 @@
+[RSound 0.9.5] - 2010-07-xx:
+-	Bugfixes
+- 	Win32 port merged into RSound main tree.
+
 [RSound 0.9.4] - 2010-06-26:
 -	Bugfixes
 -	rsdplay drains all audio from the file using rsd_exec()

@@ -90,7 +90,7 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	@$(CC) -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS)
 
 
-librsound/librsound.o: librsound/librsound.c config.h
+librsound/librsound.o: librsound/librsound.c config.h check-outdated-config
 	@echo "CC `echo $< | sed 's|^\S\S*/\(\S\S*\)|\1|'`"
 	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
