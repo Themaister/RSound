@@ -60,13 +60,13 @@ TARGET_CLIENT_OBJ = client.o endian.o $(TARGET_LIB_OBJ_STATIC)
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
 TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) audio.o endian.o daemon.o rsound-common.o proto.o
 
-all: client lib server check-outdated-config
+all: lib client server
 
-client: $(TARGET_CLIENT) check-outdated-config
+client: check-outdated-config $(TARGET_CLIENT)
 
-lib: $(TARGET_LIB) check-outdated-config
+lib:check-outdated-config $(TARGET_LIB) 
 
-server: $(TARGET_SERVER) check-outdated-config
+server: check-outdated-config $(TARGET_SERVER)
 
 check-outdated-config:
 	@[ -f config.h ] || (echo "Cannot locate config.h, aborting ..." && /bin/false)
@@ -90,7 +90,7 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	@$(CC) -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS)
 
 
-librsound/librsound.o: librsound/librsound.c config.h check-outdated-config
+librsound/librsound.o: librsound/librsound.c config.h
 	@echo "CC `echo $< | sed 's|^\S\S*/\(\S\S*\)|\1|'`"
 	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
@@ -99,11 +99,11 @@ $(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
 	@$(AR) rcs $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
 
 	
-%.o: %.c check-outdated-config
+%.o: %.c
 	@echo "CC $<"
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
-rsound-common.o: config.h check-outdated-config
+rsound-common.o: config.h
 
 clean:
 	rm -rf rsd 

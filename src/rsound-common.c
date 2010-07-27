@@ -457,11 +457,16 @@ static void print_help()
 {
    printf("rsd - version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", RSD_VERSION);
    printf("==========================================================================\n");
+#ifdef _WIN32
+   printf("Usage: rsd [ -p/--port | --bind | -v/--verbose | --debug | -h/--help ]\n");
+#else
    printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
+#endif
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
    printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t"
-         "    Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
+          "    Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
 
+#ifndef _WIN32
    printf("\n-b/--backend: Specifies which audio backend to use.\n");
    printf("Supported backends: ");
 
@@ -486,19 +491,22 @@ static void print_help()
 #ifdef _MUROAR
    printf("muroar ");
 #endif
+#endif
 
    putchar('\n');
    putchar('\n');
 
+#ifndef _WIN32
    printf("-D/--daemon: Runs as daemon.\n");
    printf("-p/--port: Defines which port to listen on.\n");
+   printf("--single: Only allows a single connection at a time.\n");
+   printf("--kill: Cleanly shuts downs the running rsd process.\n");
+#endif
    printf("--bind: Defines which address to bind to. Default is 0.0.0.0.\n");
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
    printf("-v/--verbose: Enables verbosity\n");
    printf("-h/--help: Prints this help\n\n");
    printf("--debug: Enable more verbosity\n");
-   printf("--single: Only allows a single connection at a time.\n");
-   printf("--kill: Cleanly shuts downs the running rsd process.\n");
 }
 
 static void pheader(wav_header_t *w)
