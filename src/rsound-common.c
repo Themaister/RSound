@@ -1016,11 +1016,7 @@ static void* rsd_thread(void *thread_data)
       {
          rc = backend->write(data, buffer + written, size - written);
          if ( rc == 0 )
-         {
-            if ( debug )
-               fprintf(stderr, "write() failed with error code %d.\n", rc);
             goto rsd_exit;
-         }
 
          written += rc;
          conn.serv_ptr += rc;
