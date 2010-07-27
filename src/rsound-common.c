@@ -1015,7 +1015,7 @@ static void* rsd_thread(void *thread_data)
       for ( written = 0; written < (int)size; )
       {
          rc = backend->write(data, buffer + written, size - written);
-         if ( rc <= 0 )
+         if ( rc == 0 )
          {
             if ( debug )
                fprintf(stderr, "write() failed with error code %d.\n", rc);
