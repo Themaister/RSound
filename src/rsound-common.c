@@ -944,6 +944,7 @@ static void* rsd_thread(void *thread_data)
       w.bitsPerSample = 16;
       w.rsd_format = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
       resample = 1;
+      conn.rate_ratio = (float)w.sampleRate / (float)w_orig.sampleRate;
    }
 
    if ( debug )
