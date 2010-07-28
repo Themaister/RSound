@@ -48,5 +48,6 @@ extern const rsd_backend_callback_t *backend;
 extern int daemonize;
 extern int debug;
 extern int rsd_conn_type;
+extern int resample_freq;
 
 #endif 

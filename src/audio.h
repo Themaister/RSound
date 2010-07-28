@@ -109,10 +109,16 @@ enum rsd_format_conv
    RSD_U_TO_S = 0x0002,
    RSD_SWAP_ENDIAN = 0x0004,
    RSD_ALAW_TO_S16 = 0x0008,
-   RSD_MULAW_TO_S16 = 0x0010
+   RSD_MULAW_TO_S16 = 0x0010,
+   RSD_S8_TO_S16 = 0x0020
 };
 
 void audio_converter(void* data, enum rsd_format fmt, int operation, size_t bytes); 
+
+void resample_process_simple(void* data, enum rsd_format format, int channels, int outsamples, int insamples);
+
+#define BYTES_TO_SAMPLES(x, fmt) (x / (rsnd_format_to_bytes(fmt)))
+#define RESAMPLE_READ_SIZE(x, w_orig, w) ((((int)((x) * (float)((w_orig)->sampleRate) / (float)((w)->sampleRate)))/((w)->numChannels * (w)->bitsPerSample))*((w_orig)->numChannels * (w_orig)->bitsPerSample))
 
 
 
