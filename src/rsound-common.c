@@ -920,6 +920,7 @@ static void* rsd_thread(void *thread_data)
    conn.socket = temp_conn->socket;
    conn.ctl_socket = temp_conn->ctl_socket;
    conn.serv_ptr = 0;
+   conn.rate_ratio = 1.0;
    conn.identity[0] = '\0';
    free(temp_conn);
 
@@ -984,6 +985,8 @@ static void* rsd_thread(void *thread_data)
    else
       read_size = RESAMPLE_READ_SIZE(size, &w_orig, &w);
 
+   fprintf(stderr, "Outsize: %d, Insize: %d\n", (int)size, (int)read_size);
+
    size_t buffer_size = (read_size > size) ? read_size : size;
    buffer = malloc(buffer_size);
    if ( buffer == NULL )
@@ -1028,7 +1031,7 @@ static void* rsd_thread(void *thread_data)
          conn.identity[0] = '\0';
       }
 
-      memset(buffer, 0, size);
+      memset(buffer, 0, buffer_size);
 
       rc = recieve_data(data, &conn, buffer, read_size);
       if ( rc == 0 )
