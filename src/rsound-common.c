@@ -468,7 +468,7 @@ static void print_help()
 #ifdef _WIN32
    printf("Usage: rsd [ -p/--port | --bind | -R/--rate | -v/--verbose | --debug | -h/--help ]\n");
 #else
-   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
+   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -R/--rate | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
 #endif
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
    printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t"
@@ -945,7 +945,7 @@ static void* rsd_thread(void *thread_data)
       w.bitsPerSample = 16;
       w.rsd_format = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
       resample = 1;
-      conn.rate_ratio = (float)w.sampleRate / (float)w_orig.sampleRate;
+      conn.rate_ratio = (float)w.sampleRate * w.bitsPerSample / ((float)w_orig.sampleRate * w_orig.bitsPerSample);
    }
 
    if ( debug )
@@ -986,6 +986,8 @@ static void* rsd_thread(void *thread_data)
       read_size = size;
    else
       read_size = RESAMPLE_READ_SIZE(size, &w_orig, &w);
+
+   fprintf(stderr, "Outsize: %d, Insize: %d\n", (int)size, (int)read_size);
 
    size_t buffer_size = (read_size > size) ? read_size : size;
    buffer = malloc(buffer_size);

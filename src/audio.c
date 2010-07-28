@@ -188,7 +188,7 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
    int swapped = 0;
    int bits = rsnd_format_to_bytes(fmt) * 8;
 
-   uint8_t buffer[bytes];
+   uint8_t buffer[bytes*2];
    
    // Fancy union to make the conversions more clean looking ;)
    union
@@ -280,7 +280,7 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
    {
       s8_to_s16(buffer, bytes);
       bytes *= 2;
-      (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
+      fmt = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
    }
 
    if ( operation & RSD_SWAP_ENDIAN )
@@ -402,8 +402,7 @@ void resample_process_simple(void* data, enum rsd_format format, int channels, i
             conversion |= RSD_SWAP_ENDIAN;
          break;
       case RSD_U8:
-         conversion |= (RSD_U_TO_S & RSD_S8_TO_S16);
-         break;
+         conversion |= RSD_U_TO_S;
       case RSD_S8:
          conversion |= RSD_S8_TO_S16;
          break;
