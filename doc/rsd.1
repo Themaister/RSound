@@ -33,6 +33,10 @@ For the audio drivers that support it, define which device is to be used.
 Uses a spesific backend. Refer to \fB--help\fR for information on which backends are supported.
 
 .TP
+\fB--rate SAMPLERATE, -R SAMPLERATE\fR
+Resamples all audio to specified samplerate before sending audio to audio drivers. Mostly used if audio drivers are unable to deliver proper resampling.
+
+.TP
 \fB--port PORT\fR
 Defines which port the server should listen on. Default is \fB12345\fR.
 

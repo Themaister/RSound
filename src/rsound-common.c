@@ -466,7 +466,7 @@ static void print_help()
    printf("rsd - version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", RSD_VERSION);
    printf("==========================================================================\n");
 #ifdef _WIN32
-   printf("Usage: rsd [ -p/--port | --bind | -v/--verbose | --debug | -h/--help ]\n");
+   printf("Usage: rsd [ -p/--port | --bind | -R/--rate | -v/--verbose | --debug | -h/--help ]\n");
 #else
    printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
 #endif
@@ -510,6 +510,7 @@ static void print_help()
    printf("--single: Only allows a single connection at a time.\n");
    printf("--kill: Cleanly shuts downs the running rsd process.\n");
 #endif
+   printf("-R/--rate: Resamples all audio to defined samplerate before sending audio to the audio drivers. Mostly used if audio driver does not delived proper resampling.\n");
    printf("--bind: Defines which address to bind to. Default is 0.0.0.0.\n");
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
    printf("-v/--verbose: Enables verbosity\n");
