@@ -554,6 +554,7 @@ static int rsnd_create_connection(rsound_t *rd)
          .fd = rd->conn.socket,
          .events = POLLOUT
       };
+      
 
       if ( rsnd_poll(&fd, 1, 2000) < 0 )
       {
@@ -687,7 +688,7 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
       {
          read_size = (size - has_read) > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - has_read;
          rc = recv(socket, (char*)buf + has_read, read_size, 0);
-         if ( rc < 0 )
+         if ( rc <= 0 )
          {
             RSD_ERR("Error receiving chunk, %s\n", strerror(errno));
             return rc;

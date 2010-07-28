@@ -92,6 +92,7 @@ int main(int argc, char **argv)
       return 1;
    }
 
+   fprintf(stderr, "rsd_exec #1\n");
    int rsd_fd = rsd_exec(rd);
    if ( rsd_fd < 0 )
    {
@@ -99,6 +100,7 @@ int main(int argc, char **argv)
       rsd_free(rd);
       return 1;
    }
+   fprintf(stderr, "rsd_exec #2\n");
 
    buffer = malloc ( READ_SIZE );
    if ( buffer == NULL )
@@ -127,24 +129,22 @@ int main(int argc, char **argv)
 
 static ssize_t read_all(FILE* infile, void *buf, size_t size)
 {
-   size_t has_read = 0;
+   fprintf(stderr, "read_all()\n");
    size_t rc;
 
-   while ( has_read < size )
-   {
-      rc = fread((char*)buf + has_read, 1, size - has_read, (infile) ? infile : stdin);
+   rc = fread(buf, 1, size, (infile) ? infile : stdin);
 
-      if ( rc == 0 )
-         return has_read;
+   fprintf(stderr, "rc returned %d\n", (int)rc);
 
-      has_read += rc;
-   }
+   if ( rc != size )
+      return 0;
 
-   return (ssize_t)has_read;
+   return (ssize_t)size;
 }
 
 static ssize_t write_all(int fd, const void *buf, size_t size)
 {
+   fprintf(stderr, "write_all()\n");
    size_t has_written = 0;
    ssize_t rc;
 
