@@ -232,9 +232,9 @@ void parse_input(int argc, char **argv)
    };
 
 #ifdef _WIN32
-   char optstring[] = "p:vh";
+   char optstring[] = "p:vhR:";
 #else
-   char optstring[] = "R:d:b:p:Dvh";
+   char optstring[] = "d:b:p:R:Dvh";
 #endif
 
    for(;;)
