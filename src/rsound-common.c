@@ -985,8 +985,6 @@ static void* rsd_thread(void *thread_data)
    else
       read_size = RESAMPLE_READ_SIZE(size, &w_orig, &w);
 
-   fprintf(stderr, "Outsize: %d, Insize: %d\n", (int)size, (int)read_size);
-
    size_t buffer_size = (read_size > size) ? read_size : size;
    buffer = malloc(buffer_size);
    if ( buffer == NULL )
