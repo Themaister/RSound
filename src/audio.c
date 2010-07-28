@@ -364,7 +364,7 @@ static void poly3_resample16(void * restrict out, const void * restrict in, int 
 
          poly_create(&poly, y);
 
-         int32_t temp = poly.a*x_val*x_val + poly.b*x_val + poly.c;
+         int32_t temp = (int32_t)(poly.a*x_val*x_val + poly.b*x_val + poly.c + 0.5);
          if (temp > 0x7FFE )
             op[x * channels + c] = 0x7FFE;
          else if (temp < -0x7FFE)
@@ -426,9 +426,4 @@ void resample_process_simple(void* data, enum rsd_format format, int channels, i
    poly3_resample16(outbuffer, inbuffer, channels, outsamples, insamples);
    memcpy(data, outbuffer, sizeof(outbuffer));
 }
-
-
-
-
-
 
