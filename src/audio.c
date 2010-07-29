@@ -321,7 +321,7 @@ static inline void poly_create(struct poly *poly, const float *y)
 // Algorithm:
 // We take an x amount of samples and convert them into y. Thus output sample y0 will correspond to input sample x0 as:
 // x0 = y0 * x / y
-// Should this be a non-integer number, we need to interpolate between samples to determine the value.
+// Should this be a non-integer number, we need to interpolate between samples to determine the value for y0.
 static void poly3_resample16(void * restrict out, const void * restrict in, int channels, int outsamples, int samples)
 {
    const int16_t *ip = in;
@@ -355,6 +355,7 @@ static void poly3_resample16(void * restrict out, const void * restrict in, int 
          {
             y[0] = ip[((int)pos_in - 1) * channels + c];
             y[1] = ip[(int)pos_in * channels + c];
+            // Should we need a sample that is out-of-range, we will have to estimate this value using preceding values.
             y[2] = y[1] * 2.0 - y[0];
             if ( (int)y[2] > 0x7FFE )
                y[2] = 0x7FFE;
