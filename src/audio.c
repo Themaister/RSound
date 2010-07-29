@@ -299,6 +299,7 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
    memcpy(data, buffer, bytes);
 }
 
+// Polynomial interpolation. We calculate values by interpolating between 3 samples.
 struct poly
 {
    float a;
@@ -306,6 +307,10 @@ struct poly
    float c;
 };
 
+// Precalculated solution for
+// a*0^2 + b*0 + c = y[0]
+// a*1^2 + b*1 + c = y[1]
+// a*2^2 + b*2 + c = y[2]
 static inline void poly_create(struct poly *poly, const float *y)
 {
    poly->a = (y[0] - 2*y[1] + y[2])/2;
@@ -313,6 +318,10 @@ static inline void poly_create(struct poly *poly, const float *y)
    poly->c = y[0];
 }
 
+// Algorithm:
+// We take an x amount of samples and convert them into y. Thus output sample y0 will correspond to input sample x0 as:
+// x0 = y0 * x / y
+// Should this be a non-integer number, we need to interpolate between samples to determine the value.
 static void poly3_resample16(void * restrict out, const void * restrict in, int channels, int outsamples, int samples)
 {
    const int16_t *ip = in;
@@ -377,8 +386,12 @@ static void poly3_resample16(void * restrict out, const void * restrict in, int 
 }
 
 // Simple poly resampling of audio. Will output all audio data in RSD_S16_NE.
+// Speed: medium/fast
+// Quality: medium
 void resample_process_simple(void* data, enum rsd_format format, int channels, int outsamples, int insamples)
 {
+   // We need to convert the audio to native S16 format before resampling.
+
    int samplesize = rsnd_format_to_bytes(format);
    int conversion = RSD_NULL;
    switch ( format )
