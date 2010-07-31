@@ -1055,6 +1055,12 @@ static void* rsd_thread(void *thread_data)
    if ( debug )
       fprintf(stderr, "Initializing of %s successful ...\n", backend->backend);
 
+   if ( debug )
+   {
+      if ( resample )
+         fprintf(stderr, "Resampling active. %d Hz, --> %d Hz\n", (int)w_orig.sampleRate, (int)w.sampleRate);
+   }
+
    /* Recieve data, write to sound card. Rinse, repeat :') */
    for(;;)
    {
