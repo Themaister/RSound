@@ -43,6 +43,7 @@
 #include <getopt.h>
 #include <poll.h>
 
+
 /* Not really portable, need to find something better */
 #define PIDFILE "/tmp/.rsound.pid"
 
@@ -82,7 +83,6 @@ extern const rsd_backend_callback_t rsd_pulse;
 
 static void print_help(void);
 static void* rsd_thread(void*);
-static int recieve_data(void*, connection_t*, char*, size_t);
 
 /* Writes a file with the process id, so that a subsequent --kill can kill it cleanly. */
 #ifndef _WIN32
@@ -551,7 +551,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    int rc = 0;
    char header[HEADER_SIZE] = {0};
 
-   rc = recieve_data(NULL, &conn, header, HEADER_SIZE);
+   rc = receive_data(NULL, &conn, header, HEADER_SIZE);
    if ( rc != HEADER_SIZE )
    {
       fprintf(stderr, "Didn't read enough data for WAV header.");
@@ -847,7 +847,7 @@ error:
    which currently means that we should stop the connection immediately.
    New protocol: If the control socket is set, we should handle it! */
 
-static int recieve_data(void *data, connection_t *conn, char* buffer, size_t size)
+int receive_data(void *data, connection_t *conn, void* buffer, size_t size)
 {
    int rc;
    size_t read = 0;
@@ -894,7 +894,7 @@ static int recieve_data(void *data, connection_t *conn, char* buffer, size_t siz
       else if ( fd[0].revents & POLLIN )
       {
          read_size = size - read > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - read;
-         rc = recv(conn->socket, buffer + read, read_size, 0);
+         rc = recv(conn->socket, (char*)buffer + read, read_size, 0);
          if ( rc <= 0 )
             return 0;
 
@@ -916,6 +916,10 @@ static void* rsd_thread(void *thread_data)
    int resample = 0;
    int rc, written;
    char *buffer = NULL;
+#ifdef HAVE_SAMPLERATE
+   SRC_STATE *src_state = NULL;
+   float *src_buffer = NULL;
+#endif
 
    connection_t *temp_conn = thread_data;
    conn.socket = temp_conn->socket;
@@ -980,12 +984,12 @@ static void* rsd_thread(void *thread_data)
    }
 
    size_t size = backend_info.chunk_size;
+   size_t read_size = size;
 
-   size_t read_size;
-   if ( !resample )
-      read_size = size;
-   else
+#ifndef HAVE_SAMPLERATE
+   if ( resample )
       read_size = RESAMPLE_READ_SIZE(size, &w_orig, &w);
+#endif
 
    //fprintf(stderr, "Outsize: %d, Insize: %d\n", (int)size, (int)read_size);
 
@@ -996,6 +1000,30 @@ static void* rsd_thread(void *thread_data)
       fprintf(stderr, "Could not allocate memory for buffer.");
       goto rsd_exit;
    }
+
+#ifdef HAVE_SAMPLERATE
+   src_buffer = malloc(BYTES_TO_SAMPLES(buffer_size, w.rsd_format) * sizeof(float) / w.numChannels);
+   if ( src_buffer == NULL )
+   {
+      fprintf(stderr, "Could not allocate memory for buffer.");
+      goto rsd_exit;
+   }
+
+   src_callback_state_t src_cb_data = {
+      .format = w_orig.rsd_format,
+      .data = data,
+      .conn = &conn,
+      .framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format)
+   };
+
+   int err;
+   src_state = src_callback_new(src_callback_func, SRC_SINC_MEDIUM_QUALITY, w.numChannels, &err, &src_cb_data);
+   if ( src_state == NULL )
+   {
+      fprintf(stderr, "Could not initialize SRC.");
+      goto rsd_exit;
+   }
+#endif
 
    // We only bother with setting buffer size if we're doing TCP.
    if ( rsd_conn_type == RSD_CONN_TCP )
@@ -1035,19 +1063,35 @@ static void* rsd_thread(void *thread_data)
 
       memset(buffer, 0, buffer_size);
 
-      rc = recieve_data(data, &conn, buffer, read_size);
+#ifdef HAVE_SAMPLERATE
+      if ( resample )
+      {
+         rc = src_callback_read(src_state, (double)w.sampleRate/(double)w_orig.sampleRate, BYTES_TO_SAMPLES(size, w.rsd_format)/w.numChannels, src_buffer);
+         src_float_to_short_array(src_buffer, (short*)buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+      }
+      else
+#else
+      rc = receive_data(data, &conn, buffer, read_size);
+#endif
+#ifdef HAVE_SAMPLERATE
+      if ( rc * w.numChannels * rsnd_format_to_bytes(w.rsd_format) < (int)size )
+#else
       if ( rc == 0 )
+#endif
       {
          if ( debug )
             fprintf(stderr, "Client closed connection.\n");
          goto rsd_exit;
       }
+
+#ifndef HAVE_SAMPLERATE
       conn.serv_ptr += rc;
 
       if ( resample )
       {
          resample_process_simple(buffer, w_orig.rsd_format, w_orig.numChannels, BYTES_TO_SAMPLES(size, w.rsd_format), BYTES_TO_SAMPLES(read_size, w_orig.rsd_format));
       }
+#endif
 
       for ( written = 0; written < (int)size; )
       {
@@ -1073,6 +1117,12 @@ rsd_exit:
    close(conn.socket);
    if ( conn.ctl_socket )
       close(conn.ctl_socket);
+#ifdef HAVE_SAMPLERATE
+   if ( src_state )
+      src_delete(src_state);
+   if ( src_buffer )
+      free(src_buffer);
+#endif
    pthread_exit(NULL);
 }
 

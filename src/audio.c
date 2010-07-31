@@ -299,6 +299,66 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
    memcpy(data, buffer, bytes);
 }
 
+#ifdef HAVE_SAMPLERATE
+long src_callback_func(void *cb_data, float **data)
+{
+   src_callback_state_t *state = cb_data;
+
+   int conversion = RSD_NULL;
+   switch ( state->format )
+   {
+      case RSD_S16_LE:
+         if ( !is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_S16_BE:
+         if ( is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U16_LE:
+         conversion |= RSD_U_TO_S;
+         if ( !is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U16_BE:
+         conversion |= RSD_U_TO_S;
+         if ( is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U8:
+         conversion |= RSD_U_TO_S;
+      case RSD_S8:
+         conversion |= RSD_S8_TO_S16;
+         break;
+      case RSD_ALAW:
+         conversion |= RSD_ALAW_TO_S16;
+         break;
+      case RSD_MULAW:
+         conversion |= RSD_MULAW_TO_S16;
+         break;
+      case RSD_UNSPEC:
+      default:
+         return -1;
+   }
+
+   size_t bufsize = sizeof(state->buffer)/sizeof(state->buffer[0]);
+   int16_t inbuffer[bufsize/sizeof(int16_t)];
+   size_t read_size = bufsize;
+   if ( state->format & (RSD_S8 | RSD_U8 | RSD_ALAW | RSD_MULAW) )
+      read_size /= 2;
+
+   int rc = receive_data(state->data, state->conn, inbuffer, read_size);
+   if ( rc <= 0 )
+      return -1;
+
+   audio_converter(inbuffer, state->format, conversion, read_size);
+   src_short_to_float_array(inbuffer, state->buffer, BYTES_TO_SAMPLES(bufsize, RSD_S16_LE));
+
+   *data = state->buffer;
+   return rc / state->framesize;
+}
+#else
+
 // Polynomial interpolation. We calculate values by interpolating between 3 samples.
 struct poly
 {
@@ -440,4 +500,5 @@ void resample_process_simple(void* data, enum rsd_format format, int channels, i
    poly3_resample16(outbuffer, inbuffer, channels, outsamples, insamples);
    memcpy(data, outbuffer, sizeof(outbuffer));
 }
+#endif
 

@@ -55,6 +55,10 @@ ifeq ($(NEED_RT), 1)
    TARGET_LIB_LIBS += -lrt
 endif
 
+ifeq ($(HAVE_SAMPLERATE), 1)
+   TARGET_SERVER_LIBS += -lsamplerate
+endif
+
 TARGET_CLIENT_OBJ = client.o endian.o $(TARGET_LIB_OBJ_STATIC)
 
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
@@ -104,6 +108,8 @@ $(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
 rsound-common.o: config.h
+
+audio.o: config.h
 
 clean:
 	rm -rf rsd 
