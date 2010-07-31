@@ -915,7 +915,7 @@ static void* rsd_thread(void *thread_data)
    wav_header_t w_orig;
    int resample = 0;
    int rc, written;
-   char *buffer = NULL;
+   void *buffer = NULL;
 #ifdef HAVE_SAMPLERATE
    SRC_STATE *src_state = NULL;
    float *src_buffer = NULL;
@@ -1017,7 +1017,7 @@ static void* rsd_thread(void *thread_data)
    };
 
    int err;
-   src_state = src_callback_new(src_callback_func, SRC_SINC_MEDIUM_QUALITY, w.numChannels, &err, &src_cb_data);
+   src_state = src_callback_new(src_callback_func, SRC_LINEAR, w.numChannels, &err, &src_cb_data);
    if ( src_state == NULL )
    {
       fprintf(stderr, "Could not initialize SRC.");
@@ -1061,31 +1061,29 @@ static void* rsd_thread(void *thread_data)
          conn.identity[0] = '\0';
       }
 
-      memset(buffer, 0, buffer_size);
-
 #ifdef HAVE_SAMPLERATE
       if ( resample )
       {
          rc = src_callback_read(src_state, (double)w.sampleRate/(double)w_orig.sampleRate, BYTES_TO_SAMPLES(size, w.rsd_format)/w.numChannels, src_buffer);
-         src_float_to_short_array(src_buffer, (short*)buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+         src_float_to_short_array(src_buffer, buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
       }
       else
+         rc = receive_data(data, &conn, buffer, read_size);
 #else
       rc = receive_data(data, &conn, buffer, read_size);
+      conn.serv_ptr += rc;
 #endif
-#ifdef HAVE_SAMPLERATE
-      if ( rc * w.numChannels * rsnd_format_to_bytes(w.rsd_format) < (int)size )
-#else
-      if ( rc == 0 )
-#endif
+      if ( rc <= 0 )
       {
          if ( debug )
             fprintf(stderr, "Client closed connection.\n");
          goto rsd_exit;
       }
 
-#ifndef HAVE_SAMPLERATE
-      conn.serv_ptr += rc;
+#ifdef HAVE_SAMPLERATE
+      if ( !resample )
+         conn.serv_ptr += rc;
+#else
 
       if ( resample )
       {
@@ -1095,7 +1093,7 @@ static void* rsd_thread(void *thread_data)
 
       for ( written = 0; written < (int)size; )
       {
-         rc = backend->write(data, buffer + written, size - written);
+         rc = backend->write(data, (char*)buffer + written, size - written);
          if ( rc == 0 )
             goto rsd_exit;
 
@@ -1115,13 +1113,12 @@ rsd_exit:
    free(buffer);
    free(data);
    close(conn.socket);
-   if ( conn.ctl_socket )
+   if (conn.ctl_socket)
       close(conn.ctl_socket);
 #ifdef HAVE_SAMPLERATE
-   if ( src_state )
+   if (src_state)
       src_delete(src_state);
-   if ( src_buffer )
-      free(src_buffer);
+   free(src_buffer);
 #endif
    pthread_exit(NULL);
 }

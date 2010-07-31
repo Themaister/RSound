@@ -350,6 +350,7 @@ long src_callback_func(void *cb_data, float **data)
    int rc = receive_data(state->data, state->conn, inbuffer, read_size);
    if ( rc <= 0 )
       return -1;
+   state->conn->serv_ptr += rc;
 
    audio_converter(inbuffer, state->format, conversion, read_size);
    src_short_to_float_array(inbuffer, state->buffer, BYTES_TO_SAMPLES(bufsize, RSD_S16_LE));
