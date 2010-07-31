@@ -1002,26 +1002,29 @@ static void* rsd_thread(void *thread_data)
    }
 
 #ifdef HAVE_SAMPLERATE
-   src_buffer = malloc(BYTES_TO_SAMPLES(buffer_size, w.rsd_format) * sizeof(float) / w.numChannels);
-   if ( src_buffer == NULL )
+   if ( resample )
    {
-      fprintf(stderr, "Could not allocate memory for buffer.");
-      goto rsd_exit;
-   }
+      src_buffer = malloc(BYTES_TO_SAMPLES(buffer_size, w.rsd_format) * sizeof(float) / w.numChannels);
+      if ( src_buffer == NULL )
+      {
+         fprintf(stderr, "Could not allocate memory for buffer.");
+         goto rsd_exit;
+      }
 
-   src_callback_state_t src_cb_data = {
-      .format = w_orig.rsd_format,
-      .data = data,
-      .conn = &conn,
-      .framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format)
-   };
+      src_callback_state_t src_cb_data = {
+         .format = w_orig.rsd_format,
+         .data = data,
+         .conn = &conn,
+         .framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format)
+      };
 
-   int err;
-   src_state = src_callback_new(src_callback_func, SRC_LINEAR, w.numChannels, &err, &src_cb_data);
-   if ( src_state == NULL )
-   {
-      fprintf(stderr, "Could not initialize SRC.");
-      goto rsd_exit;
+      int err;
+      src_state = src_callback_new(src_callback_func, SRC_SINC_FASTEST, w.numChannels, &err, &src_cb_data);
+      if ( src_state == NULL )
+      {
+         fprintf(stderr, "Could not initialize SRC.");
+         goto rsd_exit;
+      }
    }
 #endif
 

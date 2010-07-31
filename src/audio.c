@@ -338,6 +338,7 @@ long src_callback_func(void *cb_data, float **data)
          break;
       case RSD_UNSPEC:
       default:
+         *data = NULL;
          return -1;
    }
 
