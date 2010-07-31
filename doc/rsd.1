@@ -37,6 +37,10 @@ Uses a spesific backend. Refer to \fB--help\fR for information on which backends
 Resamples all audio to specified samplerate before sending audio to audio drivers. Mostly used if audio drivers are unable to deliver proper resampling.
 
 .TP
+\fB--resampler QUALITY, -Q QUALITY\fR
+If support for libsamplerate is compiled in, a value from 1 (worst) to 5 (best) in QUALITY defines the quality (and CPU requirements) for the resampling process.
+
+.TP
 \fB--port PORT\fR
 Defines which port the server should listen on. Default is \fB12345\fR.
 

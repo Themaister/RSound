@@ -48,6 +48,10 @@ extern const rsd_backend_callback_t rsd_al;
 const rsd_backend_callback_t *backend = &rsd_al;
 #endif
 
+#ifdef HAVE_SAMPLERATE
+int src_converter = SRC_SINC_FASTEST;
+#endif
+
 int verbose = 0;
 int debug = 0;
 int listen_socket = 0;

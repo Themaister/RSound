@@ -49,5 +49,6 @@ extern int daemonize;
 extern int debug;
 extern int rsd_conn_type;
 extern int resample_freq;
+extern int src_converter;
 
 #endif 

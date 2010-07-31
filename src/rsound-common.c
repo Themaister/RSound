@@ -220,6 +220,9 @@ void parse_input(int argc, char **argv)
       { "debug", 0, NULL, 'B' },
       { "bind", 1, NULL, 'H' },
       { "rate", 1, NULL, 'R' },
+#ifdef HAVE_SAMPLERATE
+      { "resampler", 1, NULL, 'Q' },
+#endif
 #ifndef _WIN32
       { "backend", 1, NULL, 'b' },
       { "sock", 1, NULL, 'S' },
@@ -234,7 +237,11 @@ void parse_input(int argc, char **argv)
 #ifdef _WIN32
    char optstring[] = "p:vhR:";
 #else
+#ifdef HAVE_SAMPLERATE
+   char optstring[] = "d:b:p:R:DvhQ:";
+#else
    char optstring[] = "d:b:p:R:Dvh";
+#endif
 #endif
 
    for(;;)
@@ -250,6 +257,34 @@ void parse_input(int argc, char **argv)
          case 'd':
             strncpy(device, optarg, 127);
             device[127] = 0;
+            break;
+#endif
+
+#ifdef HAVE_SAMPLERATE
+         case 'Q':
+            src_converter = atoi(optarg);
+            switch (src_converter)
+            {
+               case 1:
+                  src_converter = SRC_ZERO_ORDER_HOLD;
+                  break;
+               case 2:
+                  src_converter = SRC_LINEAR;
+                  break;
+               case 3:
+                  src_converter = SRC_SINC_FASTEST;
+                  break;
+               case 4:
+                  src_converter = SRC_SINC_MEDIUM_QUALITY;
+                  break;
+               case 5:
+                  src_converter = SRC_SINC_BEST_QUALITY;
+                  break;
+               default:
+                  fprintf(stderr, "Invalid quality given. Needs value between 1 and 5.\n");
+                  exit(1);
+            }
+
             break;
 #endif
 
@@ -468,7 +503,9 @@ static void print_help()
 #ifdef _WIN32
    printf("Usage: rsd [ -p/--port | --bind | -R/--rate | -v/--verbose | --debug | -h/--help ]\n");
 #else
-   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -R/--rate | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
+#ifdef HAVE_SAMPLERATE
+   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -R/--rate | -Q/--resampler | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
+#endif
 #endif
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
    printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t"
@@ -511,6 +548,9 @@ static void print_help()
    printf("--kill: Cleanly shuts downs the running rsd process.\n");
 #endif
    printf("-R/--rate: Resamples all audio to defined samplerate before sending audio to the audio drivers. Mostly used if audio driver does not delived proper resampling.\n");
+#ifdef HAVE_SAMPLERATE
+   printf("-Q/--resampler: Value from 1 (worst) to 5 (best) (default: 3) defines quality of libsamplerate resampling.\n"); 
+#endif
    printf("--bind: Defines which address to bind to. Default is 0.0.0.0.\n");
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
    printf("-v/--verbose: Enables verbosity\n");
@@ -1019,7 +1059,7 @@ static void* rsd_thread(void *thread_data)
       };
 
       int err;
-      src_state = src_callback_new(src_callback_func, SRC_SINC_FASTEST, w.numChannels, &err, &src_cb_data);
+      src_state = src_callback_new(src_callback_func, src_converter, w.numChannels, &err, &src_cb_data);
       if ( src_state == NULL )
       {
          fprintf(stderr, "Could not initialize SRC.");
@@ -1058,7 +1098,14 @@ static void* rsd_thread(void *thread_data)
    if ( debug )
    {
       if ( resample )
-         fprintf(stderr, "Resampling active. %d Hz, --> %d Hz\n", (int)w_orig.sampleRate, (int)w.sampleRate);
+      {
+         fprintf(stderr, "Resampling active. %d Hz --> %d Hz ", (int)w_orig.sampleRate, (int)w.sampleRate);
+#ifdef HAVE_SAMPLERATE
+         fprintf(stderr, "(libsamplerate)\n");
+#else
+         fprintf(stderr, "(internal quadratic resampler)\n");
+#endif
+      }
    }
 
    /* Recieve data, write to sound card. Rinse, repeat :') */
