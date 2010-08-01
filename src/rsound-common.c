@@ -1049,7 +1049,7 @@ static void* rsd_thread(void *thread_data)
 #ifdef HAVE_SAMPLERATE
    if ( resample )
    {
-      src_buffer = malloc(BYTES_TO_SAMPLES(buffer_size, w.rsd_format) * sizeof(float) / w.numChannels);
+      src_buffer = malloc(BYTES_TO_SAMPLES(buffer_size, w.rsd_format) * sizeof(float));
       if ( src_buffer == NULL )
       {
          fprintf(stderr, "Could not allocate memory for buffer.");
