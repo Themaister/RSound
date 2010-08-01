@@ -961,6 +961,7 @@ static void* rsd_thread(void *thread_data)
 #ifdef HAVE_SAMPLERATE
    SRC_STATE *src_state = NULL;
    float *src_buffer = NULL;
+   src_callback_state_t *src_cb_data = NULL;
 #endif
 
    connection_t *temp_conn = thread_data;
@@ -998,6 +999,8 @@ static void* rsd_thread(void *thread_data)
    {
       fprintf(stderr, "Successfully got WAV header ...\n");
       pheader(&w_orig);
+      if ( resample )
+         pheader(&w);
    }
 
    if ( debug )
@@ -1053,15 +1056,19 @@ static void* rsd_thread(void *thread_data)
          goto rsd_exit;
       }
 
-      src_callback_state_t src_cb_data = {
-         .format = w_orig.rsd_format,
-         .data = data,
-         .conn = &conn,
-         .framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format)
-      };
+      src_cb_data = calloc(1, sizeof(*src_cb_data));
+      if ( src_cb_data == NULL )
+      {
+         fprintf(stderr, "Could not allocate memory.\n");
+         goto rsd_exit;
+      }
+      src_cb_data->format = w_orig.rsd_format;
+      src_cb_data->data = data;
+      src_cb_data->conn = &conn;
+      src_cb_data->framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format);
 
       int err;
-      src_state = src_callback_new(src_callback_func, src_converter, w.numChannels, &err, &src_cb_data);
+      src_state = src_callback_new(src_callback_func, src_converter, w.numChannels, &err, src_cb_data);
       if ( src_state == NULL )
       {
          fprintf(stderr, "Could not initialize SRC.");
@@ -1177,6 +1184,7 @@ rsd_exit:
    if (src_state)
       src_delete(src_state);
    free(src_buffer);
+   free(src_cb_data);
 #endif
    pthread_exit(NULL);
 }
