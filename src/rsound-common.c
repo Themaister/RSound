@@ -1000,7 +1000,10 @@ static void* rsd_thread(void *thread_data)
       fprintf(stderr, "Successfully got WAV header ...\n");
       pheader(&w_orig);
       if ( resample )
+      {
+         fprintf(stderr, "Resamples to:\n");
          pheader(&w);
+      }
    }
 
    if ( debug )
