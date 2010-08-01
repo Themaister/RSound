@@ -129,7 +129,7 @@ typedef struct
    enum rsd_format format;
    void *data;
    connection_t *conn;
-   float buffer[512];
+   float buffer[DEFAULT_CHUNK_SIZE];
    int framesize;
 } src_callback_state_t;
 

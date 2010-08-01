@@ -549,7 +549,7 @@ static void print_help()
    printf("--single: Only allows a single connection at a time.\n");
    printf("--kill: Cleanly shuts downs the running rsd process.\n");
 #endif
-   printf("-R/--rate: Resamples all audio to defined samplerate before sending audio to the audio drivers. Mostly used if audio driver does not delived proper resampling.\n");
+   printf("-R/--rate: Resamples all audio to defined samplerate before sending audio to the audio drivers. Mostly used if audio driver does not provide proper resampling.\n");
 #ifdef HAVE_SAMPLERATE
    printf("-Q/--resampler: Value from 1 (worst) to 5 (best) (default: 3) defines quality of libsamplerate resampling.\n"); 
 #endif
