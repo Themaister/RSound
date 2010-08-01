@@ -1175,7 +1175,9 @@ rsd_exit:
       fprintf(stderr, "Closed connection.\n\n");
 #ifdef _WIN32
 #undef close
+#endif
    backend->close(data);
+#ifdef _WIN32
 #define close(x) closesocket(x)
 #endif
    free(buffer);
