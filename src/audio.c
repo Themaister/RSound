@@ -164,31 +164,32 @@ inline static void mulaw_to_s16(uint8_t *data, size_t bytes)
    memcpy(data, buf, sizeof(buf));
 }
 
+inline static void s8_to_s16(void *data, size_t samples)
+{
+   int8_t *in_8 = data;
+   int16_t out_16[samples];
+
+   for ( int i = 0; i < (int)samples; i++ )
+   {
+      out_16[i] = in_8[i] * 256;
+   }
+
+   memcpy(data, out_16, samples * sizeof(int16_t));
+}
+
 void audio_converter(void* data, enum rsd_format fmt, int operation, size_t bytes)
 {
    if ( operation == RSD_NULL )
       return;
-
-   if ( operation & RSD_ALAW_TO_S16 )
-   {
-      alaw_to_s16((uint8_t*)data, bytes);
-      return;
-   }
-
-   if ( operation & RSD_MULAW_TO_S16 )
-   {
-      mulaw_to_s16((uint8_t*)data, bytes);
-      return;
-   }
-
+   
    // Temporarily hold the data that is to be sign-flipped.
    int32_t temp32;
    int i;
    int swapped = 0;
    int bits = rsnd_format_to_bytes(fmt) * 8;
 
-   uint8_t buffer[bytes];
-
+   uint8_t buffer[bytes*2];
+   
    // Fancy union to make the conversions more clean looking ;)
    union
    {
@@ -201,6 +202,20 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
 
    memcpy(buffer, data, bytes);
    u.ptr = buffer;
+
+   if ( operation & RSD_ALAW_TO_S16 )
+   {
+      alaw_to_s16(buffer, bytes);
+      bytes *= 2;
+      fmt = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
+   }
+
+   if ( operation & RSD_MULAW_TO_S16 )
+   {
+      mulaw_to_s16(buffer, bytes);
+      bytes *= 2;
+      fmt = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
+   }
 
    i = 0;
    if ( is_little_endian() )
@@ -261,6 +276,13 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
       }
    }
 
+   if ( operation & RSD_S8_TO_S16 )
+   {
+      s8_to_s16(buffer, bytes);
+      bytes *= 2;
+      fmt = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
+   }
+
    if ( operation & RSD_SWAP_ENDIAN )
    {
       if ( !swapped && bits == 16 )
@@ -277,6 +299,210 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
    memcpy(data, buffer, bytes);
 }
 
+#ifdef HAVE_SAMPLERATE
+long src_callback_func(void *cb_data, float **data)
+{
+   src_callback_state_t *state = cb_data;
 
+   int conversion = RSD_NULL;
+   switch ( state->format )
+   {
+      case RSD_S16_LE:
+         if ( !is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_S16_BE:
+         if ( is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U16_LE:
+         conversion |= RSD_U_TO_S;
+         if ( !is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U16_BE:
+         conversion |= RSD_U_TO_S;
+         if ( is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U8:
+         conversion |= RSD_U_TO_S;
+      case RSD_S8:
+         conversion |= RSD_S8_TO_S16;
+         break;
+      case RSD_ALAW:
+         conversion |= RSD_ALAW_TO_S16;
+         break;
+      case RSD_MULAW:
+         conversion |= RSD_MULAW_TO_S16;
+         break;
+      case RSD_UNSPEC:
+      default:
+         *data = NULL;
+         return -1;
+   }
 
+   size_t bufsize = sizeof(state->buffer)/sizeof(state->buffer[0]);
+   int16_t inbuffer[bufsize/sizeof(int16_t)];
+   size_t read_size = bufsize;
+   if ( state->format & (RSD_S8 | RSD_U8 | RSD_ALAW | RSD_MULAW) )
+      read_size /= 2;
+
+   int rc = receive_data(state->data, state->conn, inbuffer, read_size);
+   if ( rc <= 0 )
+   {
+      *data = NULL;
+      return 0;
+   }
+
+   audio_converter(inbuffer, state->format, conversion, read_size);
+   src_short_to_float_array(inbuffer, state->buffer, BYTES_TO_SAMPLES(bufsize, RSD_S16_LE));
+
+   *data = state->buffer;
+   return rc / state->framesize;
+}
+#else
+
+// Polynomial interpolation. We calculate values by interpolating between 3 samples.
+struct poly
+{
+   float a;
+   float b;
+   float c;
+};
+
+// Precalculated solution for
+// a*0^2 + b*0 + c = y[0]
+// a*1^2 + b*1 + c = y[1]
+// a*2^2 + b*2 + c = y[2]
+static inline void poly_create(struct poly *poly, const float *y)
+{
+   poly->a = (y[0] - 2*y[1] + y[2])/2;
+   poly->b = -1.5*y[0] + 2*y[1] - 0.5*y[2];
+   poly->c = y[0];
+}
+
+// Algorithm:
+// We take an x amount of samples and convert them into y. Thus output sample y0 will correspond to input sample x0 as:
+// x0 = y0 * x / y
+// Should this be a non-integer number, we need to interpolate between samples to determine the value for y0.
+static void poly3_resample16(void * restrict out, const void * restrict in, int channels, int outsamples, int samples)
+{
+   const int16_t *ip = in;
+   int16_t *op = out;
+
+   float ratio = (float)outsamples / samples;
+   int c, x;
+
+   for ( x = 0; x < outsamples/channels; x++ )
+   {
+      for ( c = 0; c < channels; c++ )
+      {
+         float pos_out;
+         float pos_in;
+
+         struct poly poly;
+         float y[3];
+         float x_val;
+
+         pos_out = x;
+         pos_in = pos_out / ratio;
+
+         if ( (int)pos_in == 0 )
+         {
+            y[0] = ip[c];
+            y[1] = ip[channels + c];
+            y[2] = ip[2 * channels + c];
+            x_val = pos_in;
+         }
+         else if ( (int)pos_in + 1 >= samples/channels )
+         {
+            y[0] = ip[((int)pos_in - 1) * channels + c];
+            y[1] = ip[(int)pos_in * channels + c];
+            // Should we need a sample that is out-of-range, we will have to estimate this value using preceding values.
+            y[2] = y[1] * 2.0 - y[0];
+            if ( (int)y[2] > 0x7FFE )
+               y[2] = 0x7FFE;
+            else if ( (int)y[2] < -0x7FFE )
+               y[2] = -0x7FFE;
+
+            x_val = pos_in - (int)pos_in + 1.0;
+         }
+         else
+         {
+            y[0] = ip[((int)pos_in - 1) * channels + c];
+            y[1] = ip[(int)pos_in * channels + c];
+            y[2] = ip[((int)pos_in + 1) * channels + c];
+            x_val = pos_in - (int)pos_in + 1.0;
+         }
+
+         poly_create(&poly, y);
+
+         int32_t temp = (int32_t)(poly.a*x_val*x_val + poly.b*x_val + poly.c + 0.5);
+         if (temp > 0x7FFE )
+            op[x * channels + c] = 0x7FFE;
+         else if (temp < -0x7FFE)
+            op[x * channels + c] = -0x7FFE;
+         else
+            op[x * channels + c] = (int16_t)temp;
+      }
+   }
+
+}
+
+// Simple poly resampling of audio. Will output all audio data in RSD_S16_NE.
+// Speed: medium/fast
+// Quality: medium
+void resample_process_simple(void* data, enum rsd_format format, int channels, int outsamples, int insamples)
+{
+   // We need to convert the audio to native S16 format before resampling.
+
+   int samplesize = rsnd_format_to_bytes(format);
+   int conversion = RSD_NULL;
+   switch ( format )
+   {
+      case RSD_S16_LE:
+         if ( !is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_S16_BE:
+         if ( is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U16_LE:
+         conversion |= RSD_U_TO_S;
+         if ( !is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U16_BE:
+         conversion |= RSD_U_TO_S;
+         if ( is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U8:
+         conversion |= RSD_U_TO_S;
+      case RSD_S8:
+         conversion |= RSD_S8_TO_S16;
+         break;
+      case RSD_ALAW:
+         conversion |= RSD_ALAW_TO_S16;
+         break;
+      case RSD_MULAW:
+         conversion |= RSD_MULAW_TO_S16;
+         break;
+      case RSD_UNSPEC:
+      default:
+         return;
+   }
+
+   int16_t inbuffer[insamples];
+   int16_t outbuffer[outsamples];
+
+   memcpy(inbuffer, data, insamples * samplesize);
+   audio_converter(inbuffer, format, conversion, insamples * samplesize);
+
+   poly3_resample16(outbuffer, inbuffer, channels, outsamples, insamples);
+   memcpy(data, outbuffer, sizeof(outbuffer));
+}
+#endif
 

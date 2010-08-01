@@ -14,6 +14,7 @@ HAVE_OPENAL=auto
 HAVE_LIBAO=auto
 HAVE_MUROAR=auto
 HAVE_PULSE=auto
+HAVE_SAMPLERATE=auto
 
 PREFIX=/usr/local
 RSD_VERSION=0.9.5
@@ -28,7 +29,7 @@ print_help()
    echo "   --enable-\$module: Forcefully enables module (not recommended)"
    echo ""
    echo "Modules:"
-   echo "   alsa oss libao portaudio openal pulse muroar"
+   echo "   alsa oss libao portaudio openal pulse muroar samplerate"
 }
 
 ### Parse stuff :V
@@ -145,6 +146,7 @@ check_lib OSSAUDIO ossaudio _oss_ioctl
 [ $HAVE_MUROAR = auto ] && check_lib MUROAR muroar muroar_stream
 [ $HAVE_OPENAL = auto ] && check_lib OPENAL openal alcOpenDevice
 [ $HAVE_PORTAUDIO = auto ] && check_lib PORTAUDIO portaudio Pa_OpenStream
+[ $HAVE_SAMPLERATE = auto ] && check_lib SAMPLERATE samplerate src_callback_new
 
 check_lib RT rt clock_gettime
 check_lib DECNET dnet dnet_conn
@@ -214,6 +216,11 @@ if [ $HAVE_PORTAUDIO = yes ]; then
    echo "HAVE_PORTAUDIO = 1" >> src/config.mk
 fi
 
+if [ $HAVE_SAMPLERATE = yes ]; then
+   echo "#define HAVE_SAMPLERATE 1" >> src/config.h
+   echo "HAVE_SAMPLERATE = 1" >> src/config.mk
+fi
+
 if [ $HAVE_RT = yes ]; then
    echo "NEED_RT = 1" >> src/config.mk
 fi
@@ -236,13 +243,14 @@ echo ""
 echo "============================"
 echo "Configuration successful."
 echo "============================"
-echo " ALSA:         $HAVE_ALSA"
-echo " OSS:          $HAVE_OSS"
-echo " libAO:        $HAVE_LIBAO"
-echo " PortAudio:    $HAVE_PORTAUDIO"
-echo " OpenAL:       $HAVE_OPENAL"
-echo " muRoar:       $HAVE_MUROAR"
-echo " PulseAudio:   $HAVE_PULSE"
+echo " ALSA:            $HAVE_ALSA"
+echo " OSS:             $HAVE_OSS"
+echo " libAO:           $HAVE_LIBAO"
+echo " PortAudio:       $HAVE_PORTAUDIO"
+echo " OpenAL:          $HAVE_OPENAL"
+echo " muRoar:          $HAVE_MUROAR"
+echo " PulseAudio:      $HAVE_PULSE"
+echo " libsamplerate:   $HAVE_SAMPLERATE"
 echo ""
 echo "   Prefix: $PREFIX"
 echo "   CC:     $CC"

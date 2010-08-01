@@ -55,18 +55,28 @@ ifeq ($(NEED_RT), 1)
    TARGET_LIB_LIBS += -lrt
 endif
 
+ifeq ($(HAVE_SAMPLERATE), 1)
+   TARGET_SERVER_LIBS += -lsamplerate
+endif
+
 TARGET_CLIENT_OBJ = client.o endian.o $(TARGET_LIB_OBJ_STATIC)
 
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
 TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) audio.o endian.o daemon.o rsound-common.o proto.o
 
-all: client lib server
+all: lib client server
 
-client: $(TARGET_CLIENT)
+client: check-outdated-config $(TARGET_CLIENT)
 
-lib: $(TARGET_LIB)
+lib:check-outdated-config $(TARGET_LIB) 
 
-server: $(TARGET_SERVER)
+server: check-outdated-config $(TARGET_SERVER)
+
+check-outdated-config:
+	@[ -f config.h ] || (echo "Cannot locate config.h, aborting ..." && /bin/false)
+	@[ config.h -nt ../configure ] || (echo "Configure script has been updated. Please run configure again." && /bin/false)
+	@[ config.mk -nt ../configure ] || (echo "Configure script has been updated. Please run configure again." && /bin/false)
+
 
 $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 	@echo "LD $@"
@@ -98,6 +108,8 @@ $(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
 rsound-common.o: config.h
+
+audio.o: config.h
 
 clean:
 	rm -rf rsd 
@@ -156,4 +168,4 @@ uninstall:
 	rm -rf $(PREFIX)/share/man/man1/rsdplay.1
 
 
-.PHONY: clean distclean client lib server install install-lib install-server install-client all uninstall
+.PHONY: clean distclean client lib server install install-lib install-server install-client all uninstall check-outdated-config

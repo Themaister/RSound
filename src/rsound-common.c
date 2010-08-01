@@ -43,6 +43,7 @@
 #include <getopt.h>
 #include <poll.h>
 
+
 /* Not really portable, need to find something better */
 #define PIDFILE "/tmp/.rsound.pid"
 
@@ -78,14 +79,10 @@ extern const rsd_backend_callback_t rsd_pulse;
 #endif
 #endif
 
-
 #define MAX_PACKET_SIZE 1024
-
-
 
 static void print_help(void);
 static void* rsd_thread(void*);
-static int recieve_data(void*, connection_t*, char*, size_t);
 
 /* Writes a file with the process id, so that a subsequent --kill can kill it cleanly. */
 #ifndef _WIN32
@@ -222,6 +219,10 @@ void parse_input(int argc, char **argv)
       { "verbose", 0, NULL, 'v' },
       { "debug", 0, NULL, 'B' },
       { "bind", 1, NULL, 'H' },
+      { "rate", 1, NULL, 'R' },
+#ifdef HAVE_SAMPLERATE
+      { "resampler", 1, NULL, 'Q' },
+#endif
 #ifndef _WIN32
       { "backend", 1, NULL, 'b' },
       { "sock", 1, NULL, 'S' },
@@ -234,9 +235,13 @@ void parse_input(int argc, char **argv)
    };
 
 #ifdef _WIN32
-   char optstring[] = "p:vh";
+   char optstring[] = "p:vhR:";
 #else
-   char optstring[] = "d:b:p:Dvh";
+#ifdef HAVE_SAMPLERATE
+   char optstring[] = "d:b:p:R:DvhQ:";
+#else
+   char optstring[] = "d:b:p:R:Dvh";
+#endif
 #endif
 
    for(;;)
@@ -255,9 +260,47 @@ void parse_input(int argc, char **argv)
             break;
 #endif
 
+#ifdef HAVE_SAMPLERATE
+         case 'Q':
+            src_converter = atoi(optarg);
+            switch (src_converter)
+            {
+               case 1:
+                  src_converter = SRC_ZERO_ORDER_HOLD;
+                  break;
+               case 2:
+                  src_converter = SRC_LINEAR;
+                  break;
+               case 3:
+                  src_converter = SRC_SINC_FASTEST;
+                  break;
+               case 4:
+                  src_converter = SRC_SINC_MEDIUM_QUALITY;
+                  break;
+               case 5:
+                  src_converter = SRC_SINC_BEST_QUALITY;
+                  break;
+               default:
+                  fprintf(stderr, "Invalid quality given. Needs value between 1 and 5.\n");
+                  exit(1);
+            }
+
+            break;
+#endif
+
          case 'p':
             strncpy(port, optarg, 127);
             port[127] = 0;
+            break;
+
+         case 'R':
+            resample_freq = atoi(optarg);
+            if ( resample_freq <= 0 )
+            {
+               fprintf(stderr, "Invalid value for samplerate");
+               print_help();
+               exit(1);
+            }
             break;
 
          case 'H':
@@ -457,11 +500,20 @@ static void print_help()
 {
    printf("rsd - version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", RSD_VERSION);
    printf("==========================================================================\n");
-   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
+#ifdef _WIN32
+   printf("Usage: rsd [ -p/--port | --bind | -R/--rate | -v/--verbose | --debug | -h/--help ]\n");
+#else
+#ifdef HAVE_SAMPLERATE
+   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -R/--rate | -Q/--resampler | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
+#else
+   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -R/--rate | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
+#endif
+#endif
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
    printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t"
-         "    Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
+          "    Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
 
+#ifndef _WIN32
    printf("\n-b/--backend: Specifies which audio backend to use.\n");
    printf("Supported backends: ");
 
@@ -486,19 +538,26 @@ static void print_help()
 #ifdef _MUROAR
    printf("muroar ");
 #endif
+#endif
 
    putchar('\n');
    putchar('\n');
 
+#ifndef _WIN32
    printf("-D/--daemon: Runs as daemon.\n");
    printf("-p/--port: Defines which port to listen on.\n");
+   printf("--single: Only allows a single connection at a time.\n");
+   printf("--kill: Cleanly shuts downs the running rsd process.\n");
+#endif
+   printf("-R/--rate: Resamples all audio to defined samplerate before sending audio to the audio drivers. Mostly used if audio driver does not provide proper resampling.\n");
+#ifdef HAVE_SAMPLERATE
+   printf("-Q/--resampler: Value from 1 (worst) to 5 (best) (default: 3) defines quality of libsamplerate resampling.\n"); 
+#endif
    printf("--bind: Defines which address to bind to. Default is 0.0.0.0.\n");
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
    printf("-v/--verbose: Enables verbosity\n");
    printf("-h/--help: Prints this help\n\n");
    printf("--debug: Enable more verbosity\n");
-   printf("--single: Only allows a single connection at a time.\n");
-   printf("--kill: Cleanly shuts downs the running rsd process.\n");
 }
 
 static void pheader(wav_header_t *w)
@@ -534,7 +593,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    int rc = 0;
    char header[HEADER_SIZE] = {0};
 
-   rc = recieve_data(NULL, &conn, header, HEADER_SIZE);
+   rc = receive_data(NULL, &conn, header, HEADER_SIZE);
    if ( rc != HEADER_SIZE )
    {
       fprintf(stderr, "Didn't read enough data for WAV header.");
@@ -830,7 +889,7 @@ error:
    which currently means that we should stop the connection immediately.
    New protocol: If the control socket is set, we should handle it! */
 
-static int recieve_data(void *data, connection_t *conn, char* buffer, size_t size)
+int receive_data(void *data, connection_t *conn, void* buffer, size_t size)
 {
    int rc;
    size_t read = 0;
@@ -877,10 +936,11 @@ static int recieve_data(void *data, connection_t *conn, char* buffer, size_t siz
       else if ( fd[0].revents & POLLIN )
       {
          read_size = size - read > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - read;
-         rc = recv(conn->socket, buffer + read, read_size, 0);
+         rc = recv(conn->socket, (char*)buffer + read, read_size, 0);
          if ( rc <= 0 )
             return 0;
 
+         conn->serv_ptr += rc;
          read += rc;
       }
 
@@ -895,13 +955,21 @@ static void* rsd_thread(void *thread_data)
    connection_t conn;
    void *data = NULL;
    wav_header_t w;
+   wav_header_t w_orig;
+   int resample = 0;
    int rc, written;
-   char *buffer = NULL;
+   void *buffer = NULL;
+#ifdef HAVE_SAMPLERATE
+   SRC_STATE *src_state = NULL;
+   float *src_buffer = NULL;
+   src_callback_state_t *src_cb_data = NULL;
+#endif
 
    connection_t *temp_conn = thread_data;
    conn.socket = temp_conn->socket;
    conn.ctl_socket = temp_conn->ctl_socket;
    conn.serv_ptr = 0;
+   conn.rate_ratio = 1.0;
    conn.identity[0] = '\0';
    free(temp_conn);
 
@@ -917,11 +985,26 @@ static void* rsd_thread(void *thread_data)
       fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
       pthread_exit(NULL);
    }
+   memcpy(&w_orig, &w, sizeof(wav_header_t));
+
+   if ( resample_freq > 0 && resample_freq != (int)w.sampleRate )
+   {
+      w.sampleRate = resample_freq;
+      w.bitsPerSample = 16;
+      w.rsd_format = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
+      resample = 1;
+      conn.rate_ratio = (float)w.sampleRate * w.bitsPerSample / ((float)w_orig.sampleRate * w_orig.bitsPerSample);
+   }
 
    if ( debug )
    {
       fprintf(stderr, "Successfully got WAV header ...\n");
-      pheader(&w);
+      pheader(&w_orig);
+      if ( resample )
+      {
+         fprintf(stderr, "Resamples to:\n");
+         pheader(&w);
+      }
    }
 
    if ( debug )
@@ -948,6 +1031,55 @@ static void* rsd_thread(void *thread_data)
       fprintf(stderr, "Couldn't get backend info ...\n");
       goto rsd_exit;
    }
+
+   size_t size = backend_info.chunk_size;
+   size_t read_size = size;
+
+#ifndef HAVE_SAMPLERATE
+   if ( resample )
+      read_size = RESAMPLE_READ_SIZE(size, &w_orig, &w);
+#endif
+
+   //fprintf(stderr, "Outsize: %d, Insize: %d\n", (int)size, (int)read_size);
+
+   size_t buffer_size = (read_size > size) ? read_size : size;
+   buffer = malloc(buffer_size);
+   if ( buffer == NULL )
+   {
+      fprintf(stderr, "Could not allocate memory for buffer.");
+      goto rsd_exit;
+   }
+
+#ifdef HAVE_SAMPLERATE
+   if ( resample )
+   {
+      src_buffer = malloc(BYTES_TO_SAMPLES(buffer_size, w.rsd_format) * sizeof(float));
+      if ( src_buffer == NULL )
+      {
+         fprintf(stderr, "Could not allocate memory for buffer.");
+         goto rsd_exit;
+      }
+
+      src_cb_data = calloc(1, sizeof(*src_cb_data));
+      if ( src_cb_data == NULL )
+      {
+         fprintf(stderr, "Could not allocate memory.\n");
+         goto rsd_exit;
+      }
+      src_cb_data->format = w_orig.rsd_format;
+      src_cb_data->data = data;
+      src_cb_data->conn = &conn;
+      src_cb_data->framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format);
+
+      int err;
+      src_state = src_callback_new(src_callback_func, src_converter, w.numChannels, &err, src_cb_data);
+      if ( src_state == NULL )
+      {
+         fprintf(stderr, "Could not initialize SRC.");
+         goto rsd_exit;
+      }
+   }
+#endif
 
    // We only bother with setting buffer size if we're doing TCP.
    if ( rsd_conn_type == RSD_CONN_TCP )
@@ -976,13 +1108,17 @@ static void* rsd_thread(void *thread_data)
    if ( debug )
       fprintf(stderr, "Initializing of %s successful ...\n", backend->backend);
 
-   size_t size = backend_info.chunk_size;
-   buffer = malloc(size);
-
-   if ( buffer == NULL )
+   if ( debug )
    {
-      fprintf(stderr, "Couldn't allocate memory for buffer ...\n");
-      goto rsd_exit;
+      if ( resample )
+      {
+         fprintf(stderr, "Resampling active. %d Hz --> %d Hz ", (int)w_orig.sampleRate, (int)w.sampleRate);
+#ifdef HAVE_SAMPLERATE
+         fprintf(stderr, "(libsamplerate)\n");
+#else
+         fprintf(stderr, "(internal quadratic resampler)\n");
+#endif
+      }
    }
 
    /* Recieve data, write to sound card. Rinse, repeat :') */
@@ -994,28 +1130,38 @@ static void* rsd_thread(void *thread_data)
          conn.identity[0] = '\0';
       }
 
-      memset(buffer, 0, size);
-
-      rc = recieve_data(data, &conn, buffer, size);
-      if ( rc == 0 )
+#ifdef HAVE_SAMPLERATE
+      if ( resample )
+      {
+         rc = src_callback_read(src_state, (double)w.sampleRate/(double)w_orig.sampleRate, BYTES_TO_SAMPLES(size, w.rsd_format)/w.numChannels, src_buffer);
+         src_float_to_short_array(src_buffer, buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+      }
+      else
+         rc = receive_data(data, &conn, buffer, read_size);
+#else
+      rc = receive_data(data, &conn, buffer, read_size);
+#endif
+      if ( rc <= 0 )
       {
          if ( debug )
             fprintf(stderr, "Client closed connection.\n");
          goto rsd_exit;
       }
 
+#ifndef HAVE_SAMPLERATE
+      if ( resample )
+      {
+         resample_process_simple(buffer, w_orig.rsd_format, w_orig.numChannels, BYTES_TO_SAMPLES(size, w.rsd_format), BYTES_TO_SAMPLES(read_size, w_orig.rsd_format));
+      }
+#endif
+
       for ( written = 0; written < (int)size; )
       {
-         rc = backend->write(data, buffer + written, size - written);
-         if ( rc <= 0 )
-         {
-            if ( debug )
-               fprintf(stderr, "write() failed with error code %d.\n", rc);
+         rc = backend->write(data, (char*)buffer + written, size - written);
+         if ( rc == 0 )
             goto rsd_exit;
-         }
 
          written += rc;
-         conn.serv_ptr += rc;
       }
    }
 
@@ -1025,14 +1171,22 @@ rsd_exit:
       fprintf(stderr, "Closed connection.\n\n");
 #ifdef _WIN32
 #undef close
+#endif
    backend->close(data);
+#ifdef _WIN32
 #define close(x) closesocket(x)
 #endif
    free(buffer);
    free(data);
    close(conn.socket);
-   if ( conn.ctl_socket )
+   if (conn.ctl_socket)
       close(conn.ctl_socket);
+#ifdef HAVE_SAMPLERATE
+   if (src_state)
+      src_delete(src_state);
+   free(src_buffer);
+   free(src_cb_data);
+#endif
    pthread_exit(NULL);
 }
 

@@ -78,4 +78,7 @@ To use rsd.exe, you will need to install the OpenAL runtime which is not include
 To compile, type: mingw32-make mingw32
 
 Binaries will be found in src/win32/bin.
+The package can be compiled from at least Linux as well typically using this command-line: CC="i486-mingw32-gcc" make mingw32.
+
+Do note that the Windows build does not use configure, config.h or config.mk as it is simply a static Makefile.
 

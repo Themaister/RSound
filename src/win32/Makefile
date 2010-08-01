@@ -33,15 +33,18 @@ lib: $(TARGET_LIB)
 server: $(TARGET_SERVER)
 
 $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ) $(TARGET_LIB)
+	@mkdir -p bin
 	@echo "LD $@"
 	@$(CC) -s $(CFLAGS) -o $(TARGET_CLIENT) $(TARGET_CLIENT_OBJ) $(LIB_DIRS) $(TARGET_CLIENT_LIBS)
 
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ)
+	@mkdir -p bin
 	@echo "LD `echo $@ | sed 's|^\S\S*/\([^.][^.]*\).*|\1.dll|'`"
 	@$(CC) -shared -Wl,--out-implib,$(TARGET_LIB_IMPLIB) -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) $(LIB_DIRS)
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
+	@mkdir -p bin
 	@echo "LD $@"
 	@$(CC) -s -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS) $(LIB_DIRS)
 

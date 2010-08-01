@@ -124,7 +124,7 @@ int handle_ctl_request(connection_t *conn, void *data)
             proto.serv_ptr = conn->serv_ptr;
             if ( backend->latency != NULL )
             {
-               proto.serv_ptr -= backend->latency(data);
+               proto.serv_ptr -= (int)(backend->latency(data) / conn->rate_ratio);
             }
             if ( send_proto(conn->ctl_socket, &proto) < 0 )
                return -1;
