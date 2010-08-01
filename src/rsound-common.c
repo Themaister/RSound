@@ -505,6 +505,8 @@ static void print_help()
 #else
 #ifdef HAVE_SAMPLERATE
    printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -R/--rate | -Q/--resampler | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
+#else
+   printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -R/--rate | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
 #endif
 #endif
    printf("\n-d/--device: Specifies an ALSA or OSS device to use.\n");
