@@ -18,10 +18,15 @@
  ***************************************************************/
 
 #include "rsound.h"
-#include "config.h"
 #include "endian.h"
 #include "audio.h"
 #include "proto.h"
+
+#ifdef _WIN32
+#define RSD_VERSION "0.9.5"
+#else
+#include "config.h"
+#endif
 
 #ifndef _WIN32
 #include <fcntl.h>
