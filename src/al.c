@@ -68,9 +68,12 @@ static void al_initialize(void)
 
 static void al_shutdown(void)
 {
+   // For some reason, cleaning up in Win32 makes the application crash. >_<
+#ifndef _WIN32
    alcMakeContextCurrent(NULL);
    alcDestroyContext(global_context);
    alcCloseDevice(global_handle);
+#endif
 }
 
 static int al_open(void* data, wav_header_t *w)
