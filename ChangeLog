@@ -1,4 +1,4 @@
-[RSound 0.9.5] - 2010-07-xx:
+[RSound 0.9.5] - 2010-08-05:
 -	Bugfixes
 - 	Win32 port merged into RSound main tree.
 -	Added resampling support.
