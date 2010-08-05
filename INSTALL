@@ -72,7 +72,7 @@ Note: The cygwin build is considered deprecated, and has some unresolved bugs re
 A native win32 port is included in the source tree.
 
 To build, make sure that the toolchain can be found in your PATH.
-Also, copy pthreadGC2.dll found in the win32-pthread package into src/win32/bin/.
+Also, copy pthreadGC2.dll found in the win32-pthread package into src/win32/bin/. You might have to create the src/win32/bin directory.
 To use rsd.exe, you will need to install the OpenAL runtime which is not included in the distribution due to size.
 
 To compile, type: mingw32-make mingw32
