@@ -940,6 +940,7 @@ int receive_data(void *data, connection_t *conn, void* buffer, size_t size)
          if ( rc <= 0 )
             return 0;
 
+         conn->serv_ptr += rc;
          read += rc;
       }
 
@@ -1139,7 +1140,6 @@ static void* rsd_thread(void *thread_data)
          rc = receive_data(data, &conn, buffer, read_size);
 #else
       rc = receive_data(data, &conn, buffer, read_size);
-      conn.serv_ptr += rc;
 #endif
       if ( rc <= 0 )
       {
@@ -1148,11 +1148,7 @@ static void* rsd_thread(void *thread_data)
          goto rsd_exit;
       }
 
-#ifdef HAVE_SAMPLERATE
-      if ( !resample )
-         conn.serv_ptr += rc;
-#else
-
+#ifndef HAVE_SAMPLERATE
       if ( resample )
       {
          resample_process_simple(buffer, w_orig.rsd_format, w_orig.numChannels, BYTES_TO_SAMPLES(size, w.rsd_format), BYTES_TO_SAMPLES(read_size, w_orig.rsd_format));
