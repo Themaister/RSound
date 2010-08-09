@@ -3,7 +3,11 @@ ifeq ($(CC),)
    CC := gcc
 endif
 
-CFLAGS := -O2 -Wall -Wextra -std=gnu99
+ifeq ($(CC),cc)
+   CC := gcc
+endif
+
+CFLAGS := -O2 -s -std=gnu99
 INCLUDE_DIRS := -Iinclude -Iinclude/pthread
 LIB_DIRS := -Lbin -Llib
 
