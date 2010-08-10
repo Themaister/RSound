@@ -1,0 +1,266 @@
+diff --git a/configure.ac b/configure.ac
+index 6833bd0..4d74947 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -3642,6 +3642,27 @@ AS_IF([test "${enable_alsa}" != "no"], [
+ AM_CONDITIONAL([HAVE_ALSA], [test "${have_alsa}" = "yes"])
+ 
+ dnl
++dnl  RSound module
++AC_ARG_ENABLE(rsound,
++  [  --enable-rsound         RSound (default auto)])
++have_rsound="no"
++AS_IF([test "${enable_rsound}" != "no"], [
++  PKG_CHECK_MODULES([RSOUND], [rsound >= 0.9], [
++    have_rsound="yes"
++  ], [
++    AS_IF([test "x${enable_rsound}" != "x"], [
++      AC_MSG_ERROR([rsound not found])
++    ])
++  ])
++])
++AM_CONDITIONAL([HAVE_RSOUND], [test "${have_rsound}" = "yes"])
++AS_IF([test "${have_rsound}" = "yes"], [
++       VLC_ADD_PLUGIN(rsound)
++       VLC_ADD_LIBS([rsound], [-lrsound])
++], [])
++
++
++dnl
+ dnl  win32 waveOut plugin
+ dnl
+ AC_ARG_ENABLE(waveout,
+diff --git a/modules/audio_output/Modules.am b/modules/audio_output/Modules.am
+index f9df5bd..2da1699 100644
+--- a/modules/audio_output/Modules.am
++++ b/modules/audio_output/Modules.am
+@@ -8,6 +8,7 @@ SOURCES_portaudio = portaudio.c
+ SOURCES_auhal = auhal.c
+ SOURCES_jack = jack.c
+ SOURCES_pulse = pulse.c
++SOURCES_rsound = rsound.c
+ 
+ libvlc_LTLIBRARIES += libaout_file_plugin.la
+ 
+diff --git a/modules/audio_output/rsound.c b/modules/audio_output/rsound.c
+new file mode 100644
+index 0000000..21698c7
+--- /dev/null
++++ b/modules/audio_output/rsound.c
+@@ -0,0 +1,216 @@
++/*****************************************************************************
++ * rsound.c : RSound module for vlc
++ *****************************************************************************
++ * Copyright (C) 2010 the VideoLAN team
++ *
++ * Authors: Hans-Kristian Arntzen <maister@archlinux.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
++ *****************************************************************************/
++
++/*****************************************************************************
++ * Preamble
++ *****************************************************************************/
++
++#ifdef HAVE_CONFIG_H
++# include "config.h"
++#endif
++
++//#include <stdio.h>
++#include <rsound.h>
++
++#include <vlc_common.h>
++#include <vlc_plugin.h>
++#include <vlc_fs.h>
++
++#include <vlc_aout.h>
++
++/*****************************************************************************
++ * aout_sys_t: RSound audio output method descriptor
++ *****************************************************************************
++ * This structure is part of the audio output thread descriptor.
++ *****************************************************************************/
++struct aout_sys_t
++{
++    rsound_t *rd;
++};
++
++/*****************************************************************************
++ * Local prototypes
++ *****************************************************************************/
++static int  Open         ( vlc_object_t * );
++static void Close        ( vlc_object_t * );
++
++static void Play         ( aout_instance_t * );
++static void* RSDThread   ( vlc_object_t * );
++
++static mtime_t BufferDuration( aout_instance_t * p_aout );
++
++/*****************************************************************************
++ * Module descriptor
++ *****************************************************************************/
++
++vlc_module_begin ()
++    set_shortname( "RSound" )
++    set_description( N_("RSound audio output") )
++
++    set_category( CAT_AUDIO )
++    set_subcategory( SUBCAT_AUDIO_AOUT )
++
++    add_shortcut( "rsound", "rsd" )
++
++    set_capability( "audio output", 160 )
++    set_callbacks( Open, Close )
++vlc_module_end ()
++
++
++/*****************************************************************************
++ * Open: open the connection
++ *****************************************************************************/
++static int Open( vlc_object_t *p_this )
++{
++    aout_instance_t * p_aout = (aout_instance_t *)p_this;
++    struct aout_sys_t * p_sys;
++
++    /* Allocate structure */
++    p_aout->output.p_sys = p_sys = malloc( sizeof( aout_sys_t ) );
++    if( p_sys == NULL )
++        return VLC_ENOMEM;
++
++    /* Inits rsound_t */
++    if ( rsd_init(&p_sys->rd) < 0 )
++        return VLC_ENOMEM;
++
++    int format = RSD_S16_NE;
++    int channels = aout_FormatNbChannels( &p_aout->output.output );
++    int rate = p_aout->output.output.i_rate;
++
++    rsd_set_param(p_sys->rd, RSD_SAMPLERATE, &rate);
++    rsd_set_param(p_sys->rd, RSD_CHANNELS, &channels);
++    rsd_set_param(p_sys->rd, RSD_FORMAT, &format);
++
++    p_aout->output.output.i_format = VLC_CODEC_S16N;
++    p_aout->output.i_nb_samples = 1024; // Just pick something. Anything is fine.
++    p_aout->output.pf_play = Play;
++
++    aout_VolumeSoftInit( p_aout );
++
++    if ( rsd_start(p_sys->rd) < 0 )
++    {
++       msg_Err ( p_aout, "Cannot connect to server.");
++       rsd_free( p_sys->rd );
++       free( p_sys );
++       return VLC_EGENERIC;
++    }
++
++    /* Create RSound thread and wait for its readiness. */
++    if( vlc_thread_create( p_aout, "aout", RSDThread,
++                           VLC_THREAD_PRIORITY_OUTPUT ) )
++    {
++        msg_Err( p_aout, "cannot create RSound thread (%m)" );
++        rsd_free( p_sys->rd );
++        free( p_sys );
++        return VLC_ENOMEM;
++    }
++
++    return VLC_SUCCESS;
++}
++
++/*****************************************************************************
++ * Play: nothing to do
++ *****************************************************************************/
++static void Play( aout_instance_t *p_aout )
++{
++    VLC_UNUSED(p_aout);
++}
++
++/*****************************************************************************
++ * Close: close the connection
++ *****************************************************************************/
++static void Close( vlc_object_t * p_this )
++{
++    aout_instance_t *p_aout = (aout_instance_t *)p_this;
++    struct aout_sys_t * p_sys = p_aout->output.p_sys;
++
++    vlc_object_kill( p_aout );
++    vlc_thread_join( p_aout );
++    p_aout->b_die = false;
++
++    rsd_stop(p_sys->rd);
++    rsd_free(p_sys->rd);
++
++    free( p_sys );
++}
++
++/*****************************************************************************
++ * BufferDuration: buffer status query
++ *****************************************************************************
++ * This function returns the duration in microseconds of the current buffer.
++ *****************************************************************************/
++static mtime_t BufferDuration( aout_instance_t * p_aout )
++{
++    struct aout_sys_t * p_sys = p_aout->output.p_sys;
++
++    return (mtime_t)(rsd_delay_ms(p_sys->rd) * 1000); 
++}
++
++/*****************************************************************************
++ * Thread loop
++ ****************************************************************************/
++static void* RSDThread( vlc_object_t *p_this )
++{
++    aout_instance_t * p_aout = (aout_instance_t*)p_this;
++    struct aout_sys_t * p_sys = p_aout->output.p_sys;
++    int canc = vlc_savecancel ();
++
++    while ( vlc_object_alive (p_aout) )
++    {
++        aout_buffer_t * p_buffer = NULL;
++        uint8_t * p_bytes;
++        int i_size;
++
++        mtime_t buffered = BufferDuration( p_aout );
++
++        p_buffer = aout_OutputNextBuffer( p_aout, mdate() + buffered, false );
++
++        if ( p_buffer == NULL )
++        {
++           if ( BufferDuration(p_aout) < 100000 && rsd_get_avail(p_sys->rd) > 0 )
++           {
++              uint8_t tmpbuf[rsd_get_avail(p_sys->rd)];
++              memset(tmpbuf, 0, sizeof(tmpbuf));
++              rsd_write(p_sys->rd, tmpbuf, sizeof(tmpbuf));
++           }
++           else
++           {
++              msleep(BufferDuration(p_aout)/2);
++           }
++           continue;
++        }
++
++        p_bytes = p_buffer->p_buffer;
++        i_size = p_buffer->i_buffer;
++
++        if ( rsd_write(p_sys->rd, p_bytes, i_size) == 0 )
++        {
++            msg_Err(p_aout, "RSound Write failed");
++        }
++
++        aout_BufferFree(p_buffer);
++    }
++
++    vlc_restorecancel (canc);
++    return NULL;
++}
