@@ -44,10 +44,10 @@ index f9df5bd..2da1699 100644
  
 diff --git a/modules/audio_output/rsound.c b/modules/audio_output/rsound.c
 new file mode 100644
-index 0000000..21698c7
+index 0000000..d387139
 --- /dev/null
 +++ b/modules/audio_output/rsound.c
-@@ -0,0 +1,216 @@
+@@ -0,0 +1,284 @@
 +/*****************************************************************************
 + * rsound.c : RSound module for vlc
 + *****************************************************************************
@@ -108,6 +108,14 @@ index 0000000..21698c7
 +
 +static mtime_t BufferDuration( aout_instance_t * p_aout );
 +
++#define CONNECT_STRING_OPTION_HOST "rsd-connect-host"
++#define CONNECT_STRING_HOST N_("RSound server host:")
++#define CONNECT_STRING_LONGTEXT_HOST N_("Defines which host to connect to. A blank field equals the default (RSD_SERVER environmental variable or 'localhost').")
++
++#define CONNECT_STRING_OPTION_PORT "rsd-connect-port"
++#define CONNECT_STRING_PORT N_("RSound server port:")
++#define CONNECT_STRING_LONGTEXT_PORT N_("Defines which port to connect to. A blank field equals the default (RSD_PORT environmental variable or '12345').")
++
 +/*****************************************************************************
 + * Module descriptor
 + *****************************************************************************/
@@ -119,7 +127,10 @@ index 0000000..21698c7
 +    set_category( CAT_AUDIO )
 +    set_subcategory( SUBCAT_AUDIO_AOUT )
 +
-+    add_shortcut( "rsound", "rsd" )
++    add_string(CONNECT_STRING_OPTION_HOST, NULL, NULL, CONNECT_STRING_HOST,
++          CONNECT_STRING_LONGTEXT_HOST, true)
++    add_string(CONNECT_STRING_OPTION_PORT, NULL, NULL, CONNECT_STRING_PORT,
++          CONNECT_STRING_LONGTEXT_PORT, true)
 +
 +    set_capability( "audio output", 160 )
 +    set_callbacks( Open, Close )
@@ -147,12 +158,63 @@ index 0000000..21698c7
 +    int channels = aout_FormatNbChannels( &p_aout->output.output );
 +    int rate = p_aout->output.output.i_rate;
 +
++    char *host = var_InheritString ( p_aout, CONNECT_STRING_OPTION_HOST );
++    if ( host != NULL && strlen(host) > 0 )
++        rsd_set_param(p_sys->rd, RSD_HOST, host);
++    if ( host != NULL )
++       free(host);
++
++    char *port = var_InheritString ( p_aout, CONNECT_STRING_OPTION_PORT );
++    if ( port != NULL && strlen(port) > 0 )
++        rsd_set_param(p_sys->rd, RSD_PORT, port);
++    if ( port != NULL )
++       free(port);
++
++    /* Sets up channel mapping */
++    switch(channels)
++    {
++        case 8:
++            p_aout->output.output.i_physical_channels
++                = AOUT_CHAN_LEFT | AOUT_CHAN_RIGHT | AOUT_CHAN_CENTER
++                | AOUT_CHAN_MIDDLELEFT | AOUT_CHAN_MIDDLERIGHT
++                | AOUT_CHAN_REARLEFT | AOUT_CHAN_REARRIGHT
++                | AOUT_CHAN_LFE;
++            break;
++        case 6:
++            p_aout->output.output.i_physical_channels
++                = AOUT_CHAN_LEFT | AOUT_CHAN_RIGHT | AOUT_CHAN_CENTER
++                | AOUT_CHAN_REARLEFT | AOUT_CHAN_REARRIGHT
++                | AOUT_CHAN_LFE;
++            break;
++
++        case 4:
++            p_aout->output.output.i_physical_channels
++                = AOUT_CHAN_LEFT | AOUT_CHAN_RIGHT
++                | AOUT_CHAN_REARLEFT | AOUT_CHAN_REARRIGHT;
++            break;
++
++        case 2:
++            p_aout->output.output.i_physical_channels
++                = AOUT_CHAN_LEFT | AOUT_CHAN_RIGHT;
++            break;
++
++        case 1:
++            p_aout->output.output.i_physical_channels = AOUT_CHAN_CENTER;
++            break;
++
++        default:
++            msg_Err(p_aout,"Invalid number of channels");
++            rsd_free(p_sys->rd);
++            free(p_sys);
++            return VLC_EGENERIC;
++    }
++
 +    rsd_set_param(p_sys->rd, RSD_SAMPLERATE, &rate);
 +    rsd_set_param(p_sys->rd, RSD_CHANNELS, &channels);
 +    rsd_set_param(p_sys->rd, RSD_FORMAT, &format);
 +
 +    p_aout->output.output.i_format = VLC_CODEC_S16N;
-+    p_aout->output.i_nb_samples = 1024; // Just pick something. Anything is fine.
++    p_aout->output.i_nb_samples = 1024; // Just pick something relatively small. Anything is fine.
 +    p_aout->output.pf_play = Play;
 +
 +    aout_VolumeSoftInit( p_aout );
@@ -219,6 +281,9 @@ index 0000000..21698c7
 +/*****************************************************************************
 + * Thread loop
 + ****************************************************************************/
++
++#define MIN_LATENCY_US 50000
++
 +static void* RSDThread( vlc_object_t *p_this )
 +{
 +    aout_instance_t * p_aout = (aout_instance_t*)p_this;
@@ -237,12 +302,15 @@ index 0000000..21698c7
 +
 +        if ( p_buffer == NULL )
 +        {
-+           if ( BufferDuration(p_aout) < 100000 && rsd_get_avail(p_sys->rd) > 0 )
++           /* We avoid buffer underruns since they make latency handling more inaccurate. We simply fill up the client side buffer. */
++           if ( BufferDuration(p_aout) < MIN_LATENCY_US && rsd_get_avail(p_sys->rd) > 0 )
 +           {
++              msg_Dbg(p_aout, "Possible underrun detected, filling up buffer.");
 +              uint8_t tmpbuf[rsd_get_avail(p_sys->rd)];
 +              memset(tmpbuf, 0, sizeof(tmpbuf));
 +              rsd_write(p_sys->rd, tmpbuf, sizeof(tmpbuf));
 +           }
++           /* We will need to sleep for some time anyways. */
 +           else
 +           {
 +              msleep(BufferDuration(p_aout)/2);
@@ -255,7 +323,7 @@ index 0000000..21698c7
 +
 +        if ( rsd_write(p_sys->rd, p_bytes, i_size) == 0 )
 +        {
-+            msg_Err(p_aout, "RSound Write failed");
++            msg_Err(p_aout, "rsd_write() failed. Connection was closed?");
 +        }
 +
 +        aout_BufferFree(p_buffer);
