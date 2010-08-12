@@ -1,62 +1,69 @@
-[RSound 0.9.5] - 2010-08-05:
--	Bugfixes
-- 	Win32 port merged into RSound main tree.
--	Added resampling support.
-	- Internal resampler (quadratic interpolation)
-	- libsamplerate
+[RSound 1.0alpha1] - 2010-08-12:
+
+	*  VLC patch added.
+	*	Fix default host on Win32 (it doesn't like localhost).
+
+[RSound 0.9.5] * 2010-08-05:
+
+	*	Bugfixes
+	* 	Win32 port merged into RSound main tree.
+	*	Added resampling support.
+		* Internal resampler (quadratic interpolation)
+		* libsamplerate
 
 [RSound 0.9.4] - 2010-06-26:
--	Bugfixes
--	rsdplay drains all audio from the file using rsd_exec()
--	Build fixes for *BSD
--	Updated documentation
+
+	*	Bugfixes
+	*	rsdplay drains all audio from the file using rsd_exec()
+	*	Build fixes for *BSD
+	*	Updated documentation
 
 
 [RSound 0.9.3] - 2010-06-12:
 
-- 	rsd_exec() function
-- 	IDENTITY protocol
-- 	CLOSECTL protocol
-- 	Feature test macros
-- 	Updated documentation
-- 	bugfixes:
-	- Better latency handling in OpenAL
-	- Fixed bad usage of mutexes
+	* 	rsd_exec() function
+	* 	IDENTITY protocol
+	* 	CLOSECTL protocol
+	* 	Feature test macros
+	* 	Updated documentation
+	* 	bugfixes:
+		* Better latency handling in OpenAL
+		* Fixed bad usage of mutexes
 
 
 [RSound 0.9.2] - 2010-06-06:
 
--	New build system :)
--	Many bugfixes
--	Python module uses librsound directly.
+	*	New build system :)
+	*	Many bugfixes
+	*	Python module uses librsound directly.
 
 [RSound 0.9.1] - 2010-05-21:
 
-- Bugfixes mostly
+	* Bugfixes mostly
 
 
 [RSound 0.9.0] - 2010-05-05:
 
-- Bugfixes mostly
+	* Bugfixes mostly
 
 
-[RSound 0.9alpha] - 2010-04-15:
+[RSound 0.9alpha] * 2010-04-15:
 
--  No ctl socket really needed. rsd will now ignore a missing ctl socket. 
--	Can netcat a riff wave file to rsd :)
+	*  No ctl socket really needed. rsd will now ignore a missing ctl socket. 
+	*	Can netcat a riff wave file to rsd :)
 
--  Support for more sound formats. Now supports:
-	-	S16LE
-	-	S16BE
-	-	U16LE
-	-	U16BE
-	-	U8
-	-	S8
+	*  Support for more sound formats. Now supports:
+		*	S16LE
+		*	S16BE
+		*	U16LE
+		*	U16BE
+		*	U8
+		*	S8
 
--	Support for anything else than S16LE and U8 is a bit hacky, 
+	*	Support for anything else than S16LE and U8 is a bit hacky, 
 	as the format specs need to be hacked in useless spots in the wave header.
 
-- librsound now creates a valid RIFF header, making it easier to support on different audio systems.
+	* librsound now creates a valid RIFF header, making it easier to support on different audio systems.
 
-- Cleanups.
+	* Cleanups.
 

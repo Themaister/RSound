@@ -23,7 +23,7 @@
 #include "proto.h"
 
 #ifdef _WIN32
-#define RSD_VERSION "0.9.5"
+#define RSD_VERSION "1.0alpha1"
 #else
 #include "config.h"
 #endif
