@@ -3,7 +3,7 @@
 	*  VLC patch added.
 	*	Fix default host on Win32 (it doesn't like localhost).
 
-[RSound 0.9.5] * 2010-08-05:
+[RSound 0.9.5] - 2010-08-05:
 
 	*	Bugfixes
 	* 	Win32 port merged into RSound main tree.
