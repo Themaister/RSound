@@ -1,8 +1,8 @@
 diff --git a/configure.ac b/configure.ac
-index 6833bd0..4d74947 100644
+index f077c7b..492eb45 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -3642,6 +3642,27 @@ AS_IF([test "${enable_alsa}" != "no"], [
+@@ -3645,6 +3645,27 @@ AS_IF([test "${enable_alsa}" != "no"], [
  AM_CONDITIONAL([HAVE_ALSA], [test "${have_alsa}" = "yes"])
  
  dnl
@@ -44,10 +44,10 @@ index f9df5bd..2da1699 100644
  
 diff --git a/modules/audio_output/rsound.c b/modules/audio_output/rsound.c
 new file mode 100644
-index 0000000..d387139
+index 0000000..6b8e3c7
 --- /dev/null
 +++ b/modules/audio_output/rsound.c
-@@ -0,0 +1,284 @@
+@@ -0,0 +1,289 @@
 +/*****************************************************************************
 + * rsound.c : RSound module for vlc
 + *****************************************************************************
@@ -290,6 +290,11 @@ index 0000000..d387139
 +    struct aout_sys_t * p_sys = p_aout->output.p_sys;
 +    int canc = vlc_savecancel ();
 +
++    // Fill up the client side buffer before we start
++    uint8_t tmpbuf[rsd_get_avail(p_sys->rd)];
++    memset(tmpbuf, 0, sizeof(tmpbuf));
++    rsd_write(p_sys->rd, tmpbuf, sizeof(tmpbuf));
++
 +    while ( vlc_object_alive (p_aout) )
 +    {
 +        aout_buffer_t * p_buffer = NULL;
@@ -313,7 +318,7 @@ index 0000000..d387139
 +           /* We will need to sleep for some time anyways. */
 +           else
 +           {
-+              msleep(BufferDuration(p_aout)/2);
++              msleep(BufferDuration(p_aout)/8);
 +           }
 +           continue;
 +        }
