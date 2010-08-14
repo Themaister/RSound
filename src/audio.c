@@ -132,7 +132,6 @@ int rsnd_format_to_bytes(enum rsd_format fmt)
    return -1;
 }
 
-
 inline static void swap_bytes16(uint16_t *data, size_t bytes)
 {
    int i;
@@ -142,39 +141,46 @@ inline static void swap_bytes16(uint16_t *data, size_t bytes)
    }
 }
 
-inline static void alaw_to_s16(uint8_t *data, size_t bytes)
+inline static void alaw_to_s16(void *data, size_t bytes)
 {
-   int16_t buf[bytes];
-   int i;
-   for ( i = 0; i < (int)bytes; i++ )
+   union
    {
-      buf[i] = ALAWTable[data[i]];
-   }
-   memcpy(data, buf, sizeof(buf));
+      uint8_t *u8;
+      int16_t *i16;
+   } u;
+
+   u.u8 = data;
+
+   for ( int i = (int)bytes - 1; i >= 0; i-- )
+      u.i16[i] = ALAWTable[u.u8[i]];
 }
 
-inline static void mulaw_to_s16(uint8_t *data, size_t bytes)
+inline static void mulaw_to_s16(void *data, size_t bytes)
 {
-   int16_t buf[bytes];
-   int i;
-   for ( i = 0; i < (int)bytes; i++ )
+   union
    {
-      buf[i] = MULAWTable[data[i]];
-   }
-   memcpy(data, buf, sizeof(buf));
+      uint8_t *u8;
+      int16_t *i16;
+   } u;
+
+   u.u8 = data;
+
+   for ( int i = (int)bytes - 1; i >= 0; i-- )
+      u.i16[i] = MULAWTable[u.u8[i]];
 }
 
 inline static void s8_to_s16(void *data, size_t samples)
 {
-   int8_t *in_8 = data;
-   int16_t out_16[samples];
-
-   for ( int i = 0; i < (int)samples; i++ )
+   union
    {
-      out_16[i] = in_8[i] * 256;
-   }
+      int8_t *i8;
+      int16_t *i16;
+   } u;
 
-   memcpy(data, out_16, samples * sizeof(int16_t));
+   u.i8 = data;
+
+   for ( int i = (int)samples - 1; i >= 0; i-- )
+      u.i16[i] = ((int16_t)u.i8[i]) << 8;
 }
 
 void audio_converter(void* data, enum rsd_format fmt, int operation, size_t bytes)
@@ -299,13 +305,10 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
    memcpy(data, buffer, bytes);
 }
 
-#ifdef HAVE_SAMPLERATE
-long src_callback_func(void *cb_data, float **data)
+static int converter_fmt_to_s16ne(enum rsd_format format)
 {
-   src_callback_state_t *state = cb_data;
-
    int conversion = RSD_NULL;
-   switch ( state->format )
+   switch ( format )
    {
       case RSD_S16_LE:
          if ( !is_little_endian() )
@@ -338,10 +341,24 @@ long src_callback_func(void *cb_data, float **data)
          break;
       case RSD_UNSPEC:
       default:
-         *data = NULL;
          return -1;
    }
 
+   return conversion;
+}
+
+#ifdef HAVE_SAMPLERATE
+long src_callback_func(void *cb_data, float **data)
+{
+   src_callback_state_t *state = cb_data;
+
+   int conversion = converter_fmt_to_s16ne(state->format);
+   if (conversion == -1)
+   {
+      *data = NULL;
+      return 0;
+   }
+   
    size_t bufsize = sizeof(state->buffer)/sizeof(state->buffer[0]);
    int16_t inbuffer[bufsize/sizeof(int16_t)];
    size_t read_size = bufsize;
@@ -410,28 +427,24 @@ static void poly3_resample16(void * restrict out, const void * restrict in, int 
 
          if ( (int)pos_in == 0 )
          {
-            y[0] = ip[c];
-            y[1] = ip[channels + c];
+            y[0] = ip[0 * channels + c];
+            y[1] = ip[1 * channels + c];
             y[2] = ip[2 * channels + c];
             x_val = pos_in;
          }
          else if ( (int)pos_in + 1 >= samples/channels )
          {
             y[0] = ip[((int)pos_in - 1) * channels + c];
-            y[1] = ip[(int)pos_in * channels + c];
+            y[1] = ip[((int)pos_in + 0) * channels + c];
             // Should we need a sample that is out-of-range, we will have to estimate this value using preceding values.
             y[2] = y[1] * 2.0 - y[0];
-            if ( (int)y[2] > 0x7FFE )
-               y[2] = 0x7FFE;
-            else if ( (int)y[2] < -0x7FFE )
-               y[2] = -0x7FFE;
 
             x_val = pos_in - (int)pos_in + 1.0;
          }
          else
          {
             y[0] = ip[((int)pos_in - 1) * channels + c];
-            y[1] = ip[(int)pos_in * channels + c];
+            y[1] = ip[((int)pos_in + 0) * channels + c];
             y[2] = ip[((int)pos_in + 1) * channels + c];
             x_val = pos_in - (int)pos_in + 1.0;
          }
@@ -441,8 +454,8 @@ static void poly3_resample16(void * restrict out, const void * restrict in, int 
          int32_t temp = (int32_t)(poly.a*x_val*x_val + poly.b*x_val + poly.c + 0.5);
          if (temp > 0x7FFE )
             op[x * channels + c] = 0x7FFE;
-         else if (temp < -0x7FFE)
-            op[x * channels + c] = -0x7FFE;
+         else if (temp < -0x7FFF)
+            op[x * channels + c] = -0x7FFF;
          else
             op[x * channels + c] = (int16_t)temp;
       }
@@ -457,46 +470,13 @@ void resample_process_simple(void* data, enum rsd_format format, int channels, i
 {
    // We need to convert the audio to native S16 format before resampling.
 
-   int samplesize = rsnd_format_to_bytes(format);
-   int conversion = RSD_NULL;
-   switch ( format )
-   {
-      case RSD_S16_LE:
-         if ( !is_little_endian() )
-            conversion |= RSD_SWAP_ENDIAN;
-         break;
-      case RSD_S16_BE:
-         if ( is_little_endian() )
-            conversion |= RSD_SWAP_ENDIAN;
-         break;
-      case RSD_U16_LE:
-         conversion |= RSD_U_TO_S;
-         if ( !is_little_endian() )
-            conversion |= RSD_SWAP_ENDIAN;
-         break;
-      case RSD_U16_BE:
-         conversion |= RSD_U_TO_S;
-         if ( is_little_endian() )
-            conversion |= RSD_SWAP_ENDIAN;
-         break;
-      case RSD_U8:
-         conversion |= RSD_U_TO_S;
-      case RSD_S8:
-         conversion |= RSD_S8_TO_S16;
-         break;
-      case RSD_ALAW:
-         conversion |= RSD_ALAW_TO_S16;
-         break;
-      case RSD_MULAW:
-         conversion |= RSD_MULAW_TO_S16;
-         break;
-      case RSD_UNSPEC:
-      default:
-         return;
-   }
-
    int16_t inbuffer[insamples];
    int16_t outbuffer[outsamples];
+
+   int samplesize = rsnd_format_to_bytes(format);
+   int conversion = converter_fmt_to_s16ne(format);
+   if (conversion == -1)
+      return;
 
    memcpy(inbuffer, data, insamples * samplesize);
    audio_converter(inbuffer, format, conversion, insamples * samplesize);

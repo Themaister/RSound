@@ -32,6 +32,8 @@ print_help()
    echo "   alsa oss libao portaudio openal pulse muroar samplerate"
 }
 
+ARGS="alsa oss libao portaudio openal pulse muroar samplerate"
+
 ### Parse stuff :V
 
 while [ ! -z "$1" ]
@@ -48,11 +50,23 @@ do
 
       --enable-*)
          enable=`echo $1 | sed 's|^--enable-||'`
+         [ -z $enable ] && echo "Not valid module." && print_help && exit 1
+         if [ -z "`echo $ARGS | grep $enable`" ]; then
+            echo "Not valid module."
+            print_help
+            exit 1
+         fi
          eval HAVE_`echo $enable | tr '[a-z]' '[A-Z]'`=yes
          ;;
 
       --disable-*)
          disable=`echo $1 | sed 's|^--disable-||'`
+         [ -z $disable ] && echo "Not valid module." && print_help && exit 1
+         if [ -z "`echo $ARGS | grep $disable`" ]; then
+            echo "Not valid module."
+            print_help
+            exit 1
+         fi
          eval HAVE_`echo $disable | tr '[a-z]' '[A-Z]'`=no
          ;;
 

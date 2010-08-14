@@ -27,7 +27,11 @@ extern "C" {
 #include <time.h>
 #include <stdint.h>
 
+#ifdef _WIN32
+#define RSD_DEFAULT_HOST "127.0.0.1" // Stupid Windows.
+#else
 #define RSD_DEFAULT_HOST "localhost"
+#endif
 #define RSD_DEFAULT_PORT "12345"
 #define RSD_DEFAULT_UNIX_SOCK "/tmp/rsound"
 #define RSD_DEFAULT_OBJECT "rsound"
