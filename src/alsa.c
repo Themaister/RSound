@@ -53,7 +53,7 @@ static int alsa_open(void *data, wav_header_t *w)
 
    /* Prefer a small frame count for this, with a high buffer/framesize ratio. */
    unsigned int buffer_time = BUFFER_TIME;
-   snd_pcm_uframes_t frames = 256;
+   snd_pcm_uframes_t frames = 128;
 
    /* Determines format to use */   
    snd_pcm_format_t format;
@@ -124,7 +124,13 @@ static int alsa_open(void *data, wav_header_t *w)
    /* Makes sure that ALSA doesn't start playing too early, which might lead to a
       buffer underrun at the start of the stream. */
    snd_pcm_uframes_t latency;
+   snd_pcm_uframes_t buffer_size;
    snd_pcm_hw_params_get_period_size(interface->params, &latency, NULL);
+   snd_pcm_hw_params_get_buffer_size(interface->params, &buffer_size);
+
+   if (debug)
+      fprintf(stderr, "ALSA: Period size: %d frames. Buffer size: %d frames.\n", (int)latency, (int)buffer_size);
+
    if ( snd_pcm_sw_params_set_start_threshold(interface->handle, sw_params, latency * LATENCY_BUFFERS) < 0 )
    {
       snd_pcm_sw_params_free(sw_params);
