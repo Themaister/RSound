@@ -20,3 +20,6 @@ Microsoft Windows (Cygwin) - PortAudio, (OSS), libao, OpenAL
             any major problems.
 
 On how to use these programs, refer to the --help in the respective programs, or the man-pages.
+
+For install instructions, see INSTALL
+For documentation of RSound protocol and API, see DOCUMENTATION.
