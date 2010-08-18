@@ -28,7 +28,7 @@ extern "C" {
 #define RSD_DEFAULT_HOST "127.0.0.1" // localhost doesn't seem to work on win32
 #define RSD_DEFAULT_PORT "12345"
 
-#define RSD_VERSION "1.0alpha1"
+#define RSD_VERSION "1.0alpha2"
 
 /* Feature tests */
 #define RSD_SAMPLERATE  RSD_SAMPLERATE 
