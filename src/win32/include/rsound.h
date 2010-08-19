@@ -72,6 +72,7 @@ extern "C" {
 #define RSD_SIMPLE_START   RSD_SIMPLE_START
 
 #define RSD_NO_FMT RSD_NO_FMT
+#define RSD_USES_OPAQUE_TYPE RSD_USES_OPAQUE_TYPE
 /* End feature tests */
 
 
