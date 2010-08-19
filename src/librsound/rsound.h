@@ -20,12 +20,17 @@
 extern "C" {
 #endif
 
+#ifdef RSD_EXPOSE_STRUCT
 #include <sys/types.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/time.h>
 #include <time.h>
 #include <stdint.h>
+#include <stddef.h>
+#else
+#include <stddef.h>
+#endif
 
 #ifdef _WIN32
 #define RSD_DEFAULT_HOST "127.0.0.1" // Stupid Windows.
@@ -96,6 +101,7 @@ extern "C" {
       RSD_IDENTITY
    };
 
+#ifdef RSD_EXPOSE_STRUCT
    /* Defines the main structure for use with the API. */
    typedef struct rsound
    {
@@ -142,6 +148,9 @@ extern "C" {
 
       char identity[256];
    } rsound_t;
+#else
+   typedef struct rsound rsound_t;
+#endif
 
    /* -- API --
       All functions (except for rsd_write() return 0 for success, and -1 for error. errno is currently not set. */

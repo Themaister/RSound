@@ -44,6 +44,8 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ) $(TARGET_LIB)
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ)
 	@mkdir -p bin
+	@mkdir -p include
+	@cp -f ../librsound/rsound.h include/
 	@echo "LD `echo $@ | sed 's|^\S\S*/\([^.][^.]*\).*|\1.dll|'`"
 	@$(CC) -shared -Wl,--out-implib,$(TARGET_LIB_IMPLIB) -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) $(LIB_DIRS)
 

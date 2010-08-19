@@ -13,6 +13,7 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define RSD_EXPOSE_STRUCT
 #include "rsound.h"
 
 #undef CONST_CAST
