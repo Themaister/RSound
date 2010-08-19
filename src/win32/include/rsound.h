@@ -46,34 +46,34 @@ extern "C" {
 #endif
 
 /* Feature tests */
-#define RSD_SAMPLERATE  RSD_SAMPLERATE 
-#define RSD_CHANNELS    RSD_CHANNELS
-#define RSD_HOST        RSD_HOST
-#define RSD_PORT        RSD_PORT
-#define RSD_BUFSIZE     RSD_BUFSIZE
-#define RSD_LATENCY     RSD_LATENCY
-#define RSD_FORMAT      RSD_FORMAT
-#define RSD_IDENTITY    RSD_IDENTITY
+#define RSD_SAMPLERATE              RSD_SAMPLERATE 
+#define RSD_CHANNELS                RSD_CHANNELS
+#define RSD_HOST                    RSD_HOST
+#define RSD_PORT                    RSD_PORT
+#define RSD_BUFSIZE                 RSD_BUFSIZE
+#define RSD_LATENCY                 RSD_LATENCY
+#define RSD_FORMAT                  RSD_FORMAT
+#define RSD_IDENTITY                RSD_IDENTITY
 
-#define RSD_S16_LE   RSD_S16_LE
-#define RSD_S16_BE   RSD_S16_BE
-#define RSD_U16_LE   RSD_U16_LE
-#define RSD_U16_BE   RSD_U16_BE
-#define RSD_U8       RSD_U8
-#define RSD_S8       RSD_S8
-#define RSD_S16_NE   RSD_S16_NE
-#define RSD_U16_NE   RSD_U16_NE
-#define RSD_ALAW     RSD_ALAW
-#define RSD_MULAW    RSD_MULAW
+#define RSD_S16_LE                  RSD_S16_LE
+#define RSD_S16_BE                  RSD_S16_BE
+#define RSD_U16_LE                  RSD_U16_LE
+#define RSD_U16_BE                  RSD_U16_BE
+#define RSD_U8                      RSD_U8
+#define RSD_S8                      RSD_S8
+#define RSD_S16_NE                  RSD_S16_NE
+#define RSD_U16_NE                  RSD_U16_NE
+#define RSD_ALAW                    RSD_ALAW
+#define RSD_MULAW                   RSD_MULAW
 
-#define RSD_DELAY_MS       RSD_DELAY_MS
-#define RSD_SAMPLESIZE     RSD_SAMPLESIZE
-#define RSD_EXEC           RSD_EXEC
-#define RSD_SIMPLE_START   RSD_SIMPLE_START
+#define RSD_DELAY_MS                RSD_DELAY_MS
+#define RSD_SAMPLESIZE              RSD_SAMPLESIZE
+#define RSD_EXEC                    RSD_EXEC
+#define RSD_SIMPLE_START            RSD_SIMPLE_START
 
-#define RSD_NO_FMT RSD_NO_FMT
-#define RSD_USES_OPAQUE_TYPE RSD_USES_OPAQUE_TYPE
-#define RSD_USES_SAMPLESIZE_MEMBER RSD_USES_SAMPLESIZE_MEMBER
+#define RSD_NO_FMT                  RSD_NO_FMT
+#define RSD_USES_OPAQUE_TYPE        RSD_USES_OPAQUE_TYPE
+#define RSD_USES_SAMPLESIZE_MEMBER  RSD_USES_SAMPLESIZE_MEMBER
 /* End feature tests */
 
 
