@@ -41,6 +41,10 @@ extern "C" {
 #define RSD_DEFAULT_UNIX_SOCK "/tmp/rsound"
 #define RSD_DEFAULT_OBJECT "rsound"
 
+#ifndef RSD_VERSION
+#define RSD_VERSION "1.0alpha2"
+#endif
+
 /* Feature tests */
 #define RSD_SAMPLERATE  RSD_SAMPLERATE 
 #define RSD_CHANNELS    RSD_CHANNELS
