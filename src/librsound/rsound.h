@@ -131,7 +131,7 @@ extern "C" {
       uint32_t rate;
       uint32_t channels;
       uint16_t format;
-      int framesize;
+      int samplesize;
 
       struct {
          pthread_t threadId;
