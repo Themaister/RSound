@@ -26,7 +26,7 @@ TARGET_CLIENT_OBJ = ../client.o ../endian.o
 TARGET_CLIENT_LIBS = -lrsound -lws2_32
 
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
-TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) ../audio.o ../endian.o ../daemon.o ../rsound-common.o ../proto.o src/poll.o
+TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) ../audio.o ../endian.o ../daemon.o ../rsound-common.o ../proto.o ../resampler.o src/poll.o
 
 all: client lib server
 
