@@ -62,7 +62,7 @@ static size_t resampler_get_required_frames(resampler_t* state, size_t frames)
 
    size_t after_sum = state->sum_output_frames + frames;
 
-   size_t min_input_frames = (size_t)((after_sum / state->ratio) + 1.0);
+   size_t min_input_frames = (size_t)((after_sum / state->ratio) + 2.0);
    return min_input_frames - state->sum_input_frames;
 }
 
@@ -76,9 +76,19 @@ static void poly_create_3(float *poly, float *y)
 static size_t resampler_process(resampler_t *state, size_t frames, float *out_data)
 {
    size_t frames_used = 0;
-   int pos_out;
+   uint64_t pos_out;
    float pos_in;
-   for (int x = state->sum_output_frames; x < (int)state->sum_output_frames + (int)frames; x++)
+   fprintf(stderr, "=========================================\n");
+   fprintf(stderr, "Output: %zu frames.\n", frames);
+   fprintf(stderr, "Output frames: %zu - %zu\n", state->sum_output_frames, state->sum_output_frames + frames);
+   fprintf(stderr, "Needed input frames: %zu - %zu\n", (size_t)(state->sum_output_frames/state->ratio), (size_t)((state->sum_output_frames + frames)/state->ratio + 1.0));
+   fprintf(stderr, "Current input frames: %zu - %zu\n", state->sum_input_frames, state->sum_input_frames + SAMPLES_TO_FRAMES(state->data_ptr, state));
+   fprintf(stderr, "=========================================\n");
+
+   assert(state->sum_input_frames <= (size_t)(state->sum_output_frames/state->ratio));
+   assert(state->sum_input_frames + SAMPLES_TO_FRAMES(state->data_ptr, state) - 1 >= (size_t)((state->sum_output_frames + frames - 1)/state->ratio + 1.0));
+
+   for (uint64_t x = state->sum_output_frames; x < state->sum_output_frames + frames; x++)
    {
       for (int c = 0; c < state->channels; c++)
       {
