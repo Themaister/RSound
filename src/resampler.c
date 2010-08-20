@@ -62,7 +62,7 @@ static size_t resampler_get_required_frames(resampler_t* state, size_t frames)
 
    size_t after_sum = state->sum_output_frames + frames;
 
-   size_t min_input_frames = (size_t)((after_sum / state->ratio) + 2.0);
+   size_t min_input_frames = (size_t)((after_sum / state->ratio) + 1.0);
    return min_input_frames - state->sum_input_frames;
 }
 
@@ -109,7 +109,7 @@ static size_t resampler_process(resampler_t *state, size_t frames, float *out_da
          out_data[pos_out * state->channels + c] = poly[2] * x_val * x_val + poly[1] * x_val + poly[0];
       }
    }
-   frames_used = (int)pos_in - 1;
+   frames_used = (int)pos_in;
    return frames_used;
 }
 
