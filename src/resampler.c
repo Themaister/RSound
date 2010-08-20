@@ -78,6 +78,8 @@ static size_t resampler_process(resampler_t *state, size_t frames, float *out_da
    size_t frames_used = 0;
    uint64_t pos_out;
    float pos_in;
+
+#if 0
    fprintf(stderr, "=========================================\n");
    fprintf(stderr, "Output: %zu frames.\n", frames);
    fprintf(stderr, "Output frames: %zu - %zu\n", state->sum_output_frames, state->sum_output_frames + frames);
@@ -87,6 +89,7 @@ static size_t resampler_process(resampler_t *state, size_t frames, float *out_da
 
    assert(state->sum_input_frames <= (size_t)(state->sum_output_frames/state->ratio));
    assert(state->sum_input_frames + SAMPLES_TO_FRAMES(state->data_ptr, state) - 1 >= (size_t)((state->sum_output_frames + frames - 1)/state->ratio + 1.0));
+#endif
 
    for (uint64_t x = state->sum_output_frames; x < state->sum_output_frames + frames; x++)
    {
