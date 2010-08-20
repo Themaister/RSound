@@ -15,7 +15,7 @@ typedef size_t (*resampler_cb_t) (void *cb_data, float **data);
 typedef struct resampler
 {
    float *data;
-   float ratio;
+   double ratio;
    size_t data_ptr;
    size_t data_size;
    void *cb_data;
@@ -26,7 +26,7 @@ typedef struct resampler
 } resampler_t;
 
 
-resampler_t* resampler_new(resampler_cb_t func, float ratio, int channels, void* cb_data);
+resampler_t* resampler_new(resampler_cb_t func, double ratio, int channels, void* cb_data);
 ssize_t resampler_cb_read(resampler_t *state, size_t frames, float *data);
 void resampler_free(resampler_t* state);
 

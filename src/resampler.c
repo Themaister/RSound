@@ -8,7 +8,7 @@
 #define SAMPLES_TO_FRAMES(x,y) ((x)/(y)->channels)
 #define FRAMES_TO_SAMPLES(x,y) ((x)*(y)->channels)
 
-resampler_t* resampler_new(resampler_cb_t func, float ratio, int channels, void* cb_data)
+resampler_t* resampler_new(resampler_cb_t func, double ratio, int channels, void* cb_data)
 {
    if (func == NULL)
       return NULL;
@@ -77,7 +77,7 @@ static size_t resampler_process(resampler_t *state, size_t frames, float *out_da
 {
    size_t frames_used = 0;
    uint64_t pos_out;
-   float pos_in;
+   double pos_in;
 
 #if 0
    fprintf(stderr, "=========================================\n");
@@ -93,10 +93,13 @@ static size_t resampler_process(resampler_t *state, size_t frames, float *out_da
 
    for (uint64_t x = state->sum_output_frames; x < state->sum_output_frames + frames; x++)
    {
+      pos_out = x - state->sum_output_frames;
+      pos_in  = ((double)x / state->ratio) - (double)state->sum_input_frames;
+      //pos_in = pos_out / state->ratio;
+      //fprintf(stderr, "pos_in: %15.7lf\n", pos_in + state->sum_input_frames);
       for (int c = 0; c < state->channels; c++)
       {
-         pos_out = x - state->sum_output_frames;
-         pos_in  = (x / state->ratio) - state->sum_input_frames;
+
 
          float poly[3];
          float data[3];
@@ -114,11 +117,11 @@ static size_t resampler_process(resampler_t *state, size_t frames, float *out_da
             data[0] = state->data[((int)pos_in - 1) * state->channels + c];
             data[1] = state->data[((int)pos_in + 0) * state->channels + c];
             data[2] = state->data[((int)pos_in + 1) * state->channels + c];
-            x_val = pos_in - floor(pos_in) + 1.0;
+            x_val = pos_in - (int)pos_in + 1.0;
          }
 
          poly_create_3(poly, data);
-
+         
          out_data[pos_out * state->channels + c] = poly[2] * x_val * x_val + poly[1] * x_val + poly[0];
       }
    }
@@ -186,7 +189,7 @@ ssize_t resampler_cb_read(resampler_t *state, size_t frames, float *data)
 
    size_t frames_used = resampler_process(state, frames, data);
    state->sum_input_frames += frames_used;
-   memmove(state->data, state->data + FRAMES_TO_SAMPLES(frames_used, state), (state->data_size - FRAMES_TO_SAMPLES(frames_used, state)) * sizeof(float));
+   memmove(state->data, state->data + FRAMES_TO_SAMPLES(frames_used, state), (state->data_ptr - FRAMES_TO_SAMPLES(frames_used, state)) * sizeof(float));
    state->data_ptr -= FRAMES_TO_SAMPLES(frames_used, state);
    state->sum_output_frames += frames;
 
