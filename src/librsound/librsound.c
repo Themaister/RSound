@@ -1097,7 +1097,7 @@ static int rsnd_update_server_info(rsound_t *rd)
 }
 
 // Sort of simulates the behavior of pthread_cancel()
-#define THREAD_CANCEL \
+#define _TEST_CANCEL() \
    if ( !rd->thread_active ) \
       break
 
@@ -1116,7 +1116,7 @@ static void* rsnd_thread ( void * thread_data )
       for(;;)
       {
 
-         THREAD_CANCEL;
+         _TEST_CANCEL();
 
          // We ask the server to send its latest backend data. Do not really care about errors atm.
          // We only bother to check after 1 sec of audio has been played, as it might be quite inaccurate in the start of the stream.
@@ -1135,13 +1135,13 @@ static void* rsnd_thread ( void * thread_data )
          }
          pthread_mutex_unlock(&rd->thread.mutex);
 
-         THREAD_CANCEL;
+         _TEST_CANCEL();
          rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size, 1);
 
          /* If this happens, we should make sure that subsequent and current calls to rsd_write() will fail. */
          if ( rc != (int)rd->backend_info.chunk_size )
          {
-            THREAD_CANCEL;
+            _TEST_CANCEL();
             rsnd_reset(rd);
 
             /* Wakes up a potentially sleeping fill_buffer() */
