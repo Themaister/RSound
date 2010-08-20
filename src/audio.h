@@ -40,6 +40,8 @@
 
 #ifdef HAVE_SAMPLERATE
 #include <samplerate.h>
+#else
+#include "resampler.h"
 #endif
 
 // Defines audio formats supported by rsound. Might be extended in the future :)
@@ -122,7 +124,10 @@ enum rsd_format_conv
 void audio_converter(void* data, enum rsd_format fmt, int operation, size_t bytes); 
 
 #ifdef HAVE_SAMPLERATE
-long src_callback_func(void *cb_data, float **data);
+long resample_callback(void *cb_data, float **data);
+#else
+size_t resample_callback(void *cb_data, float **data);
+#endif
 
 typedef struct
 {
@@ -131,14 +136,9 @@ typedef struct
    connection_t *conn;
    float buffer[DEFAULT_CHUNK_SIZE];
    int framesize;
-} src_callback_state_t;
-
-#else
-void resample_process_simple(void* data, enum rsd_format format, int channels, int outsamples, int insamples);
-#endif
+} resample_cb_state_t;
 
 int receive_data(void *backend_data, connection_t *conn, void *buffer, size_t size);
-
 
 #define BYTES_TO_SAMPLES(x, fmt) (x / (rsnd_format_to_bytes(fmt)))
 #define RESAMPLE_READ_SIZE(x, w_orig, w) ((int)(((((x) * (float)((w_orig)->sampleRate) / (float)((w)->sampleRate)))/((w)->numChannels * ((w)->bitsPerSample/8)))+0.5)*((w_orig)->numChannels * ((w_orig)->bitsPerSample/8)))

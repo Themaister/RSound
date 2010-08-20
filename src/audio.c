@@ -348,9 +348,12 @@ static int converter_fmt_to_s16ne(enum rsd_format format)
 }
 
 #ifdef HAVE_SAMPLERATE
-long src_callback_func(void *cb_data, float **data)
+long resample_callback(void *cb_data, float **data)
+#else
+size_t resample_callback(void *cb_data, float **data)
+#endif
 {
-   src_callback_state_t *state = cb_data;
+   resample_cb_state_t *state = cb_data;
 
    int conversion = converter_fmt_to_s16ne(state->format);
    if (conversion == -1)
@@ -373,116 +376,13 @@ long src_callback_func(void *cb_data, float **data)
    }
 
    audio_converter(inbuffer, state->format, conversion, read_size);
+#ifdef HAVE_SAMPLERATE
    src_short_to_float_array(inbuffer, state->buffer, BYTES_TO_SAMPLES(bufsize, RSD_S16_LE));
+#else
+   resampler_s16_to_float(state->buffer, inbuffer, BYTES_TO_SAMPLES(bufsize, RSD_S16_LE));
+#endif
 
    *data = state->buffer;
    return rc / state->framesize;
 }
-#else
-
-// Polynomial interpolation. We calculate values by interpolating between 3 samples.
-struct poly
-{
-   float a;
-   float b;
-   float c;
-};
-
-// Precalculated solution for
-// a*0^2 + b*0 + c = y[0]
-// a*1^2 + b*1 + c = y[1]
-// a*2^2 + b*2 + c = y[2]
-static inline void poly_create(struct poly *poly, const float *y)
-{
-   poly->a = (y[0] - 2*y[1] + y[2])/2;
-   poly->b = -1.5*y[0] + 2*y[1] - 0.5*y[2];
-   poly->c = y[0];
-}
-
-// Algorithm:
-// We take an x amount of samples and convert them into y. Thus output sample y0 will correspond to input sample x0 as:
-// x0 = y0 * x / y
-// Should this be a non-integer number, we need to interpolate between samples to determine the value for y0.
-static void poly3_resample16(void * restrict out, const void * restrict in, int channels, int outsamples, int samples)
-{
-   const int16_t *ip = in;
-   int16_t *op = out;
-
-   float ratio = (float)outsamples / samples;
-   int c, x;
-
-   for ( x = 0; x < outsamples/channels; x++ )
-   {
-      for ( c = 0; c < channels; c++ )
-      {
-         float pos_out;
-         float pos_in;
-
-         struct poly poly;
-         float y[3];
-         float x_val;
-
-         pos_out = x;
-         pos_in = pos_out / ratio;
-
-         if ( (int)pos_in == 0 )
-         {
-            y[0] = ip[0 * channels + c];
-            y[1] = ip[1 * channels + c];
-            y[2] = ip[2 * channels + c];
-            x_val = pos_in;
-         }
-         else if ( (int)pos_in + 1 >= samples/channels )
-         {
-            y[0] = ip[((int)pos_in - 1) * channels + c];
-            y[1] = ip[((int)pos_in + 0) * channels + c];
-            // Should we need a sample that is out-of-range, we will have to estimate this value using preceding values.
-            y[2] = y[1] * 2.0 - y[0];
-
-            x_val = pos_in - (int)pos_in + 1.0;
-         }
-         else
-         {
-            y[0] = ip[((int)pos_in - 1) * channels + c];
-            y[1] = ip[((int)pos_in + 0) * channels + c];
-            y[2] = ip[((int)pos_in + 1) * channels + c];
-            x_val = pos_in - (int)pos_in + 1.0;
-         }
-
-         poly_create(&poly, y);
-
-         int32_t temp = (int32_t)(poly.a*x_val*x_val + poly.b*x_val + poly.c + 0.5);
-         if (temp > 0x7FFE )
-            op[x * channels + c] = 0x7FFE;
-         else if (temp < -0x7FFF)
-            op[x * channels + c] = -0x7FFF;
-         else
-            op[x * channels + c] = (int16_t)temp;
-      }
-   }
-
-}
-
-// Simple poly resampling of audio. Will output all audio data in RSD_S16_NE.
-// Speed: medium/fast
-// Quality: medium
-void resample_process_simple(void* data, enum rsd_format format, int channels, int outsamples, int insamples)
-{
-   // We need to convert the audio to native S16 format before resampling.
-
-   int16_t inbuffer[insamples];
-   int16_t outbuffer[outsamples];
-
-   int samplesize = rsnd_format_to_bytes(format);
-   int conversion = converter_fmt_to_s16ne(format);
-   if (conversion == -1)
-      return;
-
-   memcpy(inbuffer, data, insamples * samplesize);
-   audio_converter(inbuffer, format, conversion, insamples * samplesize);
-
-   poly3_resample16(outbuffer, inbuffer, channels, outsamples, insamples);
-   memcpy(data, outbuffer, sizeof(outbuffer));
-}
-#endif
 

@@ -57,12 +57,14 @@ endif
 
 ifeq ($(HAVE_SAMPLERATE), 1)
    TARGET_SERVER_LIBS += -lsamplerate
+else
+   TARGET_SERVER_OBJ += resampler.o
 endif
 
 TARGET_CLIENT_OBJ = client.o endian.o $(TARGET_LIB_OBJ_STATIC)
 
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
-TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) audio.o endian.o daemon.o rsound-common.o proto.o
+TARGET_SERVER_OBJ += $(OPT_SERV_OBJ) audio.o endian.o daemon.o rsound-common.o proto.o
 
 all: lib client server
 
