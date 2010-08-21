@@ -23,6 +23,19 @@
 #define SAMPLES_TO_FRAMES(x,y) ((x)/(y)->channels)
 #define FRAMES_TO_SAMPLES(x,y) ((x)*(y)->channels)
 
+struct resampler
+{
+   float *data;
+   double ratio;
+   size_t data_ptr;
+   size_t data_size;
+   void *cb_data;
+   int channels;
+   resampler_cb_t func;
+   uint64_t sum_output_frames;
+   uint64_t sum_input_frames;
+};
+
 resampler_t* resampler_new(resampler_cb_t func, double ratio, int channels, void* cb_data)
 {
    if (func == NULL)

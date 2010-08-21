@@ -964,7 +964,7 @@ static void* rsd_thread(void *thread_data)
    resampler_t *resample_state = NULL;
 #endif
    float *resample_buffer = NULL;
-   resample_cb_state_t *cb_data = NULL;
+   resample_cb_state_t cb_data;
 
    connection_t *temp_conn = thread_data;
    conn.socket = temp_conn->socket;
@@ -1053,22 +1053,16 @@ static void* rsd_thread(void *thread_data)
          goto rsd_exit;
       }
 
-      cb_data = calloc(1, sizeof(*cb_data));
-      if ( cb_data == NULL )
-      {
-         fprintf(stderr, "Could not allocate memory.\n");
-         goto rsd_exit;
-      }
-      cb_data->format = w_orig.rsd_format;
-      cb_data->data = data;
-      cb_data->conn = &conn;
-      cb_data->framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format);
+      cb_data.format = w_orig.rsd_format;
+      cb_data.data = data;
+      cb_data.conn = &conn;
+      cb_data.framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format);
 
 #ifdef HAVE_SAMPLERATE
       int err;
-      resample_state = src_callback_new(resample_callback, src_converter, w.numChannels, &err, cb_data);
+      resample_state = src_callback_new(resample_callback, src_converter, w.numChannels, &err, &cb_data);
 #else
-      resample_state = resampler_new(resample_callback, (float)w.sampleRate/w_orig.sampleRate, w.numChannels, cb_data);
+      resample_state = resampler_new(resample_callback, (float)w.sampleRate/w_orig.sampleRate, w.numChannels, &cb_data);
 #endif
       if ( resample_state == NULL )
       {
@@ -1148,7 +1142,7 @@ static void* rsd_thread(void *thread_data)
 
       for ( written = 0; written < (int)size; )
       {
-         rc = backend->write(data, (char*)buffer + written, size - written);
+         rc = backend->write(data, (const char*)buffer + written, size - written);
          if ( rc == 0 )
             goto rsd_exit;
 
@@ -1174,13 +1168,14 @@ rsd_exit:
       close(conn.ctl_socket);
 
    if (resample_state)
+   {
 #ifdef HAVE_SAMPLERATE
       src_delete(resample_state);
 #else
       resampler_free(resample_state);
 #endif
+   }
    free(resample_buffer);
-   free(cb_data);
    pthread_exit(NULL);
 }
 
