@@ -1,3 +1,11 @@
+[RSound 1.0alpha3] - 2010-08-21:
+
+	*	Reimplemented internal resampler for ratio accuracy and callback to more
+		closely model libsamplerate.
+	*	rsound_t is now opaque. To expose the underlying struct (don't), use
+		#define RSD_EXPOSE_STRUCT before including the header.	
+
+
 [RSound 1.0alpha2] - 2010-08-18:
 
 	*  Fixes some bugs related to default host in Win32.

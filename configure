@@ -17,7 +17,7 @@ HAVE_PULSE=auto
 HAVE_SAMPLERATE=auto
 
 PREFIX=/usr/local
-RSD_VERSION=1.0alpha2
+RSD_VERSION=1.0alpha3
 
 ### Command line stuff
 
