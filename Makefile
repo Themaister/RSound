@@ -30,5 +30,8 @@ mingw32:
 mingw32-clean:
 	@$(MAKE) --directory=$(WIN32) clean
 
+mingw32-dist:
+	@$(MAKE) --directory=$(WIN32) dist
 
-.PHONY: all client lib server clean distclean install install-lib install-server install-client uninstall mingw32
+
+.PHONY: all client lib server clean distclean install install-lib install-server install-client uninstall mingw32 mingw32-clean mingw32-dist
