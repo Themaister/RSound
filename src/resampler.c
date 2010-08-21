@@ -3,7 +3,6 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
-#include <math.h>
 
 #define SAMPLES_TO_FRAMES(x,y) ((x)/(y)->channels)
 #define FRAMES_TO_SAMPLES(x,y) ((x)*(y)->channels)
