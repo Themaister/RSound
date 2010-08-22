@@ -114,19 +114,23 @@ static size_t roarvs_rsd_write(void *data, const void* buf, size_t size)
    return size;
 }
 
-// TODO: found out what to do here.
 static int roarvs_rsd_latency(void* data)
 {
    roar_rsd_t *roar = data;
 
-   ssize_t rc;
-   if ( (rc = roar_vs_latency(roar->sound, ROAR_VS_BACKEND_DEFAULT, NULL)) < 0 )
-      return DEFAULT_CHUNK_SIZE; // Just return something halfway sane.
+   int err = ROAR_ERROR_NONE;
+   roar_mus_t rc;
+   if ( (rc = roar_vs_latency(roar->sound, ROAR_VS_BACKEND_DEFAULT, &err)) == 0 )
+   {
+      if (err != ROAR_ERROR_NONE)
+         return DEFAULT_CHUNK_SIZE; // Just return something halfway sane.
+      else
+         return 0;
+   }
    else
       return rc * roar->bps / 1000000L;
 }
 
-// TODO: found out what to do here.
 static void roarvs_rsd_get_backend(void *data, backend_info_t *backend_info)
 {
    (void)data;
