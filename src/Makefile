@@ -30,6 +30,11 @@ ifeq ($(HAVE_LIBAO), 1)
    OPT_SERV_OBJ += ao.o
 endif
 
+ifeq ($(HAVE_ROARVS), 1)
+   OPT_SERV_LIBS += -lroar
+   OPT_SERV_OBJ += roarvs.o
+endif
+
 ifeq ($(HAVE_PULSE), 1)
    OPT_SERV_LIBS += -lpulse-simple
    OPT_SERV_OBJ += pulse.o
