@@ -101,7 +101,7 @@ static int roarvs_rsd_open(void* data, wav_header_t *w)
       return -1;
    }
 
-   roar->bps = info.rate * info.channels * info.bits / 8;
+   roar->bps = info.rate * roar_info2framesize(&info);
 
    return 0;
 }
