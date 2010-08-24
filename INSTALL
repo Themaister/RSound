@@ -39,7 +39,9 @@ Note: On BSD-systems, you'll have to use gmake.
  To compile (Cygwin):
 =======================
 
-Windows is supported via:
+Note: The cygwin build is considered deprecated, and has some unresolved bugs related to 100% CPU usage (most likely CygWin bugs). It is no longer supported.
+
+Windows/CygWin is supported via:
    libao
    portaudio
 
@@ -63,7 +65,6 @@ cyggcc_s-1.dll
 cygportaudio-2.dll / cygao-2.dll
 cygwin1.dll
 
-Note: The cygwin build is considered deprecated, and has some unresolved bugs related to 100% CPU usage. 
 
 ======================
  To compile (Win32):
@@ -75,10 +76,11 @@ To build, make sure that the toolchain can be found in your PATH.
 Also, copy pthreadGC2.dll found in the win32-pthread package into src/win32/bin/. You might have to create the src/win32/bin directory.
 To use rsd.exe, you will need to install the OpenAL runtime which is not included in the distribution due to size.
 
-To compile, type: mingw32-make mingw32
+To compile, type: mingw32-make mingw32 in an msys shell.
 
 Binaries will be found in src/win32/bin.
-The package can be compiled from at least Linux as well typically using this command-line: CC="i486-mingw32-gcc" make mingw32.
+The package can be compiled from GNU/Linux as well typically using this command-line: CC="i486-mingw32-gcc" make mingw32.
+Note: The mingw32 compiler might be called something else on your system.
 
 Do note that the Windows build does not use configure, config.h or config.mk as it is simply a static Makefile.
 

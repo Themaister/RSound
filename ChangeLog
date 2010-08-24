@@ -1,3 +1,8 @@
+[RSound 1.0alpha2] - 2010-08-18:
+
+	*  Fixes some bugs related to default host in Win32.
+	*	Some minor bugfixes.
+
 [RSound 1.0alpha1] - 2010-08-12:
 
 	*  VLC patch added.
@@ -47,7 +52,7 @@
 	* Bugfixes mostly
 
 
-[RSound 0.9alpha] * 2010-04-15:
+[RSound 0.9alpha] - 2010-04-15:
 
 	*  No ctl socket really needed. rsd will now ignore a missing ctl socket. 
 	*	Can netcat a riff wave file to rsd :)

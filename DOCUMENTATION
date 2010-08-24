@@ -588,6 +588,7 @@ The server must only respond to the latest latency requests in the network buffe
 If several INFO requests are in the network buffer. Disregard these, as they can no longer be reliable on measuring latency. 
 INFO can be called on very often, and it is possible that INFO requests will pile up in the network buffer. 
 Try to empty the network buffer each time the server does control handling.
+If deemed appropriate, a server might ignore a request for INFO.
 
 The server will take this message, and respond with appending the number of bytes actually played back to the speakers (or something similiar). 
 To do this, the server will record number of bytes written to the audio driver and subtract the audio latency of the driver, 

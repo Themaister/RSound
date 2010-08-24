@@ -18,6 +18,12 @@
 
 #include "audio.h"
 
+#ifdef _WIN32
+#define RSD_VERSION "1.0alpha2"
+#else
+#include "config.h"
+#endif
+
 #undef CONST_CAST
 #ifdef _WIN32
 #undef close

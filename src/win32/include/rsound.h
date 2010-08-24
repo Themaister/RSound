@@ -28,7 +28,7 @@ extern "C" {
 #define RSD_DEFAULT_HOST "127.0.0.1" // localhost doesn't seem to work on win32
 #define RSD_DEFAULT_PORT "12345"
 
-#define RSD_VERSION "1.0alpha1"
+#define RSD_VERSION "1.0alpha2"
 
 /* Feature tests */
 #define RSD_SAMPLERATE  RSD_SAMPLERATE 
@@ -115,7 +115,7 @@ extern "C" {
       Should NULL be passed in either host, port or ident, defaults will be used. */
 
    int rsd_simple_start (rsound_t **rd, const char* host, const char* port, const char* ident,
-                           int rate, int channels, int format);
+                           int rate, int channels, enum rsd_format format);
 
 
    /* Sets params associated with an rsound_t. These options (int options) include:
