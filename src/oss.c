@@ -143,7 +143,7 @@ static void oss_get_backend (void *data, backend_info_t *backend_info)
    }
 
    backend_info->latency = zz.fragsize;
-   backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
+   backend_info->chunk_size = zz.fragsize;
 }
 
 static int oss_latency(void* data)
