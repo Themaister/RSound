@@ -155,6 +155,7 @@ index 0000000..5376c80
 +
 +static int init(int rate, int channels, int format, int flags)
 +{
++   int bufsize = (1 << 15);
 +   if ( host )
 +      free(host);
 +   if ( port )
@@ -183,6 +184,7 @@ index 0000000..5376c80
 +
 +   rsd_set_param(rd, RSD_SAMPLERATE, &rate);
 +   rsd_set_param(rd, RSD_CHANNELS, &channels);
++   rsd_set_param(rd, RSD_BUFSIZE, &bufsize);
 +   ao_data.channels = channels;
 +   ao_data.samplerate = rate;
 +   ao_data.format = AF_FORMAT_S16_LE;
@@ -191,8 +193,8 @@ index 0000000..5376c80
 +   if ( rsd_start(rd) < 0 )
 +      return 0;
 +   
-+   ao_data.outburst = rd->backend_info.chunk_size;
-+   ao_data.buffersize = rd->buffer_size;
++   ao_data.outburst = (1 << 10);
++   ao_data.buffersize = bufsize;
 +   
 +   return 1;
 +}
