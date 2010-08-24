@@ -26,8 +26,6 @@ typedef struct
 {
    snd_pcm_t* handle; 
    snd_pcm_hw_params_t* params;
-   snd_pcm_uframes_t frames;
-   size_t size;
 } alsa_t;
 
 #endif
