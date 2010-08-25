@@ -7,7 +7,7 @@ ifeq ($(CC),cc)
    CC := gcc
 endif
 
-CFLAGS := -O2 -s -std=gnu99
+CFLAGS := -Os -s -std=gnu99
 INCLUDE_DIRS := -Iinclude -Iinclude/pthread
 LIB_DIRS := -Lbin -Llib
 
@@ -47,7 +47,7 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ) $(TARGET_LIB)
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ)
 	@mkdir -p bin
-	@echo "LD `echo $@ | sed 's|^\S\S*/\([^.][^.]*\).*|\1.dll|'`"
+	@echo "LD $@"
 	@$(CC) -shared -Wl,--out-implib,$(TARGET_LIB_IMPLIB) -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) $(LIB_DIRS)
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
