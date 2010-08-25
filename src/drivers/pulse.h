@@ -16,7 +16,7 @@
 #ifndef PULSE_H
 #define PULSE_H
 
-#include "audio.h"
+#include "../audio.h"
 #include <pulse/simple.h>
 
 typedef struct

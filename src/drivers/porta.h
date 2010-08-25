@@ -16,9 +16,9 @@
 #ifndef PORTA_H
 #define PORTA_H
 
-#include "audio.h"
-#include "portaudio.h"
-#include "endian.h"
+#include "../audio.h"
+#include <portaudio.h>
+#include "../endian.h"
 
 
 typedef struct

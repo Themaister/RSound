@@ -17,7 +17,7 @@
 #ifndef MUROAR_H
 #define MUROAR_H
 
-#include "audio.h"
+#include "../audio.h"
 
 typedef struct
 {

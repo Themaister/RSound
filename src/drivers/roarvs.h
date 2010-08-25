@@ -15,7 +15,7 @@
  */
 
 #include <roaraudio.h>
-#include "rsound.h"
+#include "../rsound.h"
 
 typedef struct
 {

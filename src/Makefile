@@ -91,7 +91,7 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
-	@echo "LD `echo $@ | sed 's|^\S\S*/\([^.][^.]*\).*|\1.so|'`"
+	@echo "LD $@"
 	@$(CC) -shared -Wl,-soname,librsound.so.1 -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
 	@ln -sf librsound.so.1.0.1 librsound/librsound.so.1
 	@ln -sf librsound.so.1.0.1 librsound/librsound.so
@@ -102,11 +102,11 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 
 
 librsound/librsound.o: librsound/librsound.c config.h
-	@echo "CC `echo $< | sed 's|^\S\S*/\(\S\S*\)|\1|'`"
+	@echo "CC $<"
 	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 $(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
-	@echo "AR `echo $@ | sed 's|^\S\S*/\([^.][^.]*\).*|\1.a|'`"
+	@echo "AR $@"
 	@$(AR) rcs $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
 
 	
