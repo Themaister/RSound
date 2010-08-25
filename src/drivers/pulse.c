@@ -14,7 +14,7 @@
  */
 
 #include "pulse.h"
-#include "rsound.h"
+#include "../rsound.h"
 
 static void pulse_close(void *data)
 {
@@ -25,6 +25,7 @@ static void pulse_close(void *data)
       pa_simple_flush(sound->s, NULL);
       pa_simple_free(sound->s);
    }
+   free(sound);
 }
 
 static int pulse_init(void** data)

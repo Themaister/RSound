@@ -14,7 +14,7 @@
  */
 
 #include "al.h"
-#include "rsound.h"
+#include "../rsound.h"
 
 #ifdef _WIN32
 #define _WIN32_WINNT 0x0501
@@ -41,6 +41,7 @@ static void al_close(void *data)
          free(al->res_buf);
       }
    }
+   free(al);
 }
 
 static int al_init(void** data)

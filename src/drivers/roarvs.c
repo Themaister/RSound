@@ -21,6 +21,7 @@ static void roarvs_rsd_close(void *data)
    roar_rsd_t *roar = data;
    if ( roar->sound != NULL )
       roar_vs_close(roar->sound, ROAR_VS_TRUE, NULL);
+   free(roar);
 }
 
 static int roarvs_rsd_init(void** data)

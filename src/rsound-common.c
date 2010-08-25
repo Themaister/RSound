@@ -1178,7 +1178,7 @@ rsd_exit:
 #define close(x) closesocket(x)
 #endif
    free(buffer);
-   free(data);
+   //free(data);
    close(conn.socket);
    if (conn.ctl_socket)
       close(conn.ctl_socket);

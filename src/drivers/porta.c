@@ -14,7 +14,7 @@
  */
 
 #include "porta.h"
-#include "rsound.h"
+#include "../rsound.h"
 
 #define FRAMES_PER_BUFFER (DEFAULT_CHUNK_SIZE/4)
 
@@ -26,6 +26,7 @@ static void porta_close(void *data)
       Pa_StopStream ( sound->stream );
       Pa_CloseStream ( sound->stream );
    }
+   free(sound);
 }
 
 static void porta_initialize(void)

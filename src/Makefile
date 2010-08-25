@@ -15,44 +15,44 @@ OPT_SERV_OBJ =
 
 ifeq ($(HAVE_ALSA), 1)
    OPT_SERV_LIBS += -lasound
-   OPT_SERV_OBJ += alsa.o
+   OPT_SERV_OBJ += drivers/alsa.o
 endif
 
 ifeq ($(HAVE_OSS), 1)
 ifeq ($(NEED_OSSAUDIO), 1)
    OPT_SERV_LIBS += -lossaudio
 endif
-   OPT_SERV_OBJ += oss.o
+   OPT_SERV_OBJ += drivers/oss.o
 endif
 
 ifeq ($(HAVE_LIBAO), 1)
    OPT_SERV_LIBS += -lao
-   OPT_SERV_OBJ += ao.o
+   OPT_SERV_OBJ += drivers/ao.o
 endif
 
 ifeq ($(HAVE_ROARVS), 1)
    OPT_SERV_LIBS += -lroar
-   OPT_SERV_OBJ += roarvs.o
+   OPT_SERV_OBJ += drivers/roarvs.o
 endif
 
 ifeq ($(HAVE_PULSE), 1)
    OPT_SERV_LIBS += -lpulse-simple
-   OPT_SERV_OBJ += pulse.o
+   OPT_SERV_OBJ += drivers/pulse.o
 endif
 
 ifeq ($(HAVE_MUROAR), 1)
    OPT_SERV_LIBS += -lmuroar
-   OPT_SERV_OBJ += muroar.o
+   OPT_SERV_OBJ += drivers/muroar.o
 endif
 
 ifeq ($(HAVE_AL), 1)
    OPT_SERV_LIBS += -lopenal
-   OPT_SERV_OBJ += al.o
+   OPT_SERV_OBJ += drivers/al.o
 endif
 
 ifeq ($(HAVE_PORTAUDIO), 1)
    OPT_SERV_LIBS += -lportaudio
-   OPT_SERV_OBJ += porta.o
+   OPT_SERV_OBJ += drivers/porta.o
 endif
 
 ifeq ($(NEED_RT), 1)
@@ -125,6 +125,7 @@ clean:
 	rm -rf librsound/librsound.o
 	rm -rf librsound/librsound.a
 	rm -rf *.o
+	rm -rf drivers/*.o
 	rm -rf rsound.pc
 
 distclean: clean

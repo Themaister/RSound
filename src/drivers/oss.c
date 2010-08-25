@@ -14,13 +14,14 @@
  */
 
 #include "oss.h"
-#include "rsound.h"
+#include "../rsound.h"
 
 static void oss_close(void *data)
 {
    oss_t *sound = data;
    ioctl(sound->audio_fd, SNDCTL_DSP_RESET, 0);
    close(sound->audio_fd);
+   free(sound);
 }
 
 /* Opens and sets params */

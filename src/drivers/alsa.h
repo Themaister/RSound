@@ -16,9 +16,9 @@
 #ifndef ALSA_H
 #define ALSA_H
 
-#include "audio.h"
-#include <alsa/asoundlib.h>
+#include "../audio.h"
 #define ALSA_PCM_NEW_HW_PARAMS_API
+#include <alsa/asoundlib.h>
 
 #define BUFFER_TIME 64000
 

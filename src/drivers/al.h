@@ -16,8 +16,8 @@
 #ifndef AL_H
 #define AL_H
 
-#include "audio.h"
-#include "endian.h"
+#include "../audio.h"
+#include "../endian.h"
 #include <AL/al.h>
 #include <AL/alc.h>
 

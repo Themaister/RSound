@@ -14,7 +14,7 @@
  */
 
 #include "alsa.h"
-#include "rsound.h"
+#include "../rsound.h"
 
 #define LATENCY_BUFFERS 1
 
@@ -28,6 +28,7 @@ static void alsa_close(void* data)
       snd_pcm_drop(sound->handle);
       snd_pcm_close(sound->handle);
    }
+   free(sound);
 }
 
 static int alsa_init(void **data)

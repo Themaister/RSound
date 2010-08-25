@@ -14,7 +14,7 @@
  */
 
 #include "ao.h"
-#include "rsound.h"
+#include "../rsound.h"
 
 static void ao_rsd_close(void *data)
 {
@@ -22,6 +22,7 @@ static void ao_rsd_close(void *data)
 
    if ( sound->device )
       ao_close(sound->device);
+   free(sound);
 }
 
 static void ao_rsd_initialize(void)

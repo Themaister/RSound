@@ -16,13 +16,13 @@
 #ifndef OSS_H
 #define OSS_H
 
-#include "audio.h"
+#include "../audio.h"
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "config.h"
+#include "../config.h"
 #if HAVE_SYS_SOUNDCARD_H
 #include <sys/soundcard.h>
 #elif HAVE_SOUNDCARD_H
