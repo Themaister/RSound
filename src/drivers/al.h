@@ -32,7 +32,6 @@ typedef struct
    int channels;
    int rate;
    int latency;
-   int queue;
 
    enum rsd_format fmt;
    int conv;

@@ -132,8 +132,8 @@ static int al_open(void* data, wav_header_t *w)
 
    alGenSources(1, &al->source);
    alGenBuffers(al->num_buffers, al->buffers);
-   al->queue = 0;
-   al->res_ptr = 0;
+   memcpy(al->res_buf, al->buffers, al->num_buffers * sizeof(ALuint));
+   al->res_ptr = al->num_buffers;
 
    return 0;
 }
@@ -205,31 +205,6 @@ static size_t al_write(void *data, const void* inbuf, size_t size)
       buffer_ptr = convbuf;
    }
 
-
-   // Fills up the buffer before we start playing.
-
-
-   if ( al->queue < al->num_buffers )
-   {
-      alBufferData(al->buffers[al->queue++], al->format, buffer_ptr, osize, al->rate);
-      if ( alGetError() != AL_NO_ERROR )
-      {
-         return 0;
-      }
-
-      if ( al->queue == al->num_buffers )
-      {
-         alSourceQueueBuffers(al->source, al->num_buffers, al->buffers);
-         alSourcePlay(al->source);
-         if ( alGetError() != AL_NO_ERROR )
-         {
-            return 0;
-         }
-      }
-
-      return size;
-   }
-
    ALuint buffer = al_get_buffer(al);
 
    // Buffers up the data
@@ -262,15 +237,8 @@ static int al_latency(void *data)
    al_t *al = data;
 
    int latency;
-   if ( al->queue < al->num_buffers )
-   {
-      latency = al->queue * BUF_SIZE;
-   }
-   else
-   {
-      al_unqueue_buffers(al);
-      latency = BUF_SIZE * (al->num_buffers - al->res_ptr);
-   }
+   al_unqueue_buffers(al);
+   latency = BUF_SIZE * (al->num_buffers - al->res_ptr);
    return latency;
 }
 
