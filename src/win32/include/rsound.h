@@ -13,9 +13,6 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* Win32 header. Uses opaque struct since needing includes of pthread is a mess */
-
-
 #ifndef __RSOUND_H
 #define __RSOUND_H
 
@@ -23,40 +20,60 @@
 extern "C" {
 #endif
 
+#ifdef RSD_EXPOSE_STRUCT
+#include <sys/types.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/time.h>
+#include <time.h>
+#include <stdint.h>
 #include <stddef.h>
+#else
+#include <stddef.h>
+#endif
 
-#define RSD_DEFAULT_HOST "127.0.0.1" // localhost doesn't seem to work on win32
+#ifdef _WIN32
+#define RSD_DEFAULT_HOST "127.0.0.1" // Stupid Windows.
+#else
+#define RSD_DEFAULT_HOST "localhost"
+#endif
 #define RSD_DEFAULT_PORT "12345"
+#define RSD_DEFAULT_UNIX_SOCK "/tmp/rsound"
+#define RSD_DEFAULT_OBJECT "rsound"
 
-#define RSD_VERSION "1.0alpha2"
+#ifndef RSD_VERSION
+#define RSD_VERSION "1.0alpha3"
+#endif
 
 /* Feature tests */
-#define RSD_SAMPLERATE  RSD_SAMPLERATE 
-#define RSD_CHANNELS    RSD_CHANNELS
-#define RSD_HOST        RSD_HOST
-#define RSD_PORT        RSD_PORT
-#define RSD_BUFSIZE     RSD_BUFSIZE
-#define RSD_LATENCY     RSD_LATENCY
-#define RSD_FORMAT      RSD_FORMAT
-#define RSD_IDENTITY    RSD_IDENTITY
+#define RSD_SAMPLERATE              RSD_SAMPLERATE 
+#define RSD_CHANNELS                RSD_CHANNELS
+#define RSD_HOST                    RSD_HOST
+#define RSD_PORT                    RSD_PORT
+#define RSD_BUFSIZE                 RSD_BUFSIZE
+#define RSD_LATENCY                 RSD_LATENCY
+#define RSD_FORMAT                  RSD_FORMAT
+#define RSD_IDENTITY                RSD_IDENTITY
 
-#define RSD_S16_LE   RSD_S16_LE
-#define RSD_S16_BE   RSD_S16_BE
-#define RSD_U16_LE   RSD_U16_LE
-#define RSD_U16_BE   RSD_U16_BE
-#define RSD_U8       RSD_U8
-#define RSD_S8       RSD_S8
-#define RSD_S16_NE   RSD_S16_NE
-#define RSD_U16_NE   RSD_U16_NE
-#define RSD_ALAW     RSD_ALAW
-#define RSD_MULAW    RSD_MULAW
+#define RSD_S16_LE                  RSD_S16_LE
+#define RSD_S16_BE                  RSD_S16_BE
+#define RSD_U16_LE                  RSD_U16_LE
+#define RSD_U16_BE                  RSD_U16_BE
+#define RSD_U8                      RSD_U8
+#define RSD_S8                      RSD_S8
+#define RSD_S16_NE                  RSD_S16_NE
+#define RSD_U16_NE                  RSD_U16_NE
+#define RSD_ALAW                    RSD_ALAW
+#define RSD_MULAW                   RSD_MULAW
 
-#define RSD_DELAY_MS       RSD_DELAY_MS
-#define RSD_SAMPLESIZE     RSD_SAMPLESIZE
-#define RSD_SIMPLE_START   RSD_SIMPLE_START
-#define RSD_EXEC           RSD_EXEC
+#define RSD_DELAY_MS                RSD_DELAY_MS
+#define RSD_SAMPLESIZE              RSD_SAMPLESIZE
+#define RSD_EXEC                    RSD_EXEC
+#define RSD_SIMPLE_START            RSD_SIMPLE_START
 
-#define RSD_NO_FMT RSD_NO_FMT
+#define RSD_NO_FMT                  RSD_NO_FMT
+#define RSD_USES_OPAQUE_TYPE        RSD_USES_OPAQUE_TYPE
+#define RSD_USES_SAMPLESIZE_MEMBER  RSD_USES_SAMPLESIZE_MEMBER
 /* End feature tests */
 
 
@@ -90,8 +107,56 @@ extern "C" {
       RSD_IDENTITY
    };
 
+#ifdef RSD_EXPOSE_STRUCT
    /* Defines the main structure for use with the API. */
+   typedef struct rsound
+   {
+      struct {
+         volatile int socket;
+         volatile int ctl_socket;
+      } conn;
+
+      char *host;
+      char *port;
+      char *buffer;
+      int conn_type;
+
+      volatile int buffer_pointer;
+      size_t buffer_size;
+      volatile int thread_active;
+
+      int64_t total_written;
+      struct timespec start_tv_nsec;
+      struct timeval start_tv_usec;
+      volatile int has_written;
+      int bytes_in_buffer;
+      int delay_offset;
+      int max_latency;
+
+      struct {
+         uint32_t latency;
+         uint32_t chunk_size;
+      } backend_info;
+
+      volatile int ready_for_data;
+
+      uint32_t rate;
+      uint32_t channels;
+      uint16_t format;
+      int samplesize;
+
+      struct {
+         pthread_t threadId;
+         pthread_mutex_t mutex;
+         pthread_mutex_t cond_mutex;
+         pthread_cond_t cond;
+      } thread;
+
+      char identity[256];
+   } rsound_t;
+#else
    typedef struct rsound rsound_t;
+#endif
 
    /* -- API --
       All functions (except for rsd_write() return 0 for success, and -1 for error. errno is currently not set. */

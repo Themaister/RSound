@@ -21,6 +21,7 @@
 #define _LARGEFILE64_SOURCE 1
 #endif
 
+#define RSD_EXPOSE_STRUCT
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

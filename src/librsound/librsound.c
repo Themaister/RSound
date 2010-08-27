@@ -13,6 +13,7 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define RSD_EXPOSE_STRUCT
 #include "rsound.h"
 
 #undef CONST_CAST
@@ -99,7 +100,7 @@ static void rsnd_log(enum rsd_logtype type, char *fmt, ...);
 static inline int rsnd_is_little_endian(void);
 static inline void rsnd_swap_endian_16 ( uint16_t * x );
 static inline void rsnd_swap_endian_32 ( uint32_t * x );
-static inline int rsnd_format_to_framesize( enum rsd_format fmt );
+static inline int rsnd_format_to_samplesize( enum rsd_format fmt );
 static int rsnd_connect_server( rsound_t *rd );
 static int rsnd_send_header_info(rsound_t *rd);
 static int rsnd_get_backend_info ( rsound_t *rd );
@@ -195,7 +196,7 @@ static inline void rsnd_swap_endian_32 ( uint32_t * x )
       (*x << 24);
 }
 
-static inline int rsnd_format_to_framesize ( enum rsd_format fmt )
+static inline int rsnd_format_to_samplesize ( enum rsd_format fmt )
 {
    switch(fmt)
    {
@@ -221,7 +222,7 @@ static inline int rsnd_format_to_framesize ( enum rsd_format fmt )
 int rsd_samplesize( rsound_t *rd )
 {
    assert(rd != NULL);
-   return rd->framesize;
+   return rd->samplesize;
 }
 
 /* Creates sockets and attempts to connect to the server. Returns -1 when failed, and 0 when success. */
@@ -361,7 +362,7 @@ static int rsnd_send_header_info(rsound_t *rd)
    uint32_t temp_rate = rd->rate;
    uint16_t temp_channels = rd->channels;
 
-   uint16_t temp_bits = 8 * rsnd_format_to_framesize(rd->format);
+   uint16_t temp_bits = 8 * rsnd_format_to_samplesize(rd->format);
    uint16_t temp_format = rd->format;
 
    // Checks the format for native endian which will need to be set properly.
@@ -435,11 +436,11 @@ static int rsnd_send_header_info(rsound_t *rd)
    LSB32(temp_rate);
    SET32(header, RATE, temp_rate);
 
-   temp32 = rd->rate * rd->channels * rsnd_format_to_framesize(rd->format);
+   temp32 = rd->rate * rd->channels * rsnd_format_to_samplesize(rd->format);
    LSB32(temp32);
    SET32(header, 28, temp32);
 
-   temp16 = rd->channels * rsnd_format_to_framesize(rd->format);
+   temp16 = rd->channels * rsnd_format_to_samplesize(rd->format);
    LSB16(temp16);
    SET16(header, 32, temp16);
 
@@ -747,10 +748,10 @@ static void rsnd_drain(rsound_t *rd)
 
       temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_nsec.tv_sec;
 
-      temp *= rd->rate * rd->channels * rd->framesize;
+      temp *= rd->rate * rd->channels * rd->samplesize;
 
       temp2 = (int64_t)now_tv.tv_nsec - (int64_t)rd->start_tv_nsec.tv_nsec;
-      temp2 *= rd->rate * rd->channels * rd->framesize;
+      temp2 *= rd->rate * rd->channels * rd->samplesize;
       temp2 /= 1000000000;
       temp += temp2;
 #else
@@ -758,10 +759,10 @@ static void rsnd_drain(rsound_t *rd)
       gettimeofday(&now_tv, NULL);
 
       temp = (int64_t)now_tv.tv_sec - (int64_t)rd->start_tv_usec.tv_sec;
-      temp *= rd->rate * rd->channels * rd->framesize;
+      temp *= rd->rate * rd->channels * rd->samplesize;
 
       temp2 = (int64_t)now_tv.tv_usec - (int64_t)rd->start_tv_usec.tv_usec;
-      temp2 *= rd->rate * rd->channels * rd->framesize;
+      temp2 *= rd->rate * rd->channels * rd->samplesize;
       temp2 /= 1000000;
       temp += temp2;
 #endif
@@ -1120,7 +1121,7 @@ static void* rsnd_thread ( void * thread_data )
 
          // We ask the server to send its latest backend data. Do not really care about errors atm.
          // We only bother to check after 1 sec of audio has been played, as it might be quite inaccurate in the start of the stream.
-         if ( (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->framesize) )
+         if ( (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize) )
          {
             rsnd_send_info_query(rd); 
             rsnd_update_server_info(rd);
@@ -1405,10 +1406,10 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
          // Checks if format is valid.   
       case RSD_FORMAT:
          rd->format = (uint16_t)(*((int*)param));
-         if ( (rd->framesize = rsnd_format_to_framesize(rd->format)) == -1 )
+         if ( (rd->samplesize = rsnd_format_to_samplesize(rd->format)) == -1 )
          {
             rd->format = RSD_S16_LE;
-            rd->framesize = rsnd_format_to_framesize(RSD_S16_LE);
+            rd->samplesize = rsnd_format_to_samplesize(RSD_S16_LE);
             *((int*)param) = (int)RSD_S16_LE;
          }
          break;
@@ -1491,7 +1492,7 @@ size_t rsd_delay_ms(rsound_t* rd)
    assert(rd);
    assert(rd->rate > 0 && rd->channels > 0);
 
-   return (rsd_delay(rd) * 1000) / ( rd->rate * rd->channels * rd->framesize );
+   return (rsd_delay(rd) * 1000) / ( rd->rate * rd->channels * rd->samplesize );
 }
 
 int rsd_pause(rsound_t* rsound, int enable)

@@ -20,12 +20,17 @@
 extern "C" {
 #endif
 
+#ifdef RSD_EXPOSE_STRUCT
 #include <sys/types.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/time.h>
 #include <time.h>
 #include <stdint.h>
+#include <stddef.h>
+#else
+#include <stddef.h>
+#endif
 
 #ifdef _WIN32
 #define RSD_DEFAULT_HOST "127.0.0.1" // Stupid Windows.
@@ -36,33 +41,39 @@ extern "C" {
 #define RSD_DEFAULT_UNIX_SOCK "/tmp/rsound"
 #define RSD_DEFAULT_OBJECT "rsound"
 
+#ifndef RSD_VERSION
+#define RSD_VERSION "1.0alpha3"
+#endif
+
 /* Feature tests */
-#define RSD_SAMPLERATE  RSD_SAMPLERATE 
-#define RSD_CHANNELS    RSD_CHANNELS
-#define RSD_HOST        RSD_HOST
-#define RSD_PORT        RSD_PORT
-#define RSD_BUFSIZE     RSD_BUFSIZE
-#define RSD_LATENCY     RSD_LATENCY
-#define RSD_FORMAT      RSD_FORMAT
-#define RSD_IDENTITY    RSD_IDENTITY
+#define RSD_SAMPLERATE              RSD_SAMPLERATE 
+#define RSD_CHANNELS                RSD_CHANNELS
+#define RSD_HOST                    RSD_HOST
+#define RSD_PORT                    RSD_PORT
+#define RSD_BUFSIZE                 RSD_BUFSIZE
+#define RSD_LATENCY                 RSD_LATENCY
+#define RSD_FORMAT                  RSD_FORMAT
+#define RSD_IDENTITY                RSD_IDENTITY
 
-#define RSD_S16_LE   RSD_S16_LE
-#define RSD_S16_BE   RSD_S16_BE
-#define RSD_U16_LE   RSD_U16_LE
-#define RSD_U16_BE   RSD_U16_BE
-#define RSD_U8       RSD_U8
-#define RSD_S8       RSD_S8
-#define RSD_S16_NE   RSD_S16_NE
-#define RSD_U16_NE   RSD_U16_NE
-#define RSD_ALAW     RSD_ALAW
-#define RSD_MULAW    RSD_MULAW
+#define RSD_S16_LE                  RSD_S16_LE
+#define RSD_S16_BE                  RSD_S16_BE
+#define RSD_U16_LE                  RSD_U16_LE
+#define RSD_U16_BE                  RSD_U16_BE
+#define RSD_U8                      RSD_U8
+#define RSD_S8                      RSD_S8
+#define RSD_S16_NE                  RSD_S16_NE
+#define RSD_U16_NE                  RSD_U16_NE
+#define RSD_ALAW                    RSD_ALAW
+#define RSD_MULAW                   RSD_MULAW
 
-#define RSD_DELAY_MS       RSD_DELAY_MS
-#define RSD_SAMPLESIZE     RSD_SAMPLESIZE
-#define RSD_EXEC           RSD_EXEC
-#define RSD_SIMPLE_START   RSD_SIMPLE_START
+#define RSD_DELAY_MS                RSD_DELAY_MS
+#define RSD_SAMPLESIZE              RSD_SAMPLESIZE
+#define RSD_EXEC                    RSD_EXEC
+#define RSD_SIMPLE_START            RSD_SIMPLE_START
 
-#define RSD_NO_FMT RSD_NO_FMT
+#define RSD_NO_FMT                  RSD_NO_FMT
+#define RSD_USES_OPAQUE_TYPE        RSD_USES_OPAQUE_TYPE
+#define RSD_USES_SAMPLESIZE_MEMBER  RSD_USES_SAMPLESIZE_MEMBER
 /* End feature tests */
 
 
@@ -96,6 +107,7 @@ extern "C" {
       RSD_IDENTITY
    };
 
+#ifdef RSD_EXPOSE_STRUCT
    /* Defines the main structure for use with the API. */
    typedef struct rsound
    {
@@ -131,7 +143,7 @@ extern "C" {
       uint32_t rate;
       uint32_t channels;
       uint16_t format;
-      int framesize;
+      int samplesize;
 
       struct {
          pthread_t threadId;
@@ -142,6 +154,9 @@ extern "C" {
 
       char identity[256];
    } rsound_t;
+#else
+   typedef struct rsound rsound_t;
+#endif
 
    /* -- API --
       All functions (except for rsd_write() return 0 for success, and -1 for error. errno is currently not set. */

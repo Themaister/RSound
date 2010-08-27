@@ -959,10 +959,12 @@ static void* rsd_thread(void *thread_data)
    int rc, written;
    void *buffer = NULL;
 #ifdef HAVE_SAMPLERATE
-   SRC_STATE *src_state = NULL;
-   float *src_buffer = NULL;
-   src_callback_state_t *src_cb_data = NULL;
+   SRC_STATE *resample_state = NULL;
+#else
+   resampler_t *resample_state = NULL;
 #endif
+   float *resample_buffer = NULL;
+   resample_cb_state_t cb_data;
 
    connection_t *temp_conn = thread_data;
    conn.socket = temp_conn->socket;
@@ -1034,13 +1036,6 @@ static void* rsd_thread(void *thread_data)
    size_t size = backend_info.chunk_size;
    size_t read_size = size;
 
-#ifndef HAVE_SAMPLERATE
-   if ( resample )
-      read_size = RESAMPLE_READ_SIZE(size, &w_orig, &w);
-#endif
-
-   //fprintf(stderr, "Outsize: %d, Insize: %d\n", (int)size, (int)read_size);
-
    size_t buffer_size = (read_size > size) ? read_size : size;
    buffer = malloc(buffer_size);
    if ( buffer == NULL )
@@ -1049,36 +1044,32 @@ static void* rsd_thread(void *thread_data)
       goto rsd_exit;
    }
 
-#ifdef HAVE_SAMPLERATE
    if ( resample )
    {
-      src_buffer = malloc(BYTES_TO_SAMPLES(buffer_size, w.rsd_format) * sizeof(float));
-      if ( src_buffer == NULL )
+      resample_buffer = malloc(BYTES_TO_SAMPLES(buffer_size, w.rsd_format) * sizeof(float));
+      if ( resample_buffer == NULL )
       {
          fprintf(stderr, "Could not allocate memory for buffer.");
          goto rsd_exit;
       }
 
-      src_cb_data = calloc(1, sizeof(*src_cb_data));
-      if ( src_cb_data == NULL )
-      {
-         fprintf(stderr, "Could not allocate memory.\n");
-         goto rsd_exit;
-      }
-      src_cb_data->format = w_orig.rsd_format;
-      src_cb_data->data = data;
-      src_cb_data->conn = &conn;
-      src_cb_data->framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format);
+      cb_data.format = w_orig.rsd_format;
+      cb_data.data = data;
+      cb_data.conn = &conn;
+      cb_data.framesize = w_orig.numChannels * rsnd_format_to_bytes(w_orig.rsd_format);
 
+#ifdef HAVE_SAMPLERATE
       int err;
-      src_state = src_callback_new(src_callback_func, src_converter, w.numChannels, &err, src_cb_data);
-      if ( src_state == NULL )
+      resample_state = src_callback_new(resample_callback, src_converter, w.numChannels, &err, &cb_data);
+#else
+      resample_state = resampler_new(resample_callback, (float)w.sampleRate/w_orig.sampleRate, w.numChannels, &cb_data);
+#endif
+      if ( resample_state == NULL )
       {
-         fprintf(stderr, "Could not initialize SRC.");
+         fprintf(stderr, "Could not initialize resampler.");
          goto rsd_exit;
       }
    }
-#endif
 
    // We only bother with setting buffer size if we're doing TCP.
    if ( rsd_conn_type == RSD_CONN_TCP )
@@ -1129,17 +1120,19 @@ static void* rsd_thread(void *thread_data)
          conn.identity[0] = '\0';
       }
 
-#ifdef HAVE_SAMPLERATE
       if ( resample )
       {
-         rc = src_callback_read(src_state, (double)w.sampleRate/(double)w_orig.sampleRate, BYTES_TO_SAMPLES(size, w.rsd_format)/w.numChannels, src_buffer);
-         src_float_to_short_array(src_buffer, buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+#ifdef HAVE_SAMPLERATE
+         rc = src_callback_read(resample_state, (double)w.sampleRate/(double)w_orig.sampleRate, BYTES_TO_SAMPLES(size, w.rsd_format)/w.numChannels, resample_buffer);
+         src_float_to_short_array(resample_buffer, buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+#else
+         rc = resampler_cb_read(resample_state, BYTES_TO_SAMPLES(size, w.rsd_format)/w.numChannels, resample_buffer);
+         resampler_float_to_s16(buffer, resample_buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+#endif
       }
       else
          rc = receive_data(data, &conn, buffer, read_size);
-#else
-      rc = receive_data(data, &conn, buffer, read_size);
-#endif
+
       if ( rc <= 0 )
       {
          if ( debug )
@@ -1147,16 +1140,9 @@ static void* rsd_thread(void *thread_data)
          goto rsd_exit;
       }
 
-#ifndef HAVE_SAMPLERATE
-      if ( resample )
-      {
-         resample_process_simple(buffer, w_orig.rsd_format, w_orig.numChannels, BYTES_TO_SAMPLES(size, w.rsd_format), BYTES_TO_SAMPLES(read_size, w_orig.rsd_format));
-      }
-#endif
-
       for ( written = 0; written < (int)size; )
       {
-         rc = backend->write(data, (char*)buffer + written, size - written);
+         rc = backend->write(data, (const char*)buffer + written, size - written);
          if ( rc == 0 )
             goto rsd_exit;
 
@@ -1180,12 +1166,16 @@ rsd_exit:
    close(conn.socket);
    if (conn.ctl_socket)
       close(conn.ctl_socket);
+
+   if (resample_state)
+   {
 #ifdef HAVE_SAMPLERATE
-   if (src_state)
-      src_delete(src_state);
-   free(src_buffer);
-   free(src_cb_data);
+      src_delete(resample_state);
+#else
+      resampler_free(resample_state);
 #endif
+   }
+   free(resample_buffer);
    pthread_exit(NULL);
 }
 

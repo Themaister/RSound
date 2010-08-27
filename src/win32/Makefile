@@ -26,7 +26,10 @@ TARGET_CLIENT_OBJ = ../client.o ../endian.o
 TARGET_CLIENT_LIBS = -lrsound -lws2_32
 
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
-TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) ../audio.o ../endian.o ../daemon.o ../rsound-common.o ../proto.o src/poll.o
+TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) ../audio.o ../endian.o ../daemon.o ../rsound-common.o ../proto.o ../resampler.o src/poll.o
+
+TARGET_DIST = rsound-win32.zip
+DIST_EXTRAS = bin/pthreadGC2.dll README.txt include/rsound.h COPYING.txt
 
 all: client lib server
 
@@ -69,4 +72,7 @@ distclean: clean
 	rm -rf config.h
 	rm -rf config.mk
 
-.PHONY: clean distclean client lib server all uninstall
+dist: all
+	zip -r $(TARGET_DIST) $(DIST_EXTRAS) $(TARGET_SERVER) $(TARGET_CLIENT) $(TARGET_LIB) $(TARGET_LIB_IMPLIB)
+
+.PHONY: clean distclean client lib server all uninstall dist
