@@ -94,7 +94,7 @@ check_lib()
 
    eval HAVE_$1=no
    answer=no
-   $CC -o $TEMP_EXE $TEMP_C -l$2 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
+   $CC -o $TEMP_EXE $TEMP_C $CFLAGS -l$2 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
 
    echo $answer
 
