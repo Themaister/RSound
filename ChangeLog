@@ -1,3 +1,11 @@
+[RSound 1.0alpha4] - 2010-08-28:
+	
+	*	Fixed possible stack overflow in resampler.
+	*	Updated MPlayer patch for new headers.
+	*	Some file layout cleanups. Audio drivers are now located in a subfolder drivers/.
+	*	Some cleanups in driver code as well.
+	*	Updated build scripts to work properly with flags like -m32.
+
 [RSound 1.0alpha3] - 2010-08-21:
 
 	*	Reimplemented internal resampler for ratio accuracy and callback to more
