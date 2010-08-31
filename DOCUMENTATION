@@ -20,13 +20,11 @@ Library: The main implementation of the RSound protocol is the C library that is
 
 Structs:
 
-librsound uses one main struct for all its function calls.
+librsound uses one opaque type for all its function calls.
 
 typedef struct rsound rsound_t;
 
-The header file currently exposes the internal structure used for rsound_t, which makes it possible to peek into the data. 
-Doing this however is bad practice and the ABI for this usage might change. You are encouraged only to use the functions stated in this document.
-As for the Win32 port, the internal data structure is not exposed due to pthreads not being a native library.
+For certain types of applications of librsound, it might be useful to peek into the struct. To get the rsound_t struct exposed, #define RSD_EXPOSE_STRUCT before including <rsound.h>. Try to avoid doing this, as ABI compability is not guaranteed between different versions.
 
 
 Return values:
@@ -481,7 +479,7 @@ and associate the first connection with the "data" and the second as "control".
 When the connections are successful, the client will send a 44 byte RIFF WAVE header to the server on the data socket.
 This WAVE header will include audio data information such as audio channels, audio format, and sample rate. 
 For a pure WAVE header that only really supports S16_LE and U8 sample formats, 
-the WAVE header that the client sends will be a conforming wave header. 
+the WAVE header that the client sends will be a conforming wave header if the audio formats are of type S16_LE and U8. 
 
 For different audio formats, the wave header will signify this by settings the format bytes in the header to 0. 
 These are bytes 20-21. You will then have to check bytes 42-43 to obtain the correct audio format. 
@@ -492,9 +490,9 @@ Then we can check the bits per sample to determine which sample format we have.
 For more information on the RIFF WAVE format, check some other documentation.
 
 
-After the WAV header has been recieved at the server, it will send back a small header to the client.
+After the WAV header has been recieved at the server, it will send back a small header to the client, to determine the level of protocol support.
 
-The server has now the opportunity to decide wether or not to support the control socket interface.
+The server has now the opportunity to decide whether or not to support the control socket interface.
 Old versions of rsound did not support this, but all new implementations should support it.
 
 No support:
@@ -502,16 +500,17 @@ No support:
 Support:
    The header will be 16 bytes.
 
-   The header is splitted into 2/4 unsigned 32-bit integers in network byte order (big-endian).
+   The header is splitted into 2 or 4 unsigned 32-bit integers in network byte order (big-endian).
 
    Byte #   Description
    ====================================
    0-3         Initial audio driver latency. This will be the audio latency in bytes that the audio driver has. 
                This is typically quite low. 
-               If this can't be measured, the server can set this to 0.
+               If this can't be measured in a reasonable way, the server can set this to 0.
 
    4-7         Network chunk size. If the server has any preferences on how large network packet sizes it wants, you can set this there.
                A sane default here for librsound is 512 bytes. The client is not forced to follow this suggestion, but it should.
+               A server might set this chunk size equal the fragment size of the audio driver.
 
    8-11        This will always be 0.
    12-15       This will always be 0.
@@ -585,7 +584,7 @@ The client will send something along these lines:
 "RSD   13 INFO 1532455"
 
 The server must only respond to the latest latency requests in the network buffer. 
-If several INFO requests are in the network buffer. Disregard these, as they can no longer be reliable on measuring latency. 
+If several INFO requests are in the network buffer, disregard these, as they can no longer be reliable on measuring latency. 
 INFO can be called on very often, and it is possible that INFO requests will pile up in the network buffer. 
 Try to empty the network buffer each time the server does control handling.
 If deemed appropriate, a server might ignore a request for INFO.
