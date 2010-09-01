@@ -15,39 +15,44 @@ OPT_SERV_OBJ =
 
 ifeq ($(HAVE_ALSA), 1)
    OPT_SERV_LIBS += -lasound
-   OPT_SERV_OBJ += alsa.o
+   OPT_SERV_OBJ += drivers/alsa.o
 endif
 
 ifeq ($(HAVE_OSS), 1)
 ifeq ($(NEED_OSSAUDIO), 1)
    OPT_SERV_LIBS += -lossaudio
 endif
-   OPT_SERV_OBJ += oss.o
+   OPT_SERV_OBJ += drivers/oss.o
 endif
 
 ifeq ($(HAVE_LIBAO), 1)
    OPT_SERV_LIBS += -lao
-   OPT_SERV_OBJ += ao.o
+   OPT_SERV_OBJ += drivers/ao.o
+endif
+
+ifeq ($(HAVE_ROARVS), 1)
+   OPT_SERV_LIBS += -lroar
+   OPT_SERV_OBJ += drivers/roarvs.o
 endif
 
 ifeq ($(HAVE_PULSE), 1)
    OPT_SERV_LIBS += -lpulse-simple
-   OPT_SERV_OBJ += pulse.o
+   OPT_SERV_OBJ += drivers/pulse.o
 endif
 
 ifeq ($(HAVE_MUROAR), 1)
    OPT_SERV_LIBS += -lmuroar
-   OPT_SERV_OBJ += muroar.o
+   OPT_SERV_OBJ += drivers/muroar.o
 endif
 
 ifeq ($(HAVE_AL), 1)
    OPT_SERV_LIBS += -lopenal
-   OPT_SERV_OBJ += al.o
+   OPT_SERV_OBJ += drivers/al.o
 endif
 
 ifeq ($(HAVE_PORTAUDIO), 1)
    OPT_SERV_LIBS += -lportaudio
-   OPT_SERV_OBJ += porta.o
+   OPT_SERV_OBJ += drivers/porta.o
 endif
 
 ifeq ($(NEED_RT), 1)
@@ -86,7 +91,7 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
-	@echo "LD `echo $@ | sed 's|^\S\S*/\([^.][^.]*\).*|\1.so|'`"
+	@echo "LD $@"
 	@$(CC) -shared -Wl,-soname,librsound.so.1 -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
 	@ln -sf librsound.so.1.0.1 librsound/librsound.so.1
 	@ln -sf librsound.so.1.0.1 librsound/librsound.so
@@ -97,11 +102,11 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 
 
 librsound/librsound.o: librsound/librsound.c config.h
-	@echo "CC `echo $< | sed 's|^\S\S*/\(\S\S*\)|\1|'`"
+	@echo "CC $<"
 	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 $(TARGET_LIB_OBJ_STATIC): $(TARGET_LIB_OBJ)
-	@echo "AR `echo $@ | sed 's|^\S\S*/\([^.][^.]*\).*|\1.a|'`"
+	@echo "AR $@"
 	@$(AR) rcs $(TARGET_LIB_OBJ_STATIC) $(TARGET_LIB_OBJ) >/dev/null 2>/dev/null
 
 	
@@ -120,6 +125,7 @@ clean:
 	rm -rf librsound/librsound.o
 	rm -rf librsound/librsound.a
 	rm -rf *.o
+	rm -rf drivers/*.o
 	rm -rf rsound.pc
 
 distclean: clean

@@ -13,6 +13,7 @@ HAVE_PORTAUDIO=auto
 HAVE_OPENAL=auto
 HAVE_LIBAO=auto
 HAVE_MUROAR=auto
+HAVE_ROAR=auto
 HAVE_PULSE=auto
 HAVE_SAMPLERATE=auto
 
@@ -29,10 +30,10 @@ print_help()
    echo "   --enable-\$module: Forcefully enables module (not recommended)"
    echo ""
    echo "Modules:"
-   echo "   alsa oss libao portaudio openal pulse muroar samplerate"
+   echo "   alsa oss libao portaudio openal roar pulse muroar samplerate"
 }
 
-ARGS="alsa oss libao portaudio openal pulse muroar samplerate"
+ARGS="alsa oss libao portaudio openal pulse muroar samplerate roar"
 
 ### Parse stuff :V
 
@@ -156,6 +157,7 @@ check_header SYS_SOUNDCARD_H sys/soundcard.h
 check_header SOUNDCARD_H soundcard.h
 check_lib OSSAUDIO ossaudio _oss_ioctl
 [ $HAVE_LIBAO = auto ] && check_lib LIBAO ao ao_open_live
+[ $HAVE_ROAR = auto ] && check_lib ROAR roar roar_vs_new
 [ $HAVE_PULSE = auto ] && check_lib PULSE pulse-simple pa_simple_new
 [ $HAVE_MUROAR = auto ] && check_lib MUROAR muroar muroar_stream
 [ $HAVE_OPENAL = auto ] && check_lib OPENAL openal alcOpenDevice
@@ -212,6 +214,11 @@ if [ $HAVE_LIBAO = yes ]; then
    echo "HAVE_LIBAO = 1" >> src/config.mk
 fi
 
+if [ $HAVE_ROAR = yes ]; then
+   echo "#define _ROARVS 1" >> src/config.h
+   echo "HAVE_ROARVS = 1" >> src/config.mk
+fi
+
 if [ $HAVE_PULSE = yes ]; then
    echo "#define _PULSE 1" >> src/config.h
    echo "HAVE_PULSE = 1" >> src/config.mk
@@ -264,6 +271,7 @@ echo " ALSA:            $HAVE_ALSA"
 echo " OSS:             $HAVE_OSS"
 echo " libAO:           $HAVE_LIBAO"
 echo " PortAudio:       $HAVE_PORTAUDIO"
+echo " Roar VS:         $HAVE_ROAR"
 echo " OpenAL:          $HAVE_OPENAL"
 echo " muRoar:          $HAVE_MUROAR"
 echo " PulseAudio:      $HAVE_PULSE"

@@ -16,7 +16,7 @@
 
 #include "muroar-internal.h"
 #include <muroar.h>
-#include "rsound.h"
+#include "../rsound.h"
 
 static void muroar_rsd_close(void *data)
 {
@@ -24,6 +24,7 @@ static void muroar_rsd_close(void *data)
 
    if ( sound->fh != -1 )
       muroar_close(sound->fh);
+   free(sound);
 }
 
 static int muroar_rsd_init(void** data)

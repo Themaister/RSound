@@ -14,13 +14,14 @@
  */
 
 #include "oss.h"
-#include "rsound.h"
+#include "../rsound.h"
 
 static void oss_close(void *data)
 {
    oss_t *sound = data;
    ioctl(sound->audio_fd, SNDCTL_DSP_RESET, 0);
    close(sound->audio_fd);
+   free(sound);
 }
 
 /* Opens and sets params */
@@ -143,7 +144,7 @@ static void oss_get_backend (void *data, backend_info_t *backend_info)
    }
 
    backend_info->latency = zz.fragsize;
-   backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
+   backend_info->chunk_size = zz.fragsize;
 }
 
 static int oss_latency(void* data)

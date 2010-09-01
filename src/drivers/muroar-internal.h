@@ -1,5 +1,6 @@
 /*  RSound - A PCM audio client/server
  *  Copyright (C) 2010 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010 - Philipp Schafft
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -13,33 +14,14 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef AL_H
-#define AL_H
+#ifndef MUROAR_H
+#define MUROAR_H
 
-#include "audio.h"
-#include "endian.h"
-#include <AL/al.h>
-#include <AL/alc.h>
+#include "../audio.h"
 
 typedef struct
 {
-   ALuint source;
-   ALuint *buffers;
-   ALuint *res_buf;
-   int res_ptr;
-   ALenum format;
-   int num_buffers;
-   int channels;
-   int rate;
-   int latency;
-   int queue;
-
-   enum rsd_format fmt;
-   int conv;
-
-} al_t;
+   int fh;
+} muroar_t;
 
 #endif
-
-
-

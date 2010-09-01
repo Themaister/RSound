@@ -14,7 +14,7 @@
  */
 
 #include "alsa.h"
-#include "rsound.h"
+#include "../rsound.h"
 
 #define LATENCY_BUFFERS 1
 
@@ -28,6 +28,7 @@ static void alsa_close(void* data)
       snd_pcm_drop(sound->handle);
       snd_pcm_close(sound->handle);
    }
+   free(sound);
 }
 
 static int alsa_init(void **data)
@@ -94,7 +95,6 @@ static int alsa_open(void *data, wav_header_t *w)
    unsigned int rate = w->sampleRate;
    unsigned int channels = w->numChannels;
 
-
    if ( snd_pcm_hw_params_any(interface->handle, interface->params) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_access(interface->handle, interface->params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ) return -1;
    if ( snd_pcm_hw_params_set_format(interface->handle, interface->params, format) < 0) return -1;
@@ -110,45 +110,15 @@ static int alsa_open(void *data, wav_header_t *w)
       return -1;
    }
 
-   snd_pcm_sw_params_t *sw_params;
-   if ( snd_pcm_sw_params_malloc(&sw_params) < 0 )
-      return -1;
-
-
-   if ( snd_pcm_sw_params_current(interface->handle, sw_params) < 0 )
-   {
-      snd_pcm_sw_params_free(sw_params);
-      return -1;
-   }
-
-   /* Makes sure that ALSA doesn't start playing too early, which might lead to a
-      buffer underrun at the start of the stream. */
-   snd_pcm_uframes_t latency;
-   snd_pcm_uframes_t buffer_size;
-   snd_pcm_hw_params_get_period_size(interface->params, &latency, NULL);
-   snd_pcm_hw_params_get_buffer_size(interface->params, &buffer_size);
-
    if (debug)
+   {
+      snd_pcm_uframes_t latency;
+      snd_pcm_uframes_t buffer_size;
+      snd_pcm_hw_params_get_period_size(interface->params, &latency, NULL);
+      snd_pcm_hw_params_get_buffer_size(interface->params, &buffer_size);
+
       fprintf(stderr, "ALSA: Period size: %d frames. Buffer size: %d frames.\n", (int)latency, (int)buffer_size);
-
-   if ( snd_pcm_sw_params_set_start_threshold(interface->handle, sw_params, latency * LATENCY_BUFFERS) < 0 )
-   {
-      snd_pcm_sw_params_free(sw_params);
-      return -1;
    }
-
-   if ( snd_pcm_sw_params(interface->handle, sw_params) < 0 )
-   {
-      snd_pcm_sw_params_free(sw_params);
-      return -1;
-   }
-
-   snd_pcm_sw_params_free(sw_params);
-
-   /* Force small packet sizes. */
-   interface->frames = 128;
-   interface->size = 128 * w->numChannels * rsnd_format_to_bytes(w->rsd_format);
-   /* */
 
    return 0;
 }
@@ -159,20 +129,20 @@ static void alsa_get_backend (void *data, backend_info_t* backend_info)
    snd_pcm_uframes_t latency;
    snd_pcm_hw_params_get_period_size(sound->params, &latency,
          NULL);
-   backend_info->latency = latency * LATENCY_BUFFERS * snd_pcm_frames_to_bytes(sound->handle, 1);
-   backend_info->chunk_size = sound->size;
+
+   backend_info->latency = snd_pcm_frames_to_bytes(sound->handle, latency);
+   backend_info->chunk_size = snd_pcm_frames_to_bytes(sound->handle, latency);
 }
 
 static int alsa_latency(void *data)
 {
    alsa_t *sound = data;
 
-   int delay;
    snd_pcm_sframes_t delay_alsa;
    if ( snd_pcm_delay(sound->handle, &delay_alsa) < 0 )
       return DEFAULT_CHUNK_SIZE; // We should at least return something.
 
-   delay = snd_pcm_frames_to_bytes(sound->handle, delay_alsa);
+   int delay = snd_pcm_frames_to_bytes(sound->handle, delay_alsa);
 
    return delay;
 }

@@ -13,23 +13,19 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PORTA_H
-#define PORTA_H
+#ifndef PULSE_H
+#define PULSE_H
 
-#include "audio.h"
-#include "portaudio.h"
-#include "endian.h"
-
+#include "../audio.h"
+#include <pulse/simple.h>
 
 typedef struct
 {
-   PaStream *stream;
-   size_t size;
-   size_t frames;
-   uint32_t bps;
+   pa_simple *s;
+   int framesize;
+   int rate;
    enum rsd_format fmt;
-   int converter;
-} porta_t;
+   int conv;
+} pulse_t;
 
 #endif
-

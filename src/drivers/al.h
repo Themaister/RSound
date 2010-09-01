@@ -13,18 +13,32 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef AO_H
-#define AO_H
+#ifndef AL_H
+#define AL_H
 
-#include "audio.h"
-#include "endian.h"
-#include <ao/ao.h>
+#include "../audio.h"
+#include "../endian.h"
+#include <AL/al.h>
+#include <AL/alc.h>
 
 typedef struct
 {
-   ao_device *device;
+   ALuint source;
+   ALuint *buffers;
+   ALuint *res_buf;
+   int res_ptr;
+   ALenum format;
+   int num_buffers;
+   int channels;
+   int rate;
+   int latency;
+
    enum rsd_format fmt;
-   int converter;
-} ao_t;
+   int conv;
+
+} al_t;
 
 #endif
+
+
+

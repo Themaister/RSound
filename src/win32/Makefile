@@ -7,7 +7,7 @@ ifeq ($(CC),cc)
    CC := gcc
 endif
 
-CFLAGS := -O2 -s -std=gnu99
+CFLAGS := -Os -s -std=gnu99
 INCLUDE_DIRS := -Iinclude -Iinclude/pthread
 LIB_DIRS := -Lbin -Llib
 
@@ -20,7 +20,7 @@ TARGET_LIB_IMPLIB = lib/librsound.a
 TARGET_SERVER_LIBS = -lpthreadGC2 -lws2_32
 TARGET_LIB_LIBS = -lpthreadGC2 -lws2_32
 OPT_SERV_LIBS = lib/OpenAL32.lib
-OPT_SERV_OBJ = ../al.o
+OPT_SERV_OBJ = ../drivers/al.o
 
 TARGET_CLIENT_OBJ = ../client.o ../endian.o
 TARGET_CLIENT_LIBS = -lrsound -lws2_32
@@ -47,7 +47,7 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ) $(TARGET_LIB)
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ)
 	@mkdir -p bin
-	@echo "LD `echo $@ | sed 's|^\S\S*/\([^.][^.]*\).*|\1.dll|'`"
+	@echo "LD $@"
 	@$(CC) -shared -Wl,--out-implib,$(TARGET_LIB_IMPLIB) -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) $(LIB_DIRS)
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
@@ -65,7 +65,7 @@ clean:
 	rm -rf $(TARGET_LIB)
 	rm -rf $(TARGET_LIB_OBJ)
 	rm -rf $(TARGET_LIB_IMPLIB)
-	rm -rf ../*.o
+	rm -rf $(TARGET_SERVER_OBJ)
 	rm -rf ../rsound.pc
 
 distclean: clean

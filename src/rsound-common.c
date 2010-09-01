@@ -76,6 +76,10 @@ extern const rsd_backend_callback_t rsd_muroar;
 #ifdef _PULSE
 extern const rsd_backend_callback_t rsd_pulse;
 #endif
+
+#ifdef _ROARVS
+extern const rsd_backend_callback_t rsd_roarvs;
+#endif
 #endif
 
 #define MAX_PACKET_SIZE 1024
@@ -403,6 +407,13 @@ void parse_input(int argc, char **argv)
                break;
             }
 #endif
+#ifdef _ROARVS
+            if ( !strcmp( "roar", optarg) )
+            {
+               backend = &rsd_roarvs;
+               break;
+            }
+#endif
 
             fprintf(stderr, "\nValid backend not given. Exiting ...\n\n");
             print_help();
@@ -472,12 +483,14 @@ void parse_input(int argc, char **argv)
       backend = &rsd_al;
 #elif _PORTA
       backend = &rsd_porta;
+#elif _ROARVS
+      backend = &rsd_roarvs;
 #elif _PULSE
       backend = &rsd_pulse;
-#elif _AO
-      backend = &rsd_ao;
 #elif _MUROAR
       backend = &rsd_muroar;
+#elif _AO
+      backend = &rsd_ao;
 #endif
 
 #endif
@@ -524,6 +537,9 @@ static void print_help()
 #endif
 #ifdef _OSS
    printf("oss ");
+#endif
+#ifdef _ROARVS
+   printf("roar ");
 #endif
 #ifdef _AO
    printf("libao ");
@@ -1162,7 +1178,6 @@ rsd_exit:
 #define close(x) closesocket(x)
 #endif
    free(buffer);
-   free(data);
    close(conn.socket);
    if (conn.ctl_socket)
       close(conn.ctl_socket);

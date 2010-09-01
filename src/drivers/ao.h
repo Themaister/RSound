@@ -13,19 +13,18 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PULSE_H
-#define PULSE_H
+#ifndef AO_H
+#define AO_H
 
-#include "audio.h"
-#include <pulse/simple.h>
+#include "../audio.h"
+#include "../endian.h"
+#include <ao/ao.h>
 
 typedef struct
 {
-   pa_simple *s;
-   int framesize;
-   int rate;
+   ao_device *device;
    enum rsd_format fmt;
-   int conv;
-} pulse_t;
+   int converter;
+} ao_t;
 
 #endif

@@ -6,5 +6,6 @@ Hans-Kristian Arntzen - <maister@archlinux.us>
 Philipp Schafft - <lion@lion.leolix.org>
    librsound - Unix domain socket and DECnet support.
    rsd - muRoar output driver
+   rsd - roar_vs output driver
    Various bugfixes
 
