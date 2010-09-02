@@ -1087,11 +1087,16 @@ static void* rsd_thread(void *thread_data)
       }
    }
 
+#define MAX_TCP_BUFSIZ (1 << 14)
+
    // We only bother with setting buffer size if we're doing TCP.
    if ( rsd_conn_type == RSD_CONN_TCP )
    {
       int flag = 1;
       int bufsiz = backend_info.chunk_size * 32;
+      if (bufsiz > MAX_TCP_BUFSIZ)
+         bufsiz = MAX_TCP_BUFSIZ;
+
       setsockopt(conn.socket, SOL_SOCKET, SO_RCVBUF, CONST_CAST &bufsiz, sizeof(int));
 
       if ( conn.ctl_socket )
