@@ -170,7 +170,7 @@ ssize_t resampler_cb_read(resampler_t *state, size_t frames, float *data)
    if (SAMPLES_TO_FRAMES(state->data_ptr, state) < req_frames)
    {
       size_t must_read = req_frames - SAMPLES_TO_FRAMES(state->data_ptr, state);
-      float temp_buf[must_read * FRAMES_TO_SAMPLES(must_read, state)];
+      float temp_buf[FRAMES_TO_SAMPLES(must_read, state)];
 
       size_t has_read = 0;
 
