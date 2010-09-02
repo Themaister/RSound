@@ -1337,10 +1337,13 @@ int rsd_exec(rsound_t *rsound)
 
    // Flush the buffer
 
-   if ( rsnd_send_chunk(fd, rsound->buffer, rsound->buffer_pointer, 1) != rsound->buffer_pointer )
+   if ( rsound->buffer_pointer > 0 )
    {
-      close(fd);
-      return -1;
+      if ( rsnd_send_chunk(fd, rsound->buffer, rsound->buffer_pointer, 1) != rsound->buffer_pointer )
+      {
+         close(fd);
+         return -1;
+      }
    }
 
    rsd_free(rsound);
