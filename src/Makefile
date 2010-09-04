@@ -92,13 +92,13 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
 	@echo "LD $@"
-	@$(CC) -shared -Wl,-soname,librsound.so.1 -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
+	@$(CC) -shared -Wl,-soname,librsound.so.1 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
 	@ln -sf librsound.so.1.0.1 librsound/librsound.so.1
 	@ln -sf librsound.so.1.0.1 librsound/librsound.so
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	@echo "LD $@"
-	@$(CC) -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS)
+	@$(CC) -o $(TARGET_SERVER) $(TARGET_SERVER_OBJ) $(TARGET_SERVER_LIBS) $(CFLAGS)
 
 
 librsound/librsound.o: librsound/librsound.c config.h

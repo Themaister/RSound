@@ -793,23 +793,14 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
       }
       pthread_mutex_unlock(&rd->thread.mutex);
 
-#ifndef _WIN32
-      struct timespec tv;
-      clock_gettime(CLOCK_REALTIME, &tv);
-      tv.tv_sec += 1;
-#endif
-
       /* Sleeps until we can write to the FIFO. */
-      //RSD_DEBUG("fill_buffer: going to sleep.");
-      pthread_cond_signal(&rd->thread.cond);
       pthread_mutex_lock(&rd->thread.cond_mutex);
-#ifdef _WIN32
+      pthread_cond_signal(&rd->thread.cond);
+
+      RSD_DEBUG("rsnd_fill_buffer: Going to sleep.");
       pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
-#else
-      pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &tv);
-#endif
+      RSD_DEBUG("rsnd_fill_buffer: Woke up.");
       pthread_mutex_unlock(&rd->thread.cond_mutex);
-      //RSD_DEBUG("fill_buffer: Woke up.");
    }
 
    pthread_mutex_lock(&rd->thread.mutex);
@@ -852,9 +843,11 @@ static int rsnd_stop_thread(rsound_t *rd)
 
       RSD_DEBUG("Shutting down thread.");
 
+      pthread_mutex_lock(&rd->thread.cond_mutex);
       rd->thread_active = 0;
-
       pthread_cond_signal(&rd->thread.cond);
+      pthread_mutex_unlock(&rd->thread.cond_mutex);
+
       if ( pthread_join(rd->thread.threadId, NULL) < 0 )
          RSD_WARN("*** Warning, did not terminate thread. ***");
       else
@@ -1189,21 +1182,16 @@ static void* rsnd_thread ( void * thread_data )
          // There is a very slim change of getting a deadlock using the cond_wait scheme.
          // This solution is rather dirty, but avoids complete deadlocks at the very least.
 
-#ifndef _WIN32
-         struct timespec tv;
-         clock_gettime(CLOCK_REALTIME, &tv);
-         tv.tv_sec += 1;
-#endif
-
-         RSD_DEBUG("Thread going to sleep.");
-         pthread_cond_signal(&rd->thread.cond);
          pthread_mutex_lock(&rd->thread.cond_mutex);
-#ifdef _WIN32
-         pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
-#else
-         pthread_cond_timedwait(&rd->thread.cond, &rd->thread.cond_mutex, &tv);
-#endif
-         RSD_DEBUG("Thread woke up.");
+         pthread_cond_signal(&rd->thread.cond);
+
+         if ( rd->thread_active )
+         {
+            RSD_DEBUG("Thread going to sleep.");
+            pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
+            RSD_DEBUG("Thread woke up.");
+         }
+
          pthread_mutex_unlock(&rd->thread.cond_mutex);
          RSD_DEBUG("Thread unlocked cond_mutex.");
       }
