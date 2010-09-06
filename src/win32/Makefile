@@ -8,7 +8,7 @@ ifeq ($(CC),cc)
 endif
 
 CFLAGS := -Os -s -std=gnu99
-INCLUDE_DIRS := -Iinclude -Iinclude/pthread
+INCLUDE_DIRS := -Iinclude -I../librsound -Iinclude/pthread
 LIB_DIRS := -Lbin -Llib
 
 TARGET_SERVER = bin/rsd.exe
@@ -28,7 +28,7 @@ TARGET_CLIENT_LIBS = -lrsound -lws2_32
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
 TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) ../audio.o ../endian.o ../daemon.o ../rsound-common.o ../proto.o ../resampler.o src/poll.o
 
-TARGET_DIST = rsound-win32.zip
+TARGET_DIST = rsound-win32-1.0beta1.zip
 DIST_EXTRAS = bin/pthreadGC2.dll README.txt include/rsound.h COPYING.txt
 
 all: client lib server
@@ -62,6 +62,7 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 clean:
 	rm -rf $(TARGET_SERVER)
 	rm -rf $(TARGET_CLIENT)
+	rm -rf $(TARGET_CLIENT_OBJ)
 	rm -rf $(TARGET_LIB)
 	rm -rf $(TARGET_LIB_OBJ)
 	rm -rf $(TARGET_LIB_IMPLIB)
@@ -73,6 +74,8 @@ distclean: clean
 	rm -rf config.mk
 
 dist: all
+	@cp -r ../librsound/rsound.h include/rsound.h
 	zip -r $(TARGET_DIST) $(DIST_EXTRAS) $(TARGET_SERVER) $(TARGET_CLIENT) $(TARGET_LIB) $(TARGET_LIB_IMPLIB)
+	@rm -r include/rsound.h
 
 .PHONY: clean distclean client lib server all uninstall dist
