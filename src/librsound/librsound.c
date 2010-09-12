@@ -506,7 +506,11 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    // Only bother with setting network buffer size if we're doing TCP.
    if ( rd->conn_type & RSD_CONN_TCP )
    {
+#define MAX_TCP_BUFSIZE (1 << 14)
       int bufsiz = rd->buffer_size;
+      if (bufsiz > MAX_TCP_BUFSIZE)
+         bufsiz = MAX_TCP_BUFSIZE;
+
       setsockopt(rd->conn.socket, SOL_SOCKET, SO_SNDBUF, CONST_CAST &bufsiz, sizeof(int));
       bufsiz = rd->buffer_size;
       setsockopt(rd->conn.ctl_socket, SOL_SOCKET, SO_SNDBUF, CONST_CAST &bufsiz, sizeof(int));
@@ -1333,10 +1337,13 @@ int rsd_exec(rsound_t *rsound)
 
    // Flush the buffer
 
-   if ( rsnd_send_chunk(fd, rsound->buffer, rsound->buffer_pointer, 1) != rsound->buffer_pointer )
+   if ( rsound->buffer_pointer > 0 )
    {
-      close(fd);
-      return -1;
+      if ( rsnd_send_chunk(fd, rsound->buffer, rsound->buffer_pointer, 1) != rsound->buffer_pointer )
+      {
+         close(fd);
+         return -1;
+      }
    }
 
    rsd_free(rsound);

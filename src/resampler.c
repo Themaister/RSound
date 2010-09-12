@@ -105,7 +105,7 @@ static size_t resampler_process(resampler_t *state, size_t frames, float *out_da
 {
    size_t frames_used = 0;
    uint64_t pos_out;
-   double pos_in;
+   double pos_in = 0.0;
 
 #if 0
    fprintf(stderr, "=========================================\n");
