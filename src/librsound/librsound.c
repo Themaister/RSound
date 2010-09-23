@@ -15,6 +15,7 @@
 
 #define RSD_EXPOSE_STRUCT
 #include "rsound.h"
+#include "../buffer.h"
 
 #undef CONST_CAST
 
@@ -496,12 +497,12 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size * 2 )
       rd->buffer_size = rd->backend_info.chunk_size * 32;
 
-   /* Reallocs memory each time in case we have changes the buffer size from last time */
-   rd->buffer = realloc ( rd->buffer, rd->buffer_size );
-   if ( rd->buffer == NULL )
+   /* Reallocs buffer each time in case we have changes the buffer size from last time */
+   if ( rd->fifo_buffer != NULL )
+      fifo_free(rd->fifo_buffer);
+   rd->fifo_buffer = fifo_new (rd->buffer_size);
+   if ( rd->fifo_buffer == NULL )
       return -1;
-
-   rd->buffer_pointer = 0;
 
    // Only bother with setting network buffer size if we're doing TCP.
    if ( rd->conn_type & RSD_CONN_TCP )
@@ -771,10 +772,10 @@ static void rsnd_drain(rsound_t *rd)
       temp += temp2;
 #endif
       /* Calculates the amount of data we have in our virtual buffer. Only used to calculate delay. */
-      rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)rd->buffer_pointer - temp);
+      rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)fifo_read_avail(rd->fifo_buffer) - temp);
    }
    else
-      rd->bytes_in_buffer = rd->buffer_pointer;
+      rd->bytes_in_buffer = fifo_read_avail(rd->fifo_buffer);
 }
 
 /* Tries to fill the buffer. Uses signals to determine when the buffer is ready to be filled. Should the thread not be active
@@ -790,7 +791,7 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
          return 0;
 
       pthread_mutex_lock(&rd->thread.mutex);
-      if ( rd->buffer_pointer + (int)size <= (int)rd->buffer_size  )
+      if ( fifo_write_avail(rd->fifo_buffer) >= size )
       {
          pthread_mutex_unlock(&rd->thread.mutex);
          break;
@@ -808,8 +809,7 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
    }
 
    pthread_mutex_lock(&rd->thread.mutex);
-   memcpy(rd->buffer + rd->buffer_pointer, buf, size);
-   rd->buffer_pointer += (int)size;
+   fifo_write(rd->fifo_buffer, buf, size);
    pthread_mutex_unlock(&rd->thread.mutex);
    //RSD_DEBUG("fill_buffer: Wrote to buffer.");
 
@@ -893,7 +893,7 @@ static size_t rsnd_get_ptr(rsound_t *rd)
 {
    int ptr;
    pthread_mutex_lock(&rd->thread.mutex);
-   ptr = rd->buffer_pointer;
+   ptr = fifo_read_avail(rd->fifo_buffer);
    pthread_mutex_unlock(&rd->thread.mutex);
 
    return ptr;
@@ -1070,7 +1070,7 @@ static int rsnd_update_server_info(rsound_t *rd)
       int delay = rsd_delay(rd);
       int delta = (int)(client_ptr - serv_ptr);
       pthread_mutex_lock(&rd->thread.mutex);
-      delta += rd->buffer_pointer;
+      delta += fifo_read_avail(rd->fifo_buffer);
       pthread_mutex_unlock(&rd->thread.mutex);
 
       RSD_DEBUG("Delay: %d, Delta: %d", delay, delta);
@@ -1105,15 +1105,14 @@ static void* rsnd_thread ( void * thread_data )
    /* We share data between thread and callable functions */
    rsound_t *rd = thread_data;
    int rc;
+   char buffer[rd->backend_info.chunk_size];
 
    /* Plays back data as long as there is data in the buffer. Else, sleep until it can. */
    /* Two (;;) for loops! :3 Beware! */
    for (;;)
    {
-
       for(;;)
       {
-
          _TEST_CANCEL();
 
          // We ask the server to send its latest backend data. Do not really care about errors atm.
@@ -1124,9 +1123,9 @@ static void* rsnd_thread ( void * thread_data )
             rsnd_update_server_info(rd);
          }
 
-         /* If the buffer is empty or we've stopped the stream. Jump out of this for loop */
+         /* If the buffer is empty or we've stopped the stream, jump out of this for loop */
          pthread_mutex_lock(&rd->thread.mutex);
-         if ( rd->buffer_pointer < (int)rd->backend_info.chunk_size || !rd->thread_active )
+         if ( fifo_read_avail(rd->fifo_buffer) < rd->backend_info.chunk_size || !rd->thread_active )
          {
             pthread_mutex_unlock(&rd->thread.mutex);
             break;
@@ -1134,7 +1133,10 @@ static void* rsnd_thread ( void * thread_data )
          pthread_mutex_unlock(&rd->thread.mutex);
 
          _TEST_CANCEL();
-         rc = rsnd_send_chunk(rd->conn.socket, rd->buffer, rd->backend_info.chunk_size, 1);
+         pthread_mutex_lock(&rd->thread.mutex);
+         fifo_read(rd->fifo_buffer, buffer, sizeof(buffer));
+         pthread_mutex_unlock(&rd->thread.mutex);
+         rc = rsnd_send_chunk(rd->conn.socket, buffer, sizeof(buffer), 1);
 
          /* If this happens, we should make sure that subsequent and current calls to rsd_write() will fail. */
          if ( rc != (int)rd->backend_info.chunk_size )
@@ -1166,12 +1168,6 @@ static void* rsnd_thread ( void * thread_data )
          /* Increase the total_written counter. Used in rsnd_drain() */
          pthread_mutex_lock(&rd->thread.mutex);
          rd->total_written += rc;
-         pthread_mutex_unlock(&rd->thread.mutex);
-
-         /* "Drains" the buffer. This operation looks kinda expensive with large buffers, but hey. D: */
-         pthread_mutex_lock(&rd->thread.mutex);
-         memmove(rd->buffer, rd->buffer + rd->backend_info.chunk_size, rd->buffer_size - rd->backend_info.chunk_size);
-         rd->buffer_pointer -= (int)rd->backend_info.chunk_size;
          pthread_mutex_unlock(&rd->thread.mutex);
 
          /* Buffer has decreased, signal fill_buffer() */
@@ -1337,9 +1333,11 @@ int rsd_exec(rsound_t *rsound)
 
    // Flush the buffer
 
-   if ( rsound->buffer_pointer > 0 )
+   if ( fifo_read_avail(rsound->fifo_buffer) > 0 )
    {
-      if ( rsnd_send_chunk(fd, rsound->buffer, rsound->buffer_pointer, 1) != rsound->buffer_pointer )
+      char buffer[fifo_read_avail(rsound->fifo_buffer)];
+      fifo_read(rsound->fifo_buffer, buffer, sizeof(buffer));
+      if ( rsnd_send_chunk(fd, buffer, sizeof(buffer), 1) != (ssize_t)sizeof(buffer) )
       {
          close(fd);
          return -1;
@@ -1580,8 +1578,8 @@ int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, cons
 int rsd_free(rsound_t *rsound)
 {
    assert(rsound != NULL);
-   if (rsound->buffer)
-      free(rsound->buffer);
+   if (rsound->fifo_buffer)
+      fifo_free(rsound->fifo_buffer);
    if (rsound->host)
       free(rsound->host);
    if (rsound->port)

@@ -107,7 +107,11 @@ extern "C" {
       RSD_IDENTITY
    };
 
+
 #ifdef RSD_EXPOSE_STRUCT
+
+   typedef struct rsound_fifo_buffer rsound_fifo_buffer_t;
+
    /* Defines the main structure for use with the API. */
    typedef struct rsound
    {
@@ -118,11 +122,13 @@ extern "C" {
 
       char *host;
       char *port;
-      char *buffer;
+      char *buffer; // Obsolete, but kept for backwards header compatibility.
       int conn_type;
 
-      volatile int buffer_pointer;
-      size_t buffer_size;
+      volatile int buffer_pointer; // Obsolete, but kept for backwards header compatibility.
+      size_t buffer_size; 
+      rsound_fifo_buffer_t *fifo_buffer;
+
       volatile int thread_active;
 
       int64_t total_written;

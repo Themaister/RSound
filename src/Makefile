@@ -2,8 +2,8 @@ include config.mk
 
 TARGET_SERVER = rsd
 TARGET_CLIENT = rsdplay
-TARGET_LIB = librsound/librsound.so.1.0.1
-TARGET_LIB_OBJ = librsound/librsound.o
+TARGET_LIB = librsound/librsound.so.2.0.0
+TARGET_LIB_OBJ = librsound/librsound.o buffer.o
 TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
 PKGCONF_PATH = $(PREFIX)/lib/pkgconfig/rsound.pc
@@ -92,9 +92,9 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
 	@echo "LD $@"
-	@$(CC) -shared -Wl,-soname,librsound.so.1 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
-	@ln -sf librsound.so.1.0.1 librsound/librsound.so.1
-	@ln -sf librsound.so.1.0.1 librsound/librsound.so
+	@$(CC) -shared -Wl,-soname,librsound.so.2 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
+	@ln -sf librsound.so.2.0.0 librsound/librsound.so.2
+	@ln -sf librsound.so.2.0.0 librsound/librsound.so
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	@echo "LD $@"
@@ -102,6 +102,10 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 
 
 librsound/librsound.o: librsound/librsound.c config.h
+	@echo "CC $<"
+	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
+
+buffer.o: buffer.c
 	@echo "CC $<"
 	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
@@ -122,7 +126,7 @@ clean:
 	rm -rf rsd 
 	rm -rf rsdplay 
 	rm -rf librsound/librsound.so*
-	rm -rf librsound/librsound.o
+	rm -rf $(TARGET_LIB_OBJ)
 	rm -rf librsound/librsound.a
 	rm -rf *.o
 	rm -rf drivers/*.o
@@ -138,7 +142,7 @@ install: install-lib install-server install-client
 install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
 	mkdir -p $(DESTDIR)$(PREFIX)/{lib/pkgconfig,include,share/man/man1}
 	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib
-	cp -P librsound/librsound.so librsound/librsound.so.1 $(DESTDIR)$(PREFIX)/lib
+	cp -P librsound/librsound.so librsound/librsound.so.2 $(DESTDIR)$(PREFIX)/lib
 	install -m644 $(TARGET_LIB_OBJ_STATIC) $(DESTDIR)$(PREFIX)/lib
 	install -m644 librsound/rsound.h $(DESTDIR)$(PREFIX)/include
 	install -m644 rsound.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig
