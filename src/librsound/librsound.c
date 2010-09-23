@@ -772,10 +772,16 @@ static void rsnd_drain(rsound_t *rd)
       temp += temp2;
 #endif
       /* Calculates the amount of data we have in our virtual buffer. Only used to calculate delay. */
+      pthread_mutex_lock(&rd->thread.mutex);
       rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)fifo_read_avail(rd->fifo_buffer) - temp);
+      pthread_mutex_unlock(&rd->thread.mutex);
    }
    else
+   {
+      pthread_mutex_lock(&rd->thread.mutex);
       rd->bytes_in_buffer = fifo_read_avail(rd->fifo_buffer);
+      pthread_mutex_unlock(&rd->thread.mutex);
+   }
 }
 
 /* Tries to fill the buffer. Uses signals to determine when the buffer is ready to be filled. Should the thread not be active
@@ -870,10 +876,8 @@ static int rsnd_stop_thread(rsound_t *rd)
 static size_t rsnd_get_delay(rsound_t *rd)
 {
    int ptr;
-   pthread_mutex_lock(&rd->thread.mutex);
    rsnd_drain(rd);
    ptr = rd->bytes_in_buffer;
-   pthread_mutex_unlock(&rd->thread.mutex);
 
    /* Adds the backend latency to the calculated latency. */
    ptr += (int)rd->backend_info.latency;
