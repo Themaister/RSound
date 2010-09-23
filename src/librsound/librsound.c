@@ -964,7 +964,7 @@ static int rsnd_close_ctl(rsound_t *rd)
          int rc;
 
          // We just read everything in large chunks until we find what we're looking for
-         if ( (rc = recv(rd->conn.ctl_socket, buf + index, RSD_PROTO_MAXSIZE*2 - 1 - index, 0)) < 0 )
+         if ( (rc = recv(rd->conn.ctl_socket, buf + index, RSD_PROTO_MAXSIZE*2 - 1 - index, 0)) <= 0 )
             return -1;
 
          // Can we find it directly?
