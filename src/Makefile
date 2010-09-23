@@ -3,7 +3,7 @@ include config.mk
 TARGET_SERVER = rsd
 TARGET_CLIENT = rsdplay
 TARGET_LIB = librsound/librsound.so.2.0.0
-TARGET_LIB_OBJ = librsound/librsound.o buffer.o
+TARGET_LIB_OBJ = librsound/librsound.o librsound/buffer.o
 TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
 PKGCONF_PATH = $(PREFIX)/lib/pkgconfig/rsound.pc
@@ -105,7 +105,7 @@ librsound/librsound.o: librsound/librsound.c config.h
 	@echo "CC $<"
 	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
-buffer.o: buffer.c
+librsound/buffer.o: librsound/buffer.c
 	@echo "CC $<"
 	@$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 

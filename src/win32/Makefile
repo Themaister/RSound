@@ -14,7 +14,7 @@ LIB_DIRS := -Lbin -Llib
 TARGET_SERVER = bin/rsd.exe
 TARGET_CLIENT = bin/rsdplay.exe
 TARGET_LIB = bin/rsound.dll
-TARGET_LIB_OBJ = ../librsound/librsound.o src/poll.o ../buffer.o
+TARGET_LIB_OBJ = ../librsound/librsound.o src/poll.o ../librsound/buffer.o
 TARGET_LIB_IMPLIB = lib/librsound.a
 
 TARGET_SERVER_LIBS = -lpthreadGC2 -lws2_32

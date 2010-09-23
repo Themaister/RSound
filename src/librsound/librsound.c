@@ -15,7 +15,7 @@
 
 #define RSD_EXPOSE_STRUCT
 #include "rsound.h"
-#include "../buffer.h"
+#include "buffer.h"
 
 #undef CONST_CAST
 
