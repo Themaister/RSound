@@ -13,13 +13,19 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef __BUFFER_H
+#define __BUFFER_H
+
 #include <stdlib.h>
 #include <malloc.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
+#ifndef FIFO_BUF_TYPEDEF
+#define FIFO_BUF_TYPEDEF
 typedef struct rsound_fifo_buffer rsound_fifo_buffer_t;
+#endif
 
 rsound_fifo_buffer_t* fifo_new(size_t size);
 void fifo_write(rsound_fifo_buffer_t* buffer, const void* in_buf, size_t size);
@@ -28,3 +34,4 @@ void fifo_free(rsound_fifo_buffer_t* buffer);
 size_t fifo_read_avail(rsound_fifo_buffer_t* buffer);
 size_t fifo_write_avail(rsound_fifo_buffer_t* buffer);
 
+#endif

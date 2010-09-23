@@ -110,7 +110,10 @@ extern "C" {
 
 #ifdef RSD_EXPOSE_STRUCT
 
+#ifndef FIFO_BUF_TYPEDEF
+#define FIFO_BUF_TYPEDEF
    typedef struct rsound_fifo_buffer rsound_fifo_buffer_t;
+#endif
 
    /* Defines the main structure for use with the API. */
    typedef struct rsound
