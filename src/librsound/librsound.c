@@ -497,7 +497,6 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size * 2 )
       rd->buffer_size = rd->backend_info.chunk_size * 32;
 
-   /* Reallocs buffer each time in case we have changes the buffer size from last time */
    if ( rd->fifo_buffer != NULL )
       fifo_free(rd->fifo_buffer);
    rd->fifo_buffer = fifo_new (rd->buffer_size);
@@ -686,9 +685,7 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
          return -1;
 
       if ( fd.revents & POLLHUP )
-      {
          return -1;
-      }
 
       if ( fd.revents & POLLIN )
       {
