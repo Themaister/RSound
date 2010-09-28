@@ -23,7 +23,7 @@ struct rsound_fifo_buffer
    size_t end;
 };
 
-rsound_fifo_buffer_t* fifo_new(size_t size)
+rsound_fifo_buffer_t* rsnd_fifo_new(size_t size)
 {
    rsound_fifo_buffer_t *buf = calloc(1, sizeof(*buf));
    if (buf == NULL)
@@ -40,7 +40,7 @@ rsound_fifo_buffer_t* fifo_new(size_t size)
    return buf;
 }
 
-void fifo_free(rsound_fifo_buffer_t* buffer)
+void rsnd_fifo_free(rsound_fifo_buffer_t* buffer)
 {
    assert(buffer);
    assert(buffer->buffer);
@@ -49,7 +49,7 @@ void fifo_free(rsound_fifo_buffer_t* buffer)
    free(buffer);
 }
 
-size_t fifo_read_avail(rsound_fifo_buffer_t* buffer)
+size_t rsnd_fifo_read_avail(rsound_fifo_buffer_t* buffer)
 {
    assert(buffer);
    assert(buffer->buffer);
@@ -61,7 +61,7 @@ size_t fifo_read_avail(rsound_fifo_buffer_t* buffer)
    return end - first;
 }
 
-size_t fifo_write_avail(rsound_fifo_buffer_t* buffer)
+size_t rsnd_fifo_write_avail(rsound_fifo_buffer_t* buffer)
 {
    assert(buffer);
    assert(buffer->buffer);
@@ -74,12 +74,12 @@ size_t fifo_write_avail(rsound_fifo_buffer_t* buffer)
    return (buffer->bufsize - 1) - (end - first);
 }
 
-void fifo_write(rsound_fifo_buffer_t* buffer, const void* in_buf, size_t size)
+void rsnd_fifo_write(rsound_fifo_buffer_t* buffer, const void* in_buf, size_t size)
 {
    assert(buffer);
    assert(buffer->buffer);
    assert(in_buf);
-   assert(fifo_write_avail(buffer) >= size);
+   assert(rsnd_fifo_write_avail(buffer) >= size);
 
    size_t first_write = size;
    size_t rest_write = 0;
@@ -97,12 +97,12 @@ void fifo_write(rsound_fifo_buffer_t* buffer, const void* in_buf, size_t size)
 }
 
 
-void fifo_read(rsound_fifo_buffer_t* buffer, void* in_buf, size_t size)
+void rsnd_fifo_read(rsound_fifo_buffer_t* buffer, void* in_buf, size_t size)
 {
    assert(buffer);
    assert(buffer->buffer);
    assert(in_buf);
-   assert(fifo_read_avail(buffer) >= size);
+   assert(rsnd_fifo_read_avail(buffer) >= size);
 
    size_t first_read = size;
    size_t rest_read = 0;
