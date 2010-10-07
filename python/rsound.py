@@ -146,7 +146,7 @@ class RSound:
 
 
    def write(self, buf):
-      return rsd_write(self.rd, str(buf), len(str(buf)))
+      return rsd_write(self.rd, buf, len(buf))
 
 
    def avail(self):
@@ -178,6 +178,8 @@ if __name__ == '__main__':
    rd.setHost('localhost')
    rd.setPort(12345)
    
+   sys.stdin = sys.stdin.detach()
+
    if rd.start():
       buf = sys.stdin.read(44)
       buf = sys.stdin.read(128)
