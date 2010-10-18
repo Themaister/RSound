@@ -498,8 +498,8 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       rd->buffer_size = rd->backend_info.chunk_size * 32;
 
    if ( rd->fifo_buffer != NULL )
-      fifo_free(rd->fifo_buffer);
-   rd->fifo_buffer = fifo_new (rd->buffer_size);
+      rsnd_fifo_free(rd->fifo_buffer);
+   rd->fifo_buffer = rsnd_fifo_new (rd->buffer_size);
    if ( rd->fifo_buffer == NULL )
       return -1;
 
@@ -770,13 +770,13 @@ static void rsnd_drain(rsound_t *rd)
 #endif
       /* Calculates the amount of data we have in our virtual buffer. Only used to calculate delay. */
       pthread_mutex_lock(&rd->thread.mutex);
-      rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)fifo_read_avail(rd->fifo_buffer) - temp);
+      rd->bytes_in_buffer = (int)((int64_t)rd->total_written + (int64_t)rsnd_fifo_read_avail(rd->fifo_buffer) - temp);
       pthread_mutex_unlock(&rd->thread.mutex);
    }
    else
    {
       pthread_mutex_lock(&rd->thread.mutex);
-      rd->bytes_in_buffer = fifo_read_avail(rd->fifo_buffer);
+      rd->bytes_in_buffer = rsnd_fifo_read_avail(rd->fifo_buffer);
       pthread_mutex_unlock(&rd->thread.mutex);
    }
 }
@@ -794,7 +794,7 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
          return 0;
 
       pthread_mutex_lock(&rd->thread.mutex);
-      if ( fifo_write_avail(rd->fifo_buffer) >= size )
+      if ( rsnd_fifo_write_avail(rd->fifo_buffer) >= size )
       {
          pthread_mutex_unlock(&rd->thread.mutex);
          break;
@@ -812,7 +812,7 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
    }
 
    pthread_mutex_lock(&rd->thread.mutex);
-   fifo_write(rd->fifo_buffer, buf, size);
+   rsnd_fifo_write(rd->fifo_buffer, buf, size);
    pthread_mutex_unlock(&rd->thread.mutex);
    //RSD_DEBUG("fill_buffer: Wrote to buffer.");
 
@@ -894,7 +894,7 @@ static size_t rsnd_get_ptr(rsound_t *rd)
 {
    int ptr;
    pthread_mutex_lock(&rd->thread.mutex);
-   ptr = fifo_read_avail(rd->fifo_buffer);
+   ptr = rsnd_fifo_read_avail(rd->fifo_buffer);
    pthread_mutex_unlock(&rd->thread.mutex);
 
    return ptr;
@@ -1071,7 +1071,7 @@ static int rsnd_update_server_info(rsound_t *rd)
       int delay = rsd_delay(rd);
       int delta = (int)(client_ptr - serv_ptr);
       pthread_mutex_lock(&rd->thread.mutex);
-      delta += fifo_read_avail(rd->fifo_buffer);
+      delta += rsnd_fifo_read_avail(rd->fifo_buffer);
       pthread_mutex_unlock(&rd->thread.mutex);
 
       RSD_DEBUG("Delay: %d, Delta: %d", delay, delta);
@@ -1126,7 +1126,7 @@ static void* rsnd_thread ( void * thread_data )
 
          /* If the buffer is empty or we've stopped the stream, jump out of this for loop */
          pthread_mutex_lock(&rd->thread.mutex);
-         if ( fifo_read_avail(rd->fifo_buffer) < rd->backend_info.chunk_size || !rd->thread_active )
+         if ( rsnd_fifo_read_avail(rd->fifo_buffer) < rd->backend_info.chunk_size || !rd->thread_active )
          {
             pthread_mutex_unlock(&rd->thread.mutex);
             break;
@@ -1135,7 +1135,7 @@ static void* rsnd_thread ( void * thread_data )
 
          _TEST_CANCEL();
          pthread_mutex_lock(&rd->thread.mutex);
-         fifo_read(rd->fifo_buffer, buffer, sizeof(buffer));
+         rsnd_fifo_read(rd->fifo_buffer, buffer, sizeof(buffer));
          pthread_mutex_unlock(&rd->thread.mutex);
          rc = rsnd_send_chunk(rd->conn.socket, buffer, sizeof(buffer), 1);
 
@@ -1334,10 +1334,10 @@ int rsd_exec(rsound_t *rsound)
 
    // Flush the buffer
 
-   if ( fifo_read_avail(rsound->fifo_buffer) > 0 )
+   if ( rsnd_fifo_read_avail(rsound->fifo_buffer) > 0 )
    {
-      char buffer[fifo_read_avail(rsound->fifo_buffer)];
-      fifo_read(rsound->fifo_buffer, buffer, sizeof(buffer));
+      char buffer[rsnd_fifo_read_avail(rsound->fifo_buffer)];
+      rsnd_fifo_read(rsound->fifo_buffer, buffer, sizeof(buffer));
       if ( rsnd_send_chunk(fd, buffer, sizeof(buffer), 1) != (ssize_t)sizeof(buffer) )
       {
          close(fd);
@@ -1580,7 +1580,7 @@ int rsd_free(rsound_t *rsound)
 {
    assert(rsound != NULL);
    if (rsound->fifo_buffer)
-      fifo_free(rsound->fifo_buffer);
+      rsnd_fifo_free(rsound->fifo_buffer);
    if (rsound->host)
       free(rsound->host);
    if (rsound->port)

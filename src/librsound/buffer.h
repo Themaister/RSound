@@ -22,16 +22,16 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifndef FIFO_BUF_TYPEDEF
-#define FIFO_BUF_TYPEDEF
+#ifndef RSD_FIFO_BUF_TYPEDEF
+#define RSD_FIFO_BUF_TYPEDEF
 typedef struct rsound_fifo_buffer rsound_fifo_buffer_t;
 #endif
 
-rsound_fifo_buffer_t* fifo_new(size_t size);
-void fifo_write(rsound_fifo_buffer_t* buffer, const void* in_buf, size_t size);
-void fifo_read(rsound_fifo_buffer_t* buffer, void* in_buf, size_t size);
-void fifo_free(rsound_fifo_buffer_t* buffer);
-size_t fifo_read_avail(rsound_fifo_buffer_t* buffer);
-size_t fifo_write_avail(rsound_fifo_buffer_t* buffer);
+rsound_fifo_buffer_t* rsnd_fifo_new(size_t size);
+void rsnd_fifo_write(rsound_fifo_buffer_t* buffer, const void* in_buf, size_t size);
+void rsnd_fifo_read(rsound_fifo_buffer_t* buffer, void* in_buf, size_t size);
+void rsnd_fifo_free(rsound_fifo_buffer_t* buffer);
+size_t rsnd_fifo_read_avail(rsound_fifo_buffer_t* buffer);
+size_t rsnd_fifo_write_avail(rsound_fifo_buffer_t* buffer);
 
 #endif
