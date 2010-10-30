@@ -88,7 +88,7 @@ enum rsd_conn_type
 };
 
 // Some logging macros.
-static void rsnd_log(enum rsd_logtype type, char *fmt, ...); 
+static void rsnd_log(enum rsd_logtype type, const char *fmt, ...); 
 #ifdef DEBUG
 #define RSD_DEBUG(fmt, args...) rsnd_log(RSD_LOG_DEBUG, "(%s:%d): " fmt , __FILE__,  __LINE__ , ##args)
 #else
@@ -145,12 +145,12 @@ static int init_wsock(void)
 
 
 // Does some logging
-static void rsnd_log(enum rsd_logtype type, char *fmt, ...)
+static void rsnd_log(enum rsd_logtype type, const char *fmt, ...)
 {
    va_list args;
    va_start(args, fmt);
 
-   char *logtype;
+   const char *logtype;
    switch ( type )
    {
       case RSD_LOG_DEBUG:
