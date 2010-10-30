@@ -296,12 +296,6 @@ static int rsnd_connect_server( rsound_t *rd )
       goto error;
    }
 
-   if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0)
-      goto error;
-
-   if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0 )
-      goto error;
-
    /* Uses non-blocking IO since it performed more deterministic with poll()/send() */   
 
 #ifdef _WIN32
@@ -324,6 +318,28 @@ static int rsnd_connect_server( rsound_t *rd )
    }
 #endif /* Cygwin doesn't seem to like non-blocking I/O ... */
 #endif
+
+   /* Nonblocking connect with 3 second timeout */
+   if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0 && errno != EINPROGRESS)
+      goto error;
+
+   struct pollfd fd = {
+      .fd = rd->conn.socket,
+      .events = POLLOUT
+   };
+
+   rsnd_poll(&fd, 1, 3000);
+   if (!(fd.revents & POLLOUT))
+      goto error;
+
+   if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0 && errno != EINPROGRESS )
+      goto error;
+
+   fd.fd = rd->conn.ctl_socket;
+   rsnd_poll(&fd, 1, 3000);
+   if (!(fd.revents & POLLOUT))
+      goto error;
+
 
    if ( res != NULL && (res->ai_family != AF_UNIX) )
       freeaddrinfo(res);
