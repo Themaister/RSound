@@ -38,7 +38,28 @@ static int jack_init(void **data)
    return 0;
 }
 
-static int process_cb() {}
+static int process_cb(jack_nframes_t nframes, void *data) 
+{
+   jack_t *jd = data;
+   if (nframes <= 0)
+      return 0;
+
+   jack_default_audio_sample_t *out;
+   jack_nframes_t available = jack_ringbuffer_read_space(jd->buffer[0]);
+   available /= sizeof(jack_default_audio_sample_t);
+
+   if (available > nframes)
+      available = nframes;
+
+   for (int i = 0; i < jd->channels; i++)
+   {
+      out = jack_port_get_buffer(jd->ports[i], nframes);
+      jack_ringbuffer_read(jd->ringbuffer[i], (char*)out, available * sample_size);
+
+      for (jack_nframes_t f = available; f < nframes; f++)
+         out[f] = 0.0f;
+   }
+}
 
 static int jack_open(void *data, wav_header_t *w)
 {

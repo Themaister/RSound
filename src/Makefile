@@ -55,6 +55,11 @@ ifeq ($(HAVE_PORTAUDIO), 1)
    OPT_SERV_OBJ += drivers/porta.o
 endif
 
+ifeq ($(HAVE_JACK), 1)
+   OPT_SERV_LIBS += -ljack
+   OPT_SERV_OBJ += drivers/jack.o
+endif
+
 ifeq ($(NEED_RT), 1)
    TARGET_SERVER_LIBS += -lrt
    TARGET_LIB_LIBS += -lrt

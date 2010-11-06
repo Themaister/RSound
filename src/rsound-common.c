@@ -77,6 +77,10 @@ extern const rsd_backend_callback_t rsd_muroar;
 extern const rsd_backend_callback_t rsd_pulse;
 #endif
 
+#ifdef _JACK
+extern const rsd_backend_callback_t rsd_jack;
+#endif
+
 #ifdef _ROARVS
 extern const rsd_backend_callback_t rsd_roarvs;
 #endif
@@ -386,6 +390,13 @@ void parse_input(int argc, char **argv)
                break;
             }
 #endif
+#ifdef _JACK
+            if ( !strcmp( "jack", optarg ) )
+            {
+               backend = &rsd_jack;
+               break;
+            }
+#endif
 #ifdef _AL
             if ( !strcmp( "openal", optarg ) )
             {
@@ -481,6 +492,8 @@ void parse_input(int argc, char **argv)
       backend = &rsd_oss;
 #elif _AL
       backend = &rsd_al;
+#elif _JACK
+      backend = &rsd_jack;
 #elif _PORTA
       backend = &rsd_porta;
 #elif _ROARVS
@@ -546,6 +559,9 @@ static void print_help()
 #endif
 #ifdef _PORTA
    printf("portaudio ");
+#endif
+#ifdef _JACK
+   printf("jack ");
 #endif
 #ifdef _AL
    printf("openal ");

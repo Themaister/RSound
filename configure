@@ -15,6 +15,7 @@ HAVE_LIBAO=auto
 HAVE_MUROAR=auto
 HAVE_ROAR=auto
 HAVE_PULSE=auto
+HAVE_JACK=auto
 HAVE_SAMPLERATE=auto
 
 PREFIX=/usr/local
@@ -33,7 +34,7 @@ print_help()
    echo "   alsa oss libao portaudio openal roar pulse muroar samplerate"
 }
 
-ARGS="alsa oss libao portaudio openal pulse muroar samplerate roar"
+ARGS="alsa oss libao portaudio openal pulse muroar samplerate roar jack"
 
 ### Parse stuff :V
 
@@ -162,6 +163,7 @@ check_lib OSSAUDIO ossaudio _oss_ioctl
 [ $HAVE_MUROAR = auto ] && check_lib MUROAR muroar muroar_stream
 [ $HAVE_OPENAL = auto ] && check_lib OPENAL openal alcOpenDevice
 [ $HAVE_PORTAUDIO = auto ] && check_lib PORTAUDIO portaudio Pa_OpenStream
+[ $HAVE_JACK = auto ] && check_lib JACK jack jack_client_open
 [ $HAVE_SAMPLERATE = auto ] && check_lib SAMPLERATE samplerate src_callback_new
 
 check_lib RT rt clock_gettime
@@ -239,6 +241,11 @@ if [ $HAVE_PORTAUDIO = yes ]; then
    echo "HAVE_PORTAUDIO = 1" >> src/config.mk
 fi
 
+if [ $HAVE_JACK = yes ]; then
+   echo "#define _JACK 1" >> src/config.h
+   echo "HAVE_JACK = 1" >> src/config.mk
+fi
+
 if [ $HAVE_SAMPLERATE = yes ]; then
    echo "#define HAVE_SAMPLERATE 1" >> src/config.h
    echo "HAVE_SAMPLERATE = 1" >> src/config.mk
@@ -271,6 +278,7 @@ echo " ALSA:            $HAVE_ALSA"
 echo " OSS:             $HAVE_OSS"
 echo " libAO:           $HAVE_LIBAO"
 echo " PortAudio:       $HAVE_PORTAUDIO"
+echo " PortAudio:       $HAVE_JACK"
 echo " Roar VS:         $HAVE_ROAR"
 echo " OpenAL:          $HAVE_OPENAL"
 echo " muRoar:          $HAVE_MUROAR"
