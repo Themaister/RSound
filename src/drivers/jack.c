@@ -117,7 +117,7 @@ static int jack_open(void *data, wav_header_t *w)
       if (jd->buffer[i] == NULL)
       {
          fprintf(stderr, "Couldn't create ringbuffer\n");
-         return -1;
+         goto error;
       }
    }
 
