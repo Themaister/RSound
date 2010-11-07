@@ -147,7 +147,7 @@ inline static void s16_to_float(void *data, size_t bytes)
    union 
    {
       float *f;
-      float *i;
+      int16_t *i;
    } u;
    u.i = data;
 
