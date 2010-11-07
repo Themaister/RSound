@@ -32,7 +32,6 @@ typedef struct
    jack_port_t *ports[MAX_CHANS];
    jack_ringbuffer_t *buffer[MAX_CHANS];
    int channels;
-   float latency;
    volatile int shutdown;
    int format;
    int conv_op;

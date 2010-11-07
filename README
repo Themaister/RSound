@@ -13,11 +13,10 @@ For integration with applications, librsound can be used.
 
 The package compiles and runs on the following platforms:
 
-Unix-like - ALSA (Linux), OSS, libao, PortAudio, PulseAudio, muRoar, OpenAL
+Unix-like - ALSA (Linux), OSS, libao, PortAudio, PulseAudio, muRoar, OpenAL, roar VS, Jack
 Microsoft Windows (Cygwin) - PortAudio, (OSS), libao, OpenAL
-(Mac OSX) - This is currently not tested, but the fact that PortAudio supports
-            this platform makes it very likely that rsound will compile without
-            any major problems.
+                  (Win32)  - OpenAL
+(Mac OSX) - Not tested.
 
 On how to use these programs, refer to the --help in the respective programs, or the man-pages.
 
