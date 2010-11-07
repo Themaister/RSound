@@ -1058,11 +1058,21 @@ static void* rsd_thread(void *thread_data)
    }
 
    backend_info_t backend_info; 
+   memset(&backend_info, 0, sizeof(backend_info));
    backend->get_backend_info(data, &backend_info);
    if ( backend_info.latency == 0 || backend_info.chunk_size == 0 )
    {
       fprintf(stderr, "Couldn't get backend info ...\n");
       goto rsd_exit;
+   }
+
+   if ( backend_info.resample )
+   {
+      resample = 1;
+      w.sampleRate = w_orig.sampleRate * backend_info.ratio;
+      conn.rate_ratio = backend_info.ratio;
+      w.bitsPerSample = 16;
+      w.rsd_format = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
    }
 
    size_t size = backend_info.chunk_size;

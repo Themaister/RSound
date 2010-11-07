@@ -85,6 +85,7 @@ static int jack_open(void *data, wav_header_t *w)
    jd->channels = w->numChannels;
    jd->format = w->rsd_format;
    jd->conv_op = audio_conv_op(jd->format);
+   jd->rate = w->sampleRate;
 
    jd->client = jack_client_open(JACK_CLIENT_NAME, JackNullOption, NULL);
    if (jd->client == NULL)
@@ -159,9 +160,19 @@ error:
 
 static void jack_get_backend(void *data, backend_info_t *backend_info)
 {
-   (void)data;
+   jack_t *jd = data;
    backend_info->latency = DEFAULT_CHUNK_SIZE;
    backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
+   if (jack_get_sample_rate(jd->client) != jd->rate)
+   {
+      backend_info->resample = 1;
+      backend_info->ratio = (float)jack_get_sample_rate(jd->client) / jd->rate;
+      // If we're resampling, we're resampling to S16_NE, so update that here.
+      jd->format = is_little_endian() ? RSD_S16_LE : RSD_S16_BE;
+      jd->conv_op = audio_conv_op(jd->format);
+   }
+   else
+      backend_info->resample = 0;
 }
 
 static int jack_latency(void* data)

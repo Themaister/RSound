@@ -36,6 +36,7 @@ typedef struct
    volatile int shutdown;
    int format;
    int conv_op;
+   unsigned rate;
 } jack_t;
 
 #define JACK_CLIENT_NAME "RSound"

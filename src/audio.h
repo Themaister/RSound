@@ -80,6 +80,8 @@ typedef struct backend_info
 {
    uint32_t latency;    // Is used by client to calculate latency 
    uint32_t chunk_size; // Preferred TCP packet size. Might just be ignored completely :)
+   unsigned resample; // Do we have to resample? (Jack)
+   double ratio; // Resampling ratio
 } backend_info_t;
 
 typedef struct rsd_backend_callback
