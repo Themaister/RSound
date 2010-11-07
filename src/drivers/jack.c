@@ -154,14 +154,13 @@ static int jack_open(void *data, wav_header_t *w)
    return 0;
 error:
    if (jports != NULL)
-      free(jports);
+      jack_free(jports);
    return -1;
 }
 
 static void jack_get_backend(void *data, backend_info_t *backend_info)
 {
    jack_t *jd = data;
-   backend_info->latency = DEFAULT_CHUNK_SIZE;
    backend_info->chunk_size = DEFAULT_CHUNK_SIZE;
    if (jack_get_sample_rate(jd->client) != jd->rate)
    {
@@ -173,14 +172,16 @@ static void jack_get_backend(void *data, backend_info_t *backend_info)
    }
    else
       backend_info->resample = 0;
+
+   backend_info->latency = jack_port_get_total_latency(jd->client, jd->ports[0]) * jd->channels * rsnd_format_to_bytes(jd->format);
 }
 
 static int jack_latency(void* data)
 {
-   (void)data;
-   int delay = 0;
+   jack_t *jd = data;
+   jack_nframes_t frames = jack_port_get_total_latency(jd->client, jd->ports[0]) + jack_ringbuffer_read_space(jd->buffer[0]) / sizeof(jack_default_audio_sample_t);
 
-   return delay;
+   return frames * jd->channels * rsnd_format_to_bytes(jd->format);
 }
 
 static size_t write_buffer(jack_t *jd, const void* buf, size_t size)
