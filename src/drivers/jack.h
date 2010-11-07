@@ -17,16 +17,25 @@
 #define JACK_H
 
 #include "../audio.h"
+#include "../endian.h"
 
 #include <jack/jack.h>
+#include <jack/types.h>
+#include <jack/ringbuffer.h>
 
 #define MAX_CHANS 6
+#define MAX_PORTS 6
+#define JACK_BUFFER_SIZE 0x1000
 typedef struct
 {
    jack_client_t *client;
    jack_port_t *ports[MAX_CHANS];
+   jack_ringbuffer_t *buffer[MAX_CHANS];
    int channels;
    float latency;
+   volatile int shutdown;
+   int format;
+   int conv_op;
 } jack_t;
 
 #define JACK_CLIENT_NAME "RSound"
