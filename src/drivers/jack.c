@@ -72,47 +72,9 @@ static void shutdown_cb(void *data)
    jd->shutdown = 1;
 }
 
-static int audio_conv_op(int format)
+static inline int audio_conv_op(enum rsd_format format)
 {
-   int conv = RSD_NULL;
-   switch (format)
-   {
-      case RSD_S16_LE:
-         if (!is_little_endian())
-            conv |= RSD_SWAP_ENDIAN;
-         conv |= RSD_S16_TO_FLOAT;
-         break;
-      case RSD_S16_BE:
-         if (is_little_endian())
-            conv |= RSD_SWAP_ENDIAN;
-         conv |= RSD_S16_TO_FLOAT;
-         break;
-      case RSD_U16_LE:
-         conv |= RSD_U_TO_S;
-         if (!is_little_endian())
-            conv |= RSD_SWAP_ENDIAN;
-         conv |= RSD_S16_TO_FLOAT;
-         break;
-      case RSD_U16_BE:
-         if (is_little_endian())
-            conv |= RSD_SWAP_ENDIAN;
-         conv |= RSD_S16_TO_FLOAT;
-         break;
-      case RSD_U8:
-         conv |= RSD_U_TO_S;
-      case RSD_S8:
-         conv |= RSD_S8_TO_S16 | RSD_S16_TO_FLOAT;
-         break;
-      case RSD_ALAW:
-         conv |= RSD_ALAW_TO_S16 | RSD_S16_TO_FLOAT;
-         break;
-      case RSD_MULAW:
-         conv |= RSD_MULAW_TO_S16 | RSD_S16_TO_FLOAT;
-         break;
-      default:
-         break;
-   }
-   return conv;
+   return converter_fmt_to_s16ne(format) | RSD_S16_TO_FLOAT;
 }
 
 static int jack_open(void *data, wav_header_t *w)
@@ -230,7 +192,7 @@ static size_t write_buffer(jack_t *jd, const void* buf, size_t size)
 
       size_t avail = jack_ringbuffer_write_space(jd->buffer[0]);
 
-      if (avail < sizeof(jack_default_audio_sample_t) * BYTES_TO_SAMPLES(size, jd->format))
+      if (avail > sizeof(jack_default_audio_sample_t) * BYTES_TO_SAMPLES(size, jd->format))
          break;
 
       // TODO: Need to do something more intelligent here!

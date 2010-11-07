@@ -141,6 +141,20 @@ inline static void swap_bytes16(uint16_t *data, size_t bytes)
    }
 }
 
+inline static void s16_to_float(void *data, size_t bytes)
+{
+   size_t samples = bytes / sizeof(int16_t);
+   union 
+   {
+      float *f;
+      float *i;
+   } u;
+   u.i = data;
+
+   for (int i = samples - 1; i >= 0; i--)
+      u.f[i] = (float)u.i[i] / 0x7FFF;
+}
+
 inline static void alaw_to_s16(void *data, size_t bytes)
 {
    union
@@ -289,6 +303,7 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
       fmt = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
    }
 
+
    if ( operation & RSD_SWAP_ENDIAN )
    {
       if ( !swapped && bits == 16 )
@@ -302,10 +317,16 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
       swap_bytes16(u.u16, bytes);
    }
 
+   if ( operation & RSD_S16_TO_FLOAT )
+   {
+      s16_to_float(buffer, bytes);
+      bytes *= sizeof(float) / sizeof(int16_t);
+   }
+
    memcpy(data, buffer, bytes);
 }
 
-static int converter_fmt_to_s16ne(enum rsd_format format)
+int converter_fmt_to_s16ne(enum rsd_format format)
 {
    int conversion = RSD_NULL;
    switch ( format )
