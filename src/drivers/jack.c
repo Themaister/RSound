@@ -15,20 +15,23 @@
 
 #include "jack.h"
 #include "../rsound.h"
+#include <string.h>
+#include <stdlib.h>
 
 static void jack_close(void *data)
 {
    jack_t *jd = data;
-
-   for (int i = 0; i < jd->channels; i++)
-      if (jd->buffer[i] != NULL)
-         jack_ringbuffer_free(jd->buffer[i]);
 
    if (jd->client != NULL)
    {
       jack_deactivate(jd->client);
       jack_client_close(jd->client);
    }
+
+   for (int i = 0; i < jd->channels; i++)
+      if (jd->buffer[i] != NULL)
+         jack_ringbuffer_free(jd->buffer[i]);
+
    free(jd);
 }
 
@@ -77,15 +80,46 @@ static inline int audio_conv_op(enum rsd_format format)
    return converter_fmt_to_s16ne(format) | RSD_S16_TO_FLOAT;
 }
 
+static int parse_ports(char **dest_ports, int max_ports, const char *port_list)
+{
+   if (port_list == NULL)
+      return 0;
+   if (strlen(port_list) == 0)
+      return 0;
+   if (!strcmp(port_list, "default"))
+      return 0;
+
+   char *tmp_port_list = strdup(port_list);
+
+   const char *tmp = strtok(tmp_port_list, ",");
+   int num_used = 0;
+   for (int i = 0; i < max_ports && tmp != NULL; i++)
+   {
+      dest_ports[i] = strdup(tmp);
+      tmp = strtok(NULL, ",");
+      num_used++;
+   }
+
+   free(tmp_port_list);
+   return num_used;
+}
+
 static int jack_open(void *data, wav_header_t *w)
 {
    const char **jports = NULL;
-   const char *dest_ports[MAX_PORTS];
+   char *dest_ports[MAX_PORTS];
+   int num_parsed_ports = 0;
    jack_t *jd = data;
    jd->channels = w->numChannels;
    jd->format = w->rsd_format;
    jd->conv_op = audio_conv_op(jd->format);
    jd->rate = w->sampleRate;
+
+   if (jd->channels > MAX_PORTS)
+   {
+      fprintf(stderr, "Too many audio channels ...\n");
+      return -1;
+   }
 
    jd->client = jack_client_open(JACK_CLIENT_NAME, JackNullOption, NULL);
    if (jd->client == NULL)
@@ -97,7 +131,7 @@ static int jack_open(void *data, wav_header_t *w)
 
    for (int i = 0; i < jd->channels; i++)
    {
-      char buf[1024];
+      char buf[64];
       if (i == 0)
          strcpy(buf, "left");
       else if (i == 1)
@@ -115,6 +149,7 @@ static int jack_open(void *data, wav_header_t *w)
 
    jack_nframes_t bufsize;
    jack_nframes_t jack_bufsize = jack_get_buffer_size(jd->client) * sizeof(jack_default_audio_sample_t);
+   // We want some headroom, so just use double buffer size.
    if (JACK_BUFFER_SIZE > jack_bufsize * 2)
       bufsize = JACK_BUFFER_SIZE;
    else
@@ -136,6 +171,8 @@ static int jack_open(void *data, wav_header_t *w)
       goto error;
    }
 
+   num_parsed_ports = parse_ports(dest_ports, MAX_PORTS, device);
+
    jports = jack_get_ports(jd->client, NULL, NULL, JackPortIsPhysical | JackPortIsInput);
    if (jports == NULL)
    {
@@ -143,9 +180,9 @@ static int jack_open(void *data, wav_header_t *w)
       goto error;
    }
 
-   for (int i = 0; i < MAX_PORTS && jports[i] != NULL; i++)
+   for (int i = num_parsed_ports; i < MAX_PORTS && jports[i] != NULL; i++)
    {
-      dest_ports[i] = jports[i];
+      dest_ports[i] = (char*)jports[i - num_parsed_ports];
    }
 
    for (int i = 0; i < jd->channels; i++)
@@ -159,8 +196,14 @@ static int jack_open(void *data, wav_header_t *w)
    }
 
 
+   for (int i = 0; i < num_parsed_ports; i++)
+      free(dest_ports[i]);
    return 0;
+
 error:
+   for (int i = 0; i < num_parsed_ports; i++)
+      free(dest_ports[i]);
+
    if (jports != NULL)
       jack_free(jports);
    return -1;
