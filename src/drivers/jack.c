@@ -94,6 +94,7 @@ static int jack_open(void *data, wav_header_t *w)
    jack_set_process_callback(jd->client, process_cb, jd);
    jack_on_shutdown(jd->client, shutdown_cb, jd);
 
+
    for (int i = 0; i < jd->channels; i++)
    {
       char buf[1024];
@@ -112,9 +113,16 @@ static int jack_open(void *data, wav_header_t *w)
       }
    }
 
+   jack_nframes_t bufsize;
+   jack_nframes_t jack_bufsize = jack_get_buffer_size(jd->client) * sizeof(jack_default_audio_sample_t);
+   if (JACK_BUFFER_SIZE > jack_bufsize * 2)
+      bufsize = JACK_BUFFER_SIZE;
+   else
+      bufsize = jack_bufsize * 2;
+
    for (int i = 0; i < jd->channels; i++)
    {
-      jd->buffer[i] = jack_ringbuffer_create(JACK_BUFFER_SIZE);
+      jd->buffer[i] = jack_ringbuffer_create(bufsize);
       if (jd->buffer[i] == NULL)
       {
          fprintf(stderr, "Couldn't create ringbuffer\n");

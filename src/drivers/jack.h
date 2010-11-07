@@ -25,7 +25,7 @@
 
 #define MAX_CHANS 6
 #define MAX_PORTS 6
-#define JACK_BUFFER_SIZE 0x1000
+#define JACK_BUFFER_SIZE 0x8000
 typedef struct
 {
    jack_client_t *client;
