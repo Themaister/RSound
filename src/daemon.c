@@ -30,6 +30,10 @@
 #include <netinet/in.h>
 #endif
 
+#ifdef HAVE_SYSLOG
+#include <syslog.h>
+#endif
+
 /* Default values */
 
 /* Global variables for use in modules */
@@ -99,6 +103,11 @@ int main(int argc, char ** argv)
       if ( i > 0 ) exit(0);
       /* Forking into background */
    }
+#endif
+
+#ifdef HAVE_SYSLOG
+   if (use_syslog)
+      openlog("rsd", 0, LOG_USER);
 #endif
 
    /* Sets up listening socket */
