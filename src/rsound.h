@@ -43,6 +43,7 @@ void cleanup(void);
 void cleanup(int);
 #endif
 void initialize_audio(void);
+void log_printf(const char *fmt, ...);
 
 extern char device[];
 extern char bindaddr[];
@@ -56,5 +57,6 @@ extern int debug;
 extern int rsd_conn_type;
 extern int resample_freq;
 extern int src_converter;
+extern int use_syslog;
 
 #endif 

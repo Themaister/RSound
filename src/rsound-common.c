@@ -21,6 +21,7 @@
 #include "endian.h"
 #include "audio.h"
 #include "proto.h"
+#include <stdarg.h>
 
 #ifndef _WIN32
 #include <fcntl.h>
@@ -41,6 +42,10 @@
 #include <signal.h>
 #include <getopt.h>
 #include <poll.h>
+
+#ifdef HAVE_SYSLOG
+#include <syslog.h>
+#endif
 
 
 /* Not really portable, need to find something better */
@@ -139,9 +144,27 @@ void cleanup( int signal )
 
    if ( backend->shutdown )
       backend->shutdown();
+
+#if HAVE_SYSLOG
+   closelog();
+#endif
    exit(0);
 }
 #endif
+
+void log_printf(const char *fmt, ...)
+{
+   va_list ap;
+   va_start(ap, fmt);
+#if HAVE_SYSLOG
+   if (use_syslog)
+      vsyslog(LOG_INFO, fmt, ap);
+   else
+#endif
+      vfprintf(stderr, fmt, ap);
+
+   va_end(ap);
+}
 
 void new_sound_thread ( connection_t connection )
 {
@@ -230,6 +253,9 @@ void parse_input(int argc, char **argv)
 #ifdef HAVE_SAMPLERATE
       { "resampler", 1, NULL, 'Q' },
 #endif
+#ifdef HAVE_SYSLOG
+      { "syslog", 1, NULL, 'L' },
+#endif
 #ifndef _WIN32
       { "backend", 1, NULL, 'b' },
       { "sock", 1, NULL, 'S' },
@@ -244,11 +270,21 @@ void parse_input(int argc, char **argv)
 #ifdef _WIN32
    char optstring[] = "p:vhR:";
 #else
-#ifdef HAVE_SAMPLERATE
-   char optstring[] = "d:b:p:R:DvhQ:";
+
+#ifdef HAVE_SYSLOG
+#define LOG_ARGUMENT "L"
 #else
-   char optstring[] = "d:b:p:R:Dvh";
+#define LOG_ARGUMENT
 #endif
+
+#ifdef HAVE_SAMPLERATE
+#define SAMPLERATE_ARGUMENT "Q:"
+#else
+#define SAMPLERATE_ARGUMENT
+#endif
+
+   char optstring[] = "d:b:p:R:DvhQ:" LOG_ARGUMENT SAMPLERATE_ARGUMENT;
+
 #endif
 
    for(;;)
@@ -269,7 +305,7 @@ void parse_input(int argc, char **argv)
 
 #ifdef HAVE_SAMPLERATE
          case 'Q':
-            src_converter = atoi(optarg);
+            src_converter = strtol(optarg, NULL, 10);
             switch (src_converter)
             {
                case 1:
@@ -301,7 +337,7 @@ void parse_input(int argc, char **argv)
             break;
 
          case 'R':
-            resample_freq = atoi(optarg);
+            resample_freq = strtol(optarg, NULL, 10);
             if ( resample_freq <= 0 )
             {
                fprintf(stderr, "Invalid value for samplerate");
@@ -313,6 +349,9 @@ void parse_input(int argc, char **argv)
          case 'H':
             strncpy(bindaddr, optarg, 127);
             bindaddr[127] = 0;
+            break;
+         case 'L':
+            use_syslog = 1;
             break;
 
          case '?':

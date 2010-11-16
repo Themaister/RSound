@@ -54,6 +54,7 @@ int src_converter = SRC_SINC_FASTEST;
 
 int verbose = 0;
 int debug = 0;
+int use_syslog = 0;
 int listen_socket = 0;
 int rsd_conn_type = RSD_CONN_TCP;
 int resample_freq = 0;
