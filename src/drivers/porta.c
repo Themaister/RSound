@@ -134,16 +134,16 @@ static int porta_open(void *data, wav_header_t *w)
 
    if ( err != paNoError )
    {
-      fprintf(stderr, "Couldn't open stream.\n");
-      fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+      log_printf("Couldn't open stream.\n");
+      log_printf( "PortAudio error: %s\n", Pa_GetErrorText( err ) );
       return -1;
    }
 
    err = Pa_StartStream ( sound->stream );
    if ( err != paNoError )
    {
-      fprintf(stderr, "Couldn't start stream.\n");
-      fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+      log_printf("Couldn't start stream.\n");
+      log_printf( "PortAudio error: %s\n", Pa_GetErrorText( err ) );
       return -1;
    }
 

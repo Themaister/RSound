@@ -48,7 +48,7 @@ static int alsa_open(void *data, wav_header_t *w)
    int rc = snd_pcm_open(&interface->handle, device, SND_PCM_STREAM_PLAYBACK, 0);
    if ( rc < 0 )
    {
-      fprintf(stderr, "Unable to open PCM device: %s\n", snd_strerror(rc));
+      log_printf("Unable to open PCM device: %s\n", snd_strerror(rc));
       return -1;
    }
 
@@ -106,7 +106,7 @@ static int alsa_open(void *data, wav_header_t *w)
    rc = snd_pcm_hw_params(interface->handle, interface->params);
    if (rc < 0) 
    {
-      fprintf(stderr, "unable to set hw parameters: %s\n", snd_strerror(rc));
+      log_printf("unable to set hw parameters: %s\n", snd_strerror(rc));
       return -1;
    }
 
@@ -117,7 +117,7 @@ static int alsa_open(void *data, wav_header_t *w)
       snd_pcm_hw_params_get_period_size(interface->params, &latency, NULL);
       snd_pcm_hw_params_get_buffer_size(interface->params, &buffer_size);
 
-      fprintf(stderr, "ALSA: Period size: %d frames. Buffer size: %d frames.\n", (int)latency, (int)buffer_size);
+      log_printf("ALSA: Period size: %d frames. Buffer size: %d frames.\n", (int)latency, (int)buffer_size);
    }
 
    return 0;
@@ -163,7 +163,7 @@ static size_t alsa_write (void *data, const void* buf, size_t size)
 
    else if (rc < 0) 
    {
-      fprintf(stderr, "Error from writei: %s\n", snd_strerror(rc));
+      log_printf("Error from writei: %s\n", snd_strerror(rc));
       return 0;
    }  
 

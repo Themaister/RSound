@@ -136,7 +136,7 @@ void cleanup( int signal )
    if ( listen_socket > 0 )
       close(listen_socket);
 
-   fprintf(stderr, " --- Recieved signal, cleaning up ---\n");
+   log_printf(" --- Recieved signal, cleaning up ---\n");
    unlink(PIDFILE);
 
    if ( rsd_conn_type == RSD_CONN_UNIX )
@@ -187,7 +187,7 @@ void new_sound_thread ( connection_t connection )
 #else
    if ( fcntl(conn->socket, F_SETFL, O_NONBLOCK) < 0)
    {
-      fprintf(stderr, "Setting non-blocking socket failed.\n");
+      log_printf("Setting non-blocking socket failed.\n");
       goto error;
    }
 
@@ -195,7 +195,7 @@ void new_sound_thread ( connection_t connection )
    {
       if ( fcntl(conn->ctl_socket, F_SETFL, O_NONBLOCK) < 0)
       {
-         fprintf(stderr, "Setting non-blocking socket failed.\n");
+         log_printf("Setting non-blocking socket failed.\n");
          goto error;
       }
    }
@@ -210,7 +210,7 @@ void new_sound_thread ( connection_t connection )
    /* Creates new thread */
    if ( pthread_create(&thread, NULL, rsd_thread, (void*)conn) < 0 )
    {
-      fprintf(stderr, "Creating thread failed ...\n");
+      log_printf("Creating thread failed ...\n");
       goto error;
    }
 
@@ -254,7 +254,7 @@ void parse_input(int argc, char **argv)
       { "resampler", 1, NULL, 'Q' },
 #endif
 #ifdef HAVE_SYSLOG
-      { "syslog", 1, NULL, 'L' },
+      { "syslog", 0, NULL, 'L' },
 #endif
 #ifndef _WIN32
       { "backend", 1, NULL, 'b' },
@@ -324,7 +324,7 @@ void parse_input(int argc, char **argv)
                   src_converter = SRC_SINC_BEST_QUALITY;
                   break;
                default:
-                  fprintf(stderr, "Invalid quality given. Needs value between 1 and 5.\n");
+                  log_printf("Invalid quality given. Needs value between 1 and 5.\n");
                   exit(1);
             }
 
@@ -340,7 +340,7 @@ void parse_input(int argc, char **argv)
             resample_freq = strtol(optarg, NULL, 10);
             if ( resample_freq <= 0 )
             {
-               fprintf(stderr, "Invalid value for samplerate");
+               log_printf("Invalid value for samplerate");
                print_help();
                exit(1);
             }
@@ -392,7 +392,7 @@ void parse_input(int argc, char **argv)
             }
             else
             {
-               fprintf(stderr, "Couldn't open PID file.\n");
+               log_printf("Couldn't open PID file.\n");
                exit(1);
             }
 
@@ -465,7 +465,7 @@ void parse_input(int argc, char **argv)
             }
 #endif
 
-            fprintf(stderr, "\nValid backend not given. Exiting ...\n\n");
+            log_printf("\nValid backend not given. Exiting ...\n\n");
             print_help();
             exit(1);
 #endif
@@ -494,7 +494,7 @@ void parse_input(int argc, char **argv)
 #endif
 
          default:
-            fprintf(stderr, "Error parsing arguments.\n");
+            log_printf("Error parsing arguments.\n");
             exit(1);
       }
 
@@ -554,7 +554,7 @@ void parse_input(int argc, char **argv)
    /* Shouldn't really happen, but ... */
    if ( backend == NULL )
    {
-      fprintf(stderr, "rsd was not compiled with any output support, exiting ...");
+      log_printf("rsd was not compiled with any output support, exiting ...");
       exit(1);
    }
 
@@ -623,6 +623,9 @@ static void print_help()
 #ifdef HAVE_SAMPLERATE
    printf("-Q/--resampler: Value from 1 (worst) to 5 (best) (default: 3) defines quality of libsamplerate resampling.\n"); 
 #endif
+#ifdef HAVE_SYSLOG
+   printf("-L/--syslog: Redirects all console output to syslog.\n");
+#endif
    printf("--bind: Defines which address to bind to. Default is 0.0.0.0.\n");
    printf("\tExample: -p 18453. Defaults to port 12345.\n");
    printf("-v/--verbose: Enables verbosity\n");
@@ -632,20 +635,20 @@ static void print_help()
 
 static void pheader(wav_header_t *w)
 {
-   fprintf(stderr, "============================================\n");
-   fprintf(stderr, "WAV header:\n");
+   log_printf("============================================\n");
+   log_printf("WAV header:\n");
 
    if (w->numChannels == 1)
-      fprintf(stderr, "  Mono | ");
+      log_printf("  Mono | ");
    else if (w->numChannels == 2)
-      fprintf(stderr, "  Stereo | ");
+      log_printf("  Stereo | ");
    else
-      fprintf(stderr, "  Multichannel | ");
+      log_printf("  Multichannel | ");
 
-   fprintf(stderr, "%d / ", w->sampleRate);
-   fprintf(stderr, "%s\n", rsnd_format_to_string(w->rsd_format));
+   log_printf("%d / ", w->sampleRate);
+   log_printf("%s\n", rsnd_format_to_string(w->rsd_format));
 
-   fprintf(stderr, "============================================\n\n");
+   log_printf("============================================\n\n");
 }
 
 /* Reads raw 44 bytes WAV header from client and parses this (naive approach) */
@@ -666,7 +669,7 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    rc = receive_data(NULL, &conn, header, HEADER_SIZE);
    if ( rc != HEADER_SIZE )
    {
-      fprintf(stderr, "Didn't read enough data for WAV header.");
+      log_printf("Didn't read enough data for WAV header.");
       return -1;
    }
 
@@ -767,8 +770,8 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
    /* Checks some basic sanity of header file */
    if ( head->sampleRate <= 0 || head->sampleRate > 192000 || head->bitsPerSample % 8 != 0 || head->bitsPerSample == 0 )
    {
-      fprintf(stderr, "Got garbage header data ...\n");
-      fprintf(stderr, "Channels: %d, Samplerate: %d, Bits/sample: %d\n",
+      log_printf("Got garbage header data ...\n");
+      log_printf("Channels: %d, Samplerate: %d, Bits/sample: %d\n",
             (int)head->numChannels, (int)head->sampleRate, (int)head->bitsPerSample );
       return -1;
    }
@@ -840,7 +843,7 @@ int set_up_socket()
 
 	if ((retval = WSAStartup(MAKEWORD(2,2), &wsaData)) != 0)
 	{
-		fprintf(stderr, "Error starting Winsock\n");
+		log_printf("Error starting Winsock\n");
 		WSACleanup();
 		exit(1);
 	}
@@ -885,7 +888,7 @@ int set_up_socket()
 
       if ((rc = getaddrinfo(bind, port, &hints, &servinfo)) != 0)
       {
-         fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(rc));
+         log_printf("getaddrinfo error: %s\n", gai_strerror(rc));
          return -1;
       }
    }
@@ -894,16 +897,16 @@ int set_up_socket()
    {
 #ifndef _WIN32
       if ( servinfo->ai_family == AF_UNIX )
-         fprintf(stderr, "Creating domain socket: %s\n", unix_sock);
+         log_printf("Creating domain socket: %s\n", unix_sock);
       else
 #endif
-         fprintf(stderr, "Binding on port %s\n", port);
+         log_printf("Binding on port %s\n", port);
    }
 
    s = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
    if ( s == -1 )
    {
-      fprintf(stderr, "Error getting socket\n");
+      log_printf("Error getting socket\n");
       goto error;
    }
 
@@ -923,10 +926,10 @@ int set_up_socket()
    {
 #ifndef _WIN32
       if ( servinfo->ai_family == AF_UNIX )
-         fprintf(stderr, "Error creating domain socket: %s\n", unix_sock);
+         log_printf("Error creating domain socket: %s\n", unix_sock);
       else
 #endif
-         fprintf(stderr, "Error binding on port %s.\n", port);
+         log_printf("Error binding on port %s.\n", port);
       goto error;
    }
 
@@ -1046,7 +1049,7 @@ static void* rsd_thread(void *thread_data)
    free(temp_conn);
 
    if ( debug )
-      fprintf(stderr, "Connection accepted, awaiting WAV header data ...\n");
+      log_printf("Connection accepted, awaiting WAV header data ...\n");
 
    /* Firstly, get the wave header with stream settings. */
    rc = get_wav_header(conn, &w);
@@ -1054,7 +1057,7 @@ static void* rsd_thread(void *thread_data)
    {
       close(conn.socket);
       close(conn.ctl_socket);
-      fprintf(stderr, "Couldn't read WAV header... Disconnecting.\n");
+      log_printf("Couldn't read WAV header... Disconnecting.\n");
       pthread_exit(NULL);
    }
    memcpy(&w_orig, &w, sizeof(wav_header_t));
@@ -1070,29 +1073,29 @@ static void* rsd_thread(void *thread_data)
 
    if ( debug )
    {
-      fprintf(stderr, "Successfully got WAV header ...\n");
+      log_printf("Successfully got WAV header ...\n");
       pheader(&w_orig);
       if ( resample )
       {
-         fprintf(stderr, "Resamples to:\n");
+         log_printf("Resamples to:\n");
          pheader(&w);
       }
    }
 
    if ( debug )
-      fprintf(stderr, "Initializing %s ...\n", backend->backend);
+      log_printf("Initializing %s ...\n", backend->backend);
 
    /* Sets up backend */
    if ( backend->init(&data) < 0 )
    {
-      fprintf(stderr, "Failed to initialize %s ...\n", backend->backend);
+      log_printf("Failed to initialize %s ...\n", backend->backend);
       goto rsd_exit;
    }
 
    /* Opens device with settings. */
    if ( backend->open(data, &w) < 0 )
    {
-      fprintf(stderr, "Failed to open audio driver ...\n");
+      log_printf("Failed to open audio driver ...\n");
       goto rsd_exit;
    }
 
@@ -1101,7 +1104,7 @@ static void* rsd_thread(void *thread_data)
    backend->get_backend_info(data, &backend_info);
    if ( backend_info.chunk_size == 0 )
    {
-      fprintf(stderr, "Couldn't get backend info ...\n");
+      log_printf("Couldn't get backend info ...\n");
       goto rsd_exit;
    }
 
@@ -1121,7 +1124,7 @@ static void* rsd_thread(void *thread_data)
    buffer = malloc(buffer_size);
    if ( buffer == NULL )
    {
-      fprintf(stderr, "Could not allocate memory for buffer.");
+      log_printf("Could not allocate memory for buffer.");
       goto rsd_exit;
    }
 
@@ -1130,7 +1133,7 @@ static void* rsd_thread(void *thread_data)
       resample_buffer = malloc(BYTES_TO_SAMPLES(buffer_size, w.rsd_format) * sizeof(float));
       if ( resample_buffer == NULL )
       {
-         fprintf(stderr, "Could not allocate memory for buffer.");
+         log_printf("Could not allocate memory for buffer.");
          goto rsd_exit;
       }
 
@@ -1147,7 +1150,7 @@ static void* rsd_thread(void *thread_data)
 #endif
       if ( resample_state == NULL )
       {
-         fprintf(stderr, "Could not initialize resampler.");
+         log_printf("Could not initialize resampler.");
          goto rsd_exit;
       }
    }
@@ -1177,22 +1180,22 @@ static void* rsd_thread(void *thread_data)
    /* Now we can send backend info to client. */
    if ( send_backend_info(conn, &backend_info) < 0 )
    {
-      fprintf(stderr, "Failed to send backend info ...\n");
+      log_printf("Failed to send backend info ...\n");
       goto rsd_exit;
    }
 
    if ( debug )
-      fprintf(stderr, "Initializing of %s successful ...\n", backend->backend);
+      log_printf("Initializing of %s successful ...\n", backend->backend);
 
    if ( debug )
    {
       if ( resample )
       {
-         fprintf(stderr, "Resampling active. %d Hz --> %d Hz ", (int)w_orig.sampleRate, (int)w.sampleRate);
+         log_printf("Resampling active. %d Hz --> %d Hz ", (int)w_orig.sampleRate, (int)w.sampleRate);
 #ifdef HAVE_SAMPLERATE
-         fprintf(stderr, "(libsamplerate)\n");
+         log_printf("(libsamplerate)\n");
 #else
-         fprintf(stderr, "(internal quadratic resampler)\n");
+         log_printf("(internal quadratic resampler)\n");
 #endif
       }
    }
@@ -1202,7 +1205,7 @@ static void* rsd_thread(void *thread_data)
    {
       if ( strlen(conn.identity) > 0 && verbose )
       {
-         fprintf(stderr, " :: %s\n", conn.identity);
+         log_printf(" :: %s\n", conn.identity);
          conn.identity[0] = '\0';
       }
 
@@ -1222,7 +1225,7 @@ static void* rsd_thread(void *thread_data)
       if ( rc <= 0 )
       {
          if ( debug )
-            fprintf(stderr, "Client closed connection.\n");
+            log_printf("Client closed connection.\n");
          goto rsd_exit;
       }
 
@@ -1239,7 +1242,7 @@ static void* rsd_thread(void *thread_data)
    /* Cleanup */
 rsd_exit:
    if ( debug )
-      fprintf(stderr, "Closed connection.\n\n");
+      log_printf("Closed connection.\n\n");
 #ifdef _WIN32
 #undef close
 #endif

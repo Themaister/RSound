@@ -220,7 +220,7 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto)
          case RSD_PROTO_INFO:
             snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld %lld", (long long int)proto->client_ptr, (long long int)proto->serv_ptr);
             snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tempbuf), tempbuf);
-            //fprintf(stderr, "Sent info: \"%s\"\n", sendbuf);
+            //log_printf("Sent info: \"%s\"\n", sendbuf);
             rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
             if ( rc < 0 )
                return -1;

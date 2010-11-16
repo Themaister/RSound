@@ -118,7 +118,7 @@ static int ao_rsd_open(void* data, wav_header_t *w)
    interface->device = ao_open_live(default_driver, &format, NULL);
    if ( interface->device == NULL )
    {
-      fprintf(stderr, "Error opening device.\n");
+      log_printf("Error opening device.\n");
       return -1;
    }
 

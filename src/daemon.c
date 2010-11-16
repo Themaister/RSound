@@ -97,7 +97,7 @@ int main(int argc, char ** argv)
    if ( daemonize )
    {
       if ( debug )
-         fprintf(stderr, "Forking into background ...\n");
+         log_printf("Forking into background ...\n");
       i = fork();
       if ( i < 0 ) exit(1);
       if ( i > 0 ) exit(0);
@@ -115,7 +115,7 @@ int main(int argc, char ** argv)
 
    if ( s < 0 )
    {
-      fprintf(stderr, "Couldn't set up listening socket. Exiting ...\n");
+      log_printf("Couldn't set up listening socket. Exiting ...\n");
       exit(1);
    }
 
@@ -123,7 +123,7 @@ int main(int argc, char ** argv)
    listen_socket = s;
 
    if ( debug )
-      fprintf(stderr, "Listening for connection ...\n");
+      log_printf("Listening for connection ...\n");
 
    fd.fd = s;
    fd.events = POLLIN;
@@ -131,7 +131,7 @@ int main(int argc, char ** argv)
    /* Set up listening socket */
    if ( listen(s, 10) == -1 )
    {
-      fprintf(stderr, "Couldn't listen for connections \"%s\"...\n", strerror(errno));
+      log_printf("Couldn't listen for connections \"%s\"...\n", strerror(errno));
       exit(1);
    }
 
@@ -170,8 +170,8 @@ int main(int argc, char ** argv)
 
       if ( s_new == -1 )
       {
-         fprintf(stderr, "Accepting failed... Errno: %d\n", errno);
-         fprintf(stderr, "%s\n", strerror( errno ) ); 
+         log_printf("Accepting failed... Errno: %d\n", errno);
+         log_printf("%s\n", strerror( errno ) ); 
          continue;
       }
 
@@ -198,7 +198,7 @@ int main(int argc, char ** argv)
       else 
       {
          if ( debug )
-            fprintf(stderr, "CTL-socket timed out. Ignoring CTL-socket. \n");
+            log_printf("CTL-socket timed out. Ignoring CTL-socket. \n");
 
          s_ctl = 0;
       }
@@ -206,7 +206,7 @@ int main(int argc, char ** argv)
       if ( s_ctl == -1 )
       {
          close(s_new); s_new = -1;
-         fprintf(stderr, "%s\n", strerror( errno ) ); 
+         log_printf("%s\n", strerror( errno ) ); 
          continue;
       }
 
@@ -278,8 +278,8 @@ static int valid_ips( struct sockaddr_storage *their_addr )
 
    if ( strcmp( remoteIP[0], remoteIP[1] ) != 0  )
    {
-      fprintf(stderr, "*** Warning: Got two connections from different sources. ***\n");
-      fprintf(stderr, "*** %s :: %s ***\n", remoteIP[0], remoteIP[1]);
+      log_printf("*** Warning: Got two connections from different sources. ***\n");
+      log_printf("*** %s :: %s ***\n", remoteIP[0], remoteIP[1]);
       return -1;
    }
 
@@ -304,7 +304,7 @@ static void log_message( const char * ip )
       time_t cur_time;
       time(&cur_time);
       strftime(timestring, 63, "%F - %H:%M:%S", localtime(&cur_time)); 
-      fprintf(stderr, "Connection :: [ %s ] [ %s ] ::\n", timestring, ip);
+      log_printf("Connection :: [ %s ] [ %s ] ::\n", timestring, ip);
    }
 
 }

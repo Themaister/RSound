@@ -117,7 +117,7 @@ static int jack_open(void *data, wav_header_t *w)
 
    if (jd->channels > MAX_PORTS)
    {
-      fprintf(stderr, "Too many audio channels ...\n");
+      log_printf("Too many audio channels ...\n");
       return -1;
    }
 
@@ -142,7 +142,7 @@ static int jack_open(void *data, wav_header_t *w)
       jd->ports[i] = jack_port_register(jd->client, buf, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
       if (jd->ports[i] == NULL)
       {
-         fprintf(stderr, "Couldn't create jack ports\n");
+         log_printf("Couldn't create jack ports\n");
          goto error;
       }
    }
@@ -160,14 +160,14 @@ static int jack_open(void *data, wav_header_t *w)
       jd->buffer[i] = jack_ringbuffer_create(bufsize);
       if (jd->buffer[i] == NULL)
       {
-         fprintf(stderr, "Couldn't create ringbuffer\n");
+         log_printf("Couldn't create ringbuffer\n");
          goto error;
       }
    }
 
    if (jack_activate(jd->client) < 0)
    {
-      fprintf(stderr, "Couldn't connect to JACK server\n");
+      log_printf("Couldn't connect to JACK server\n");
       goto error;
    }
 
@@ -176,7 +176,7 @@ static int jack_open(void *data, wav_header_t *w)
    jports = jack_get_ports(jd->client, NULL, NULL, JackPortIsPhysical | JackPortIsInput);
    if (jports == NULL)
    {
-      fprintf(stderr, "Can't get ports ...\n");
+      log_printf("Can't get ports ...\n");
       goto error;
    }
 
@@ -190,7 +190,7 @@ static int jack_open(void *data, wav_header_t *w)
       int rd = jack_connect(jd->client, jack_port_name(jd->ports[i]), dest_ports[i]);
       if (rd != 0)
       {
-         fprintf(stderr, "Can't connect ports...\n");
+         log_printf("Can't connect ports...\n");
          goto error;
       }
    }

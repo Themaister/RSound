@@ -106,6 +106,7 @@ static int rsnd_connect_server( rsound_t *rd );
 static int rsnd_send_header_info(rsound_t *rd);
 static int rsnd_get_backend_info ( rsound_t *rd );
 static int rsnd_create_connection(rsound_t *rd);
+static int rsnd_connect_socket(int fd, const struct sockaddr *addr, socklen_t addr_len);
 static ssize_t rsnd_send_chunk(int socket, const void *buf, size_t size, int blocking);
 static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking);
 static int rsnd_start_thread(rsound_t *rd);
@@ -140,6 +141,13 @@ static int init_wsock(void)
       return -1;
    }
    return 0;
+}
+#endif
+
+#ifdef _WIN32
+static void deinit_wsock(void)
+{
+   WSACleanup();
 }
 #endif
 
@@ -226,6 +234,44 @@ int rsd_samplesize( rsound_t *rd )
    return rd->samplesize;
 }
 
+/* Uses non-blocking IO since it performed more deterministic with poll()/send() */   
+#ifdef _WIN32 // Yes, Win32 is a bitch.
+static int rsnd_connect_socket(int fd, const struct sockaddr *addr, socklen_t addr_len)
+{
+   if (connect(fd, addr, addr_len) < 0)
+      return -1;
+
+   u_long iMode = 1;
+   ioctlsocket(fd, FIONBIO, &iMode);
+   return 0;
+}
+#else
+static int rsnd_connect_socket(int fd, const struct sockaddr *addr, socklen_t addr_len)
+{
+#ifndef __CYGWIN__
+   if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
+   {
+      RSD_ERR("Couldn't set socket to non-blocking ...");
+      return -1;
+   }
+#endif /* Cygwin doesn't seem to like non-blocking I/O ... */
+
+   if (connect(fd, addr, addr_len) < 0 && errno != EINPROGRESS)
+      return -1;
+
+   struct pollfd poll_fd = {
+      .fd = fd,
+      .events = POLLOUT
+   };
+
+   rsnd_poll(&poll_fd, 1, 3000);
+   if (!(poll_fd.revents & POLLOUT))
+      return -1;
+
+   return 0;
+}
+#endif
+
 /* Creates sockets and attempts to connect to the server. Returns -1 when failed, and 0 when success. */
 static int rsnd_connect_server( rsound_t *rd )
 {
@@ -296,50 +342,10 @@ static int rsnd_connect_server( rsound_t *rd )
       goto error;
    }
 
-   /* Uses non-blocking IO since it performed more deterministic with poll()/send() */   
-
-#ifdef _WIN32
-   u_long iMode = 1;
-   ioctlsocket(rd->conn.socket, FIONBIO, &iMode);
-   iMode = 1;
-   ioctlsocket(rd->conn.ctl_socket, FIONBIO, &iMode);
-#else
-#ifndef __CYGWIN__
-   if ( fcntl(rd->conn.socket, F_SETFL, O_NONBLOCK) < 0)
-   {
-      RSD_ERR("Couldn't set socket to non-blocking ...");
+   if ( rsnd_connect_socket(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0 )
       goto error;
-   }
-
-   if ( fcntl(rd->conn.ctl_socket, F_SETFL, O_NONBLOCK) < 0 )
-   {
-      RSD_ERR("Couldn't set socket to non-blocking ...");
+   if ( rsnd_connect_socket(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0 )
       goto error;
-   }
-#endif /* Cygwin doesn't seem to like non-blocking I/O ... */
-#endif
-
-   /* Nonblocking connect with 3 second timeout */
-   if ( connect(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0 && errno != EINPROGRESS)
-      goto error;
-
-   struct pollfd fd = {
-      .fd = rd->conn.socket,
-      .events = POLLOUT
-   };
-
-   rsnd_poll(&fd, 1, 3000);
-   if (!(fd.revents & POLLOUT))
-      goto error;
-
-   if ( connect(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0 && errno != EINPROGRESS )
-      goto error;
-
-   fd.fd = rd->conn.ctl_socket;
-   rsnd_poll(&fd, 1, 3000);
-   if (!(fd.revents & POLLOUT))
-      goto error;
-
 
    if ( res != NULL && (res->ai_family != AF_UNIX) )
       freeaddrinfo(res);
@@ -360,10 +366,14 @@ static int rsnd_send_header_info(rsound_t *rd)
 
    /* Defines the size of a wave header */
 #define HEADER_SIZE 44
-   char header[HEADER_SIZE] = {0};
+   char *header = calloc(1, HEADER_SIZE);
+   if (header == NULL)
+   {
+      RSD_ERR("Could not allocate memory.");
+      return -1;
+   }
    uint16_t temp16;
    uint32_t temp32;
-
 
    /* These magic numbers represent the position of the elements in the wave header. 
       We can't simply send a wave struct over the network since the compiler is allowed to
@@ -476,8 +486,12 @@ static int rsnd_send_header_info(rsound_t *rd)
    // End static header
 
    if ( rsnd_send_chunk(rd->conn.socket, header, HEADER_SIZE, 1) != HEADER_SIZE )
+   {
+      free(header);
       return -1;
+   }
 
+   free(header);
    return 0;
 }
 
@@ -575,7 +589,6 @@ static int rsnd_create_connection(rsound_t *rd)
          .fd = rd->conn.socket,
          .events = POLLOUT
       };
-      
 
       if ( rsnd_poll(&fd, 1, 2000) < 0 )
       {
@@ -588,7 +601,6 @@ static int rsnd_create_connection(rsound_t *rd)
          rsd_stop(rd);
          return -1;
       }
-
    }
    /* Is the server ready for data? The first thing it expects is the wave header */
    if ( !rd->ready_for_data )
@@ -597,7 +609,6 @@ static int rsnd_create_connection(rsound_t *rd)
          1. Send wave header.
          2. Recieve backend info like latency and preferred packet size.
          3. Starts the playback thread. */
-
 
       rc = rsnd_send_header_info(rd);
       if (rc < 0)
@@ -1614,6 +1625,13 @@ int rsd_free(rsound_t *rsound)
       RSD_WARN("Error: %s\n", strerror(err));
 
    free(rsound);
+
+#ifdef _WIN32
+   init_count--;
+   if (init_count == 0)
+      deinit_wsock();
+#endif
+
    return 0;
 }
 

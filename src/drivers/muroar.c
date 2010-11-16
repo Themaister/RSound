@@ -84,13 +84,13 @@ static int muroar_rsd_open(void* data, wav_header_t *w)
 
    if ( (interface->fh = muroar_connect(NULL, "rsd")) == -1 )
    {
-      fprintf(stderr, "Error opening device.\n");
+      log_printf("Error opening device.\n");
       return -1;
    }
 
    if ( muroar_stream(interface->fh, MUROAR_PLAY_WAVE, NULL, codec, w->sampleRate, w->numChannels, bits) == -1 )
    {
-      fprintf(stderr, "Error opening device.\n");
+      log_printf("Error opening device.\n");
       return -1;
    }
 

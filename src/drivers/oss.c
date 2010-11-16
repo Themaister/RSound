@@ -46,14 +46,14 @@ static int oss_open(void *data, wav_header_t *w)
    sound->audio_fd = open(oss_device, O_WRONLY, 0);
    if ( sound->audio_fd == -1 )
    {
-      fprintf(stderr, "Couldn't open device %s.\n", oss_device);
+      log_printf("Couldn't open device %s.\n", oss_device);
       return -1;
    }
 
    int frags = (8 << 16) | 10;
    if ( ioctl(sound->audio_fd, SNDCTL_DSP_SETFRAGMENT, &frags) < 0 )
    {
-      fprintf(stderr, "Could not set DSP latency settings.\n");
+      log_printf("Could not set DSP latency settings.\n");
       return -1;
    }
 
@@ -101,7 +101,7 @@ static int oss_open(void *data, wav_header_t *w)
 
    if ( format != oldfmt )
    {
-      fprintf(stderr, "Sound card doesn't support %s sampling format.\n", rsnd_format_to_string(w->rsd_format) );
+      log_printf("Sound card doesn't support %s sampling format.\n", rsnd_format_to_string(w->rsd_format) );
       return -1;
    }
 
@@ -113,7 +113,7 @@ static int oss_open(void *data, wav_header_t *w)
 
    if ( channels != oldchannels )
    {
-      fprintf(stderr, "Number of audio channels (%d) not supported.\n", oldchannels);
+      log_printf("Number of audio channels (%d) not supported.\n", oldchannels);
       return -1;
    }
 
@@ -125,7 +125,7 @@ static int oss_open(void *data, wav_header_t *w)
 
    if ( sampleRate != (int)w->sampleRate )
    {
-      fprintf(stderr, "Sample rate couldn't be set correctly.\n");
+      log_printf("Sample rate couldn't be set correctly.\n");
       return -1;
    }
 
@@ -139,7 +139,7 @@ static void oss_get_backend (void *data, backend_info_t *backend_info)
 
    if ( ioctl( sound->audio_fd, SNDCTL_DSP_GETOSPACE, &zz ) != 0 )
    {
-      fprintf(stderr, "Getting data from ioctl failed SNDCTL_DSP_GETOSPACE.\n");
+      log_printf("Getting data from ioctl failed SNDCTL_DSP_GETOSPACE.\n");
       memset(backend_info, 0, sizeof(backend_info_t));
    }
 

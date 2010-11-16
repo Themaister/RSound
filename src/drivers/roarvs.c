@@ -38,7 +38,7 @@ static int roarvs_rsd_init(void** data)
 
    if ( roar->sound == NULL ) 
    {
-      fprintf(stderr, "Error opening device: %s\n", roar_vs_strerr(error));
+      log_printf("Error opening device: %s\n", roar_vs_strerr(error));
       return -1;
    }
 
@@ -98,7 +98,7 @@ static int roarvs_rsd_open(void* data, wav_header_t *w)
 
    if ( roar_vs_stream(roar->sound, &info, ROAR_DIR_PLAY, &error) == -1 ) 
    {
-      fprintf(stderr, "Error opening device: %s\n", roar_vs_strerr(error));
+      log_printf("Error opening device: %s\n", roar_vs_strerr(error));
       return -1;
    }
 

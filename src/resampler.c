@@ -108,12 +108,12 @@ static size_t resampler_process(resampler_t *state, size_t frames, float *out_da
    double pos_in = 0.0;
 
 #if 0
-   fprintf(stderr, "=========================================\n");
-   fprintf(stderr, "Output: %zu frames.\n", frames);
-   fprintf(stderr, "Output frames: %zu - %zu\n", state->sum_output_frames, state->sum_output_frames + frames);
-   fprintf(stderr, "Needed input frames: %zu - %zu\n", (size_t)(state->sum_output_frames/state->ratio), (size_t)((state->sum_output_frames + frames)/state->ratio + 1.0));
-   fprintf(stderr, "Current input frames: %zu - %zu\n", state->sum_input_frames, state->sum_input_frames + SAMPLES_TO_FRAMES(state->data_ptr, state));
-   fprintf(stderr, "=========================================\n");
+   log_printf("=========================================\n");
+   log_printf("Output: %zu frames.\n", frames);
+   log_printf("Output frames: %zu - %zu\n", state->sum_output_frames, state->sum_output_frames + frames);
+   log_printf("Needed input frames: %zu - %zu\n", (size_t)(state->sum_output_frames/state->ratio), (size_t)((state->sum_output_frames + frames)/state->ratio + 1.0));
+   log_printf("Current input frames: %zu - %zu\n", state->sum_input_frames, state->sum_input_frames + SAMPLES_TO_FRAMES(state->data_ptr, state));
+   log_printf("=========================================\n");
 
    assert(state->sum_input_frames <= (size_t)(state->sum_output_frames/state->ratio));
    assert(state->sum_input_frames + SAMPLES_TO_FRAMES(state->data_ptr, state) - 1 >= (size_t)((state->sum_output_frames + frames - 1)/state->ratio + 1.0));
@@ -124,7 +124,7 @@ static size_t resampler_process(resampler_t *state, size_t frames, float *out_da
       pos_out = x - state->sum_output_frames;
       pos_in  = ((double)x / state->ratio) - (double)state->sum_input_frames;
       //pos_in = pos_out / state->ratio;
-      //fprintf(stderr, "pos_in: %15.7lf\n", pos_in + state->sum_input_frames);
+      //log_printf("pos_in: %15.7lf\n", pos_in + state->sum_input_frames);
       for (int c = 0; c < state->channels; c++)
       {
 
