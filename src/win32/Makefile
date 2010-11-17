@@ -28,7 +28,7 @@ TARGET_CLIENT_LIBS = -lrsound -lws2_32
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
 TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) ../audio.o ../endian.o ../daemon.o ../rsound-common.o ../proto.o ../resampler.o src/poll.o
 
-TARGET_DIST = rsound-win32-1.0beta1.zip
+TARGET_DIST = rsound-win32-1.0rc1.zip
 DIST_EXTRAS = bin/pthreadGC2.dll README.txt include/rsound.h COPYING.txt
 
 all: client lib server
