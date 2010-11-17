@@ -1,7 +1,15 @@
+[RSound 1.0rc1] - 2010-11-17:
+
+	* 	Updated MPlayer patch.
+	*	Updated MPD patch.
+	*	JACK audio support.
+	*	Bugfixes.
+	* 	Improves performance in librsound.
+	*	Syslog support.
+
 [RSound 1.0beta1] - 2010-09-06:
 
 	*	Mostly small fixes and cleanups. Hey, it's beta time! :D
-
 
 [RSound 1.0alpha4] - 2010-08-28:
 	
