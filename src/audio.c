@@ -164,7 +164,7 @@ inline static void swap_bytes32(uint32_t *data, size_t bytes)
 
 inline static void s32_to_float(void *data, size_t bytes)
 {
-   assert(sizeof(float) >= sizeof(int32_t));
+   assert(sizeof(float) == 4);
    size_t samples = bytes / sizeof(int32_t);
    union
    {
@@ -178,7 +178,7 @@ inline static void s32_to_float(void *data, size_t bytes)
 
 inline static void s16_to_float(void *data, size_t bytes)
 {
-   assert(sizeof(float) >= sizeof(int16_t));
+   assert(sizeof(float) == 4);
    size_t samples = bytes / sizeof(int16_t);
    union 
    {
@@ -483,7 +483,7 @@ int converter_fmt_to_s32ne(enum rsd_format format)
          break;
       case RSD_U32_BE:
          conversion |= RSD_U_TO_S;
-         if ( !is_little_endian() )
+         if ( is_little_endian() )
             conversion |= RSD_SWAP_ENDIAN;
          break;
       default:
