@@ -424,7 +424,7 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
 int converter_fmt_to_s16ne(enum rsd_format format)
 {
    int conversion = RSD_NULL;
-   switch ( format )
+   switch (format)
    {
       case RSD_S16_LE:
          if ( !is_little_endian() )
@@ -463,6 +463,37 @@ int converter_fmt_to_s16ne(enum rsd_format format)
    return conversion;
 }
 
+int converter_fmt_to_s32ne(enum rsd_format format)
+{
+   int conversion = RSD_NULL;
+   switch (format)
+   {
+      case RSD_S32_LE:
+         if ( !is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_S32_BE:
+         if ( is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U32_LE:
+         conversion |= RSD_U_TO_S;
+         if ( !is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      case RSD_U32_BE:
+         conversion |= RSD_U_TO_S;
+         if ( !is_little_endian() )
+            conversion |= RSD_SWAP_ENDIAN;
+         break;
+      default:
+         return -1;
+   }
+
+   return conversion;
+}
+
+
 #ifdef HAVE_SAMPLERATE
 long resample_callback(void *cb_data, float **data)
 #else
@@ -471,7 +502,12 @@ size_t resample_callback(void *cb_data, float **data)
 {
    resample_cb_state_t *state = cb_data;
 
-   int conversion = converter_fmt_to_s16ne(state->format);
+   int conversion = RSD_NULL;
+
+   if (rsnd_format_to_bytes(state->format) == 4)
+      conversion = converter_fmt_to_s32ne(state->format);
+   else
+      conversion = converter_fmt_to_s16ne(state->format);
    if (conversion == -1)
    {
       *data = NULL;
@@ -479,23 +515,32 @@ size_t resample_callback(void *cb_data, float **data)
    }
    
    size_t bufsize = sizeof(state->buffer)/sizeof(state->buffer[0]);
-   int16_t inbuffer[bufsize/sizeof(int16_t)];
-   size_t read_size = bufsize;
-   if ( state->format & (RSD_S8 | RSD_U8 | RSD_ALAW | RSD_MULAW) )
-      read_size /= 2;
+   union
+   {
+      int16_t i16[bufsize * 2];
+      int32_t i32[bufsize];
+   } inbuffer;
 
-   int rc = receive_data(state->data, state->conn, inbuffer, read_size);
+   size_t read_size = bufsize * rsnd_format_to_bytes(state->format);
+
+   int rc = receive_data(state->data, state->conn, &inbuffer, read_size);
    if ( rc <= 0 )
    {
       *data = NULL;
       return 0;
    }
 
-   audio_converter(inbuffer, state->format, conversion, read_size);
+   audio_converter(&inbuffer, state->format, conversion, read_size);
 #ifdef HAVE_SAMPLERATE
-   src_short_to_float_array(inbuffer, state->buffer, BYTES_TO_SAMPLES(bufsize, RSD_S16_LE));
+   if (rsnd_format_to_bytes(state->format) == 4)
+      src_int_to_float_array(inbuffer.i32, state->buffer, bufsize);
+   else
+      src_short_to_float_array(inbuffer.i16, state->buffer, bufsize);
 #else
-   resampler_s16_to_float(state->buffer, inbuffer, BYTES_TO_SAMPLES(bufsize, RSD_S16_LE));
+   if (rsnd_format_to_bytes(state->format) == 4)
+      resampler_s32_to_float(state->buffer, inbuffer.i32, bufsize);
+   else
+      resampler_s16_to_float(state->buffer, inbuffer.i16, bufsize);
 #endif
 
    *data = state->buffer;

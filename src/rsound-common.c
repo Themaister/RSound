@@ -751,6 +751,26 @@ static int get_wav_header(connection_t conn, wav_header_t* head)
                head->rsd_format = RSD_S8;
             break;
 
+         case RSD_S32_LE:
+            if ( head->bitsPerSample == 32 )
+               head->rsd_format = RSD_S32_LE;
+            break;
+
+         case RSD_S32_BE:
+            if ( head->bitsPerSample == 32 )
+               head->rsd_format = RSD_S32_BE;
+            break;
+
+         case RSD_U32_LE:
+            if ( head->bitsPerSample == 32 )
+               head->rsd_format = RSD_U32_LE;
+            break;
+
+         case RSD_U32_BE:
+            if ( head->bitsPerSample == 32 )
+               head->rsd_format = RSD_U32_BE;
+            break;
+
          default:
             break;
       }
@@ -1213,10 +1233,16 @@ static void* rsd_thread(void *thread_data)
       {
 #ifdef HAVE_SAMPLERATE
          rc = src_callback_read(resample_state, (double)w.sampleRate/(double)w_orig.sampleRate, BYTES_TO_SAMPLES(size, w.rsd_format)/w.numChannels, resample_buffer);
-         src_float_to_short_array(resample_buffer, buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+         if (rsnd_format_to_bytes(w.rsd_format) == 4)
+            src_float_to_int_array(resample_buffer, buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+         else
+            src_float_to_short_array(resample_buffer, buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
 #else
          rc = resampler_cb_read(resample_state, BYTES_TO_SAMPLES(size, w.rsd_format)/w.numChannels, resample_buffer);
-         resampler_float_to_s16(buffer, resample_buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+         if (rsnd_format_to_bytes(w.rsd_format) == 4)
+            resampler_float_to_s32(buffer, resample_buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
+         else
+            resampler_float_to_s16(buffer, resample_buffer, BYTES_TO_SAMPLES(size, w.rsd_format));
 #endif
       }
       else
