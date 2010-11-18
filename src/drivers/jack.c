@@ -77,7 +77,13 @@ static void shutdown_cb(void *data)
 
 static inline int audio_conv_op(enum rsd_format format)
 {
-   return converter_fmt_to_s16ne(format) | RSD_S16_TO_FLOAT;
+   int op = RSD_NULL;
+   if (rsnd_format_to_bytes(format) == 4)
+      op = converter_fmt_to_s32ne(format) | RSD_S32_TO_FLOAT;
+   else
+      op = converter_fmt_to_s16ne(format) | RSD_S16_TO_FLOAT;
+
+   return op;
 }
 
 static int parse_ports(char **dest_ports, int max_ports, const char *port_list)
@@ -217,8 +223,11 @@ static void jack_get_backend(void *data, backend_info_t *backend_info)
    {
       backend_info->resample = 1;
       backend_info->ratio = (float)jack_get_sample_rate(jd->client) / jd->rate;
-      // If we're resampling, we're resampling to S16_NE, so update that here.
-      jd->format = is_little_endian() ? RSD_S16_LE : RSD_S16_BE;
+      // If we're resampling, we're resampling to S16_NE or S32_NE, so update that here.
+      if (rsnd_format_to_bytes(jd->format) == 4)
+         jd->format = is_little_endian() ? RSD_S32_LE : RSD_S32_BE;
+      else
+         jd->format = is_little_endian() ? RSD_S16_LE : RSD_S16_BE;
       jd->conv_op = audio_conv_op(jd->format);
    }
    else

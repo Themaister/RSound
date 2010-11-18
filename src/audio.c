@@ -173,7 +173,7 @@ inline static void s32_to_float(void *data, size_t bytes)
    } u;
    u.i = data;
    for (int i = samples - 1; i >= 0; i--)
-      u.f[i] = (float)u.i[i] / 0x7FFFFFFFU;
+      u.f[i] = (float)u.i[i] / 0x80000000UL;
 }
 
 inline static void s16_to_float(void *data, size_t bytes)
@@ -188,7 +188,7 @@ inline static void s16_to_float(void *data, size_t bytes)
    u.i = data;
 
    for (int i = samples - 1; i >= 0; i--)
-      u.f[i] = (float)u.i[i] / 0x7FFF;
+      u.f[i] = (float)u.i[i] / 0x8000;
 }
 
 inline static void alaw_to_s16(void *data, size_t bytes)

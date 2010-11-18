@@ -149,6 +149,7 @@ typedef struct
 
 int receive_data(void *backend_data, connection_t *conn, void *buffer, size_t size);
 int converter_fmt_to_s16ne(enum rsd_format format);
+int converter_fmt_to_s32ne(enum rsd_format format);
 
 #define BYTES_TO_SAMPLES(x, fmt) (x / (rsnd_format_to_bytes(fmt)))
 
