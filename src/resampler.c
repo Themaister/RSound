@@ -88,7 +88,7 @@ void resampler_float_to_s32(int32_t * restrict out, const float * restrict in, s
       else if (temp < -0x7FFFFFFF)
          out[i] = -0x7FFFFFFF;
       else
-         out[i] = (int16_t)temp;
+         out[i] = (int32_t)temp;
    }
 }
 
