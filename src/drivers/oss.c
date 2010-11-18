@@ -60,6 +60,26 @@ static int oss_open(void *data, wav_header_t *w)
    int format;
    switch ( w->rsd_format )
    {
+#ifdef AFMT_S32_LE
+      case RSD_S32_LE:
+         format = AFMT_S32_LE;
+         break;
+#endif
+#ifdef AFMT_S32_BE
+      case RSD_S32_BE:
+         format = AFMT_S32_BE;
+         break;
+#endif
+#ifdef AFMT_U32_LE
+      case RSD_U32_LE:
+         format = AFMT_U32_LE;
+         break;
+#endif
+#ifdef AFMT_U32_BE
+      case RSD_U32_BE:
+         format = AFMT_U32_BE;
+         break;
+#endif
       case RSD_S16_LE:
          format = AFMT_S16_LE;
          break;
