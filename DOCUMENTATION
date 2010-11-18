@@ -211,6 +211,12 @@ RSD_FORMAT:
    will be set to a valid format.
 
    librsound currently supports these formats:
+   RSD_S32_LE - signed 32 bit, little-endian
+   RSD_S32_BE - signed 32 bit, big-endian
+   RSD_S32_NE - signed 32 bit, native-endian
+   RSD_U32_LE - unsigned 32 bit, little-endian
+   RSD_U32_BE - unsigned 32 bit, big-endian
+   RSD_U32_NE - unsigned 32 bit, native-endian
    RSD_S16_LE - signed 16 bit, little-endian
    RSD_S16_BE - signed 16 bit, big-endian
    RSD_S16_NE - signed 16 bit, native-endian
