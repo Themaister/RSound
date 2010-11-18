@@ -33,7 +33,9 @@ ssize_t resampler_cb_read(resampler_t *state, size_t frames, float *data);
 void resampler_free(resampler_t* state);
 
 void resampler_float_to_s16(int16_t * restrict out, const float * restrict in, size_t samples);
+void resampler_float_to_s32(int32_t * restrict out, const float * restrict in, size_t samples);
 void resampler_s16_to_float(float * restrict out, const int16_t * restrict in, size_t samples);
+void resampler_s32_to_float(float * restrict out, const int32_t * restrict in, size_t samples);
 
 #ifdef __cplusplus
 }

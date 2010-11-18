@@ -66,6 +66,13 @@ extern "C" {
 #define RSD_ALAW                    RSD_ALAW
 #define RSD_MULAW                   RSD_MULAW
 
+#define RSD_S32_LE                  RSD_S32_LE
+#define RSD_S32_BE                  RSD_S32_BE
+#define RSD_S32_NE                  RSD_S32_NE
+#define RSD_U32_LE                  RSD_U32_LE
+#define RSD_U32_BE                  RSD_U32_BE
+#define RSD_U32_NE                  RSD_U32_NE
+
 #define RSD_DELAY_MS                RSD_DELAY_MS
 #define RSD_SAMPLESIZE              RSD_SAMPLESIZE
 #define RSD_EXEC                    RSD_EXEC
@@ -91,7 +98,13 @@ extern "C" {
       RSD_S16_NE = 0x0040,
       RSD_U16_NE = 0x0080,
       RSD_ALAW   = 0x0100,
-      RSD_MULAW  = 0x0200
+      RSD_MULAW  = 0x0200,
+      RSD_S32_LE = 0x0400,
+      RSD_S32_BE = 0x0800,
+      RSD_S32_NE = 0x1000,
+      RSD_U32_LE = 0x2000,
+      RSD_U32_BE = 0x4000,
+      RSD_U32_NE = 0x8000,
    };
 
    /* Defines operations that can be used with rsd_set_param() */

@@ -78,7 +78,27 @@ void resampler_float_to_s16(int16_t * restrict out, const float * restrict in, s
    }
 }
 
+void resampler_float_to_s32(int32_t * restrict out, const float * restrict in, size_t samples)
+{
+   for (int i = 0; i < (int)samples; i++)
+   {
+      int64_t temp = in[i] + 0.5; 
+      if (temp > 0x7FFFFFFE)
+         out[i] = 0x7FFFFFFE;
+      else if (temp < -0x7FFFFFFF)
+         out[i] = -0x7FFFFFFF;
+      else
+         out[i] = (int16_t)temp;
+   }
+}
+
 void resampler_s16_to_float(float * restrict out, const int16_t * restrict in, size_t samples)
+{
+   for (int i = 0; i < (int)samples; i++)
+      out[i] = in[i];
+}
+
+void resampler_s32_to_float(float * restrict out, const int32_t * restrict in, size_t samples)
 {
    for (int i = 0; i < (int)samples; i++)
       out[i] = in[i];

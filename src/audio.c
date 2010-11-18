@@ -15,8 +15,9 @@
 
 #include "audio.h"
 #include "endian.h"
+#include <assert.h>
 
-static int16_t MULAWTable[256] = { 
+static const int16_t MULAWTable[256] = { 
      -32124,-31100,-30076,-29052,-28028,-27004,-25980,-24956, 
      -23932,-22908,-21884,-20860,-19836,-18812,-17788,-16764, 
      -15996,-15484,-14972,-14460,-13948,-13436,-12924,-12412, 
@@ -51,7 +52,7 @@ static int16_t MULAWTable[256] = {
          56,    48,    40,    32,    24,    16,     8,     0 
 }; 
 
-static int16_t ALAWTable[256] =  { 
+static const int16_t ALAWTable[256] =  { 
      -5504, -5248, -6016, -5760, -4480, -4224, -4992, -4736, 
      -7552, -7296, -8064, -7808, -6528, -6272, -7040, -6784, 
      -2752, -2624, -3008, -2880, -2240, -2112, -2496, -2368, 
@@ -90,6 +91,14 @@ const char* rsnd_format_to_string(enum rsd_format fmt)
 {
    switch(fmt)
    {
+      case RSD_S32_LE:
+         return "Signed 32-bit little-endian";
+      case RSD_S32_BE:
+         return "Signed 32-bit big-endian";
+      case RSD_U32_LE:
+         return "Unsigned 32-bit little-endian";
+      case RSD_U32_BE:
+         return "Unsigned 32-bit big-endian";
       case RSD_S16_LE:
          return "Signed 16-bit little-endian";
       case RSD_S16_BE:
@@ -116,6 +125,11 @@ int rsnd_format_to_bytes(enum rsd_format fmt)
 {
    switch(fmt)
    {
+      case RSD_S32_LE:
+      case RSD_S32_BE:
+      case RSD_U32_LE:
+      case RSD_U32_BE:
+         return 4;
       case RSD_S16_LE:
       case RSD_S16_BE:
       case RSD_U16_LE:
@@ -134,15 +148,37 @@ int rsnd_format_to_bytes(enum rsd_format fmt)
 
 inline static void swap_bytes16(uint16_t *data, size_t bytes)
 {
-   int i;
-   for ( i = 0; i < (int)bytes/2; i++ )
+   for (int i = 0; i < (int)bytes/2; i++)
    {
       swap_endian_16(&data[i]);
    }
 }
 
+inline static void swap_bytes32(uint32_t *data, size_t bytes)
+{
+   for (int i = 0; i < (int)bytes/4; i++)
+   {
+      swap_endian_32(&data[i]);
+   }
+}
+
+inline static void s32_to_float(void *data, size_t bytes)
+{
+   assert(sizeof(float) >= sizeof(int32_t));
+   size_t samples = bytes / sizeof(int32_t);
+   union
+   {
+      float *f;
+      int32_t *i;
+   } u;
+   u.i = data;
+   for (int i = samples - 1; i >= 0; i--)
+      u.f[i] = (float)u.i[i] / 0x7FFFFFFFU;
+}
+
 inline static void s16_to_float(void *data, size_t bytes)
 {
+   assert(sizeof(float) >= sizeof(int16_t));
    size_t samples = bytes / sizeof(int16_t);
    union 
    {
@@ -197,14 +233,25 @@ inline static void s8_to_s16(void *data, size_t samples)
       u.i16[i] = ((int16_t)u.i8[i]) << 8;
 }
 
+inline static void s32_to_s16(void *data, size_t samples)
+{
+   union
+   {
+      int16_t *i16;
+      int32_t *i32;
+   } u;
+   u.i16 = data;
+
+   for (int i = 0; i < (int)samples; i++)
+      u.i16[i] = (int16_t)(u.i32[i] >> 16);
+}
+
 void audio_converter(void* data, enum rsd_format fmt, int operation, size_t bytes)
 {
    if ( operation == RSD_NULL )
       return;
    
    // Temporarily hold the data that is to be sign-flipped.
-   int32_t temp32;
-   int i;
    int swapped = 0;
    int bits = rsnd_format_to_bytes(fmt) * 8;
 
@@ -217,6 +264,8 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
       int8_t *s8;
       uint16_t *u16;
       int16_t *s16;
+      uint32_t *u32;
+      int32_t *s32;
       void *ptr;
    } u;
 
@@ -237,26 +286,34 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
       fmt = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
    }
 
-   i = 0;
+   int i = 0;
    if ( is_little_endian() )
       i++;
-   if ( fmt & (RSD_S16_BE | RSD_U16_BE) )
+   if ( fmt & (RSD_S16_BE | RSD_U16_BE | RSD_S32_BE | RSD_U32_BE) )
       i++;
 
    // If we're gonna operate on the data, we better make sure that we are in native byte order
-   if ( (i % 2) == 0 && bits == 16 )
+   if ( (i % 2) == 0 )
    {
-      swap_bytes16(u.u16, bytes);
-      swapped = 1;
+      if (bits == 16)
+      {
+         swap_bytes16(u.u16, bytes);
+         swapped = 1;
+      }
+      else if (bits == 32)
+      {
+         swap_bytes32(u.u32, bytes);
+         swapped = 1;
+      }
    }
-   
+
    if ( operation & RSD_S_TO_U )
    {
       if ( bits == 8 )
       {
-         for ( i = 0; i < (int)bytes; i++ )
+         for ( int i = 0; i < (int)bytes; i++ )
          {
-            temp32 = (u.s8)[i];
+            int32_t temp32 = (u.s8)[i];
             temp32 += (1 << 7);
             (u.u8)[i] = (uint8_t)temp32;
          }
@@ -264,11 +321,21 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
 
       else if ( bits == 16 )
       {
-         for ( i = 0; i < (int)bytes/2; i++ )
+         for ( int i = 0; i < (int)bytes/2; i++ )
          {
-            temp32 = (u.s16)[i];
+            int32_t temp32 = (u.s16)[i];
             temp32 += (1 << 15);
             (u.u16)[i] = (uint16_t)temp32;
+         }
+      }
+
+      else if ( bits == 32 )
+      {
+         for ( int i = 0; i < (int)bytes/4; i++ )
+         {
+            int64_t temp64 = (u.s32)[i];
+            temp64 += (1 << 31);
+            (u.u32)[i] = (uint32_t)temp64;
          }
       }
    }
@@ -277,9 +344,9 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
    {
       if ( bits == 8 )
       {
-         for ( i = 0; i < (int)bytes; i++ )
+         for ( int i = 0; i < (int)bytes; i++ )
          {
-            temp32 = (u.u8)[i];
+            int32_t temp32 = (u.u8)[i];
             temp32 -= (1 << 7);
             (u.s8)[i] = (int8_t)temp32;
          }
@@ -287,19 +354,35 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
 
       else if ( bits == 16 )
       {
-         for ( i = 0; i < (int)bytes/2; i++ )
+         for ( int i = 0; i < (int)bytes/2; i++ )
          {
-            temp32 = (u.u16)[i];
+            int32_t temp32 = (u.u16)[i];
             temp32 -= (1 << 15);
             (u.s16)[i] = (int16_t)temp32;
+         }
+      }
+
+      else if ( bits == 32 )
+      {
+         for ( int i = 0; i < (int)bytes/4; i++ )
+         {
+            int64_t temp64 = (u.u32)[i];
+            temp64 -= (1 << 31);
+            (u.s32)[i] = (int32_t)temp64;
          }
       }
    }
 
    if ( operation & RSD_S8_TO_S16 )
    {
-      s8_to_s16(buffer, bytes);
+      s8_to_s16(u.ptr, bytes);
       bytes *= 2;
+      fmt = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
+   }
+   else if ( operation & RSD_S32_TO_S16 )
+   {
+      s32_to_s16(u.ptr, bytes);
+      bytes /= 2;
       fmt = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
    }
 
@@ -310,17 +393,29 @@ void audio_converter(void* data, enum rsd_format fmt, int operation, size_t byte
       {
          swap_bytes16(u.u16, bytes);
       }
+      else if ( !swapped && bits == 32 )
+      {
+         swap_bytes32(u.u32, bytes);
+      }
    }
 
    else if ( swapped ) // We need to flip back. Kinda expensive, but hey. An endian-flipping-less algorithm will be more complex. :)
    {
-      swap_bytes16(u.u16, bytes);
+      if ( bits == 16 )
+         swap_bytes16(u.u16, bytes);
+      else if ( bits == 32 )
+         swap_bytes32(u.u32, bytes);
    }
 
    if ( operation & RSD_S16_TO_FLOAT )
    {
-      s16_to_float(buffer, bytes);
+      s16_to_float(u.ptr, bytes);
       bytes *= sizeof(float) / sizeof(int16_t);
+   }
+   else if ( operation & RSD_S32_TO_FLOAT )
+   {
+      s32_to_float(u.ptr, bytes);
+      bytes *= sizeof(float) / sizeof(int32_t);
    }
 
    memcpy(data, buffer, bytes);

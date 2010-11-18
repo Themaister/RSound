@@ -209,6 +209,14 @@ static inline int rsnd_format_to_samplesize ( enum rsd_format fmt )
 {
    switch(fmt)
    {
+      case RSD_S32_LE:
+      case RSD_S32_BE:
+      case RSD_S32_NE:
+      case RSD_U32_LE:
+      case RSD_U32_BE:
+      case RSD_U32_NE:
+         return 4;
+
       case RSD_S16_LE:
       case RSD_U16_LE:
       case RSD_S16_BE:
@@ -408,6 +416,19 @@ static int rsnd_send_header_info(rsound_t *rd)
          else
             temp_format = RSD_U16_BE;
          break;
+      case RSD_S32_NE:
+         if ( rsnd_is_little_endian() )
+            temp_format = RSD_S32_LE;
+         else
+            temp_format = RSD_S32_BE;
+         break;
+      case RSD_U32_NE:
+         if ( rsnd_is_little_endian() )
+            temp_format = RSD_U32_LE;
+         else
+            temp_format = RSD_U32_BE;
+         break;
+
       default:
          break;
    }
