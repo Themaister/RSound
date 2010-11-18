@@ -24,6 +24,7 @@ RSD_VERSION=1.0rc1
 
 ### Command line stuff
 
+MODULES="alsa oss libao portaudio openal pulse samplerate roar muroar jack syslog"
 print_help()
 {
    echo "Usage:"
@@ -32,10 +33,9 @@ print_help()
    echo "   --enable-\$module: Forcefully enables module (not recommended)"
    echo ""
    echo "Modules:"
-   echo "   alsa oss libao portaudio openal roar pulse muroar samplerate"
+   echo "   $MODULES"
 }
 
-ARGS="alsa oss libao portaudio openal pulse muroar samplerate roar jack"
 
 ### Parse stuff :V
 
@@ -54,7 +54,7 @@ do
       --enable-*)
          enable=`echo $1 | sed 's|^--enable-||'`
          [ -z $enable ] && echo "Not valid module." && print_help && exit 1
-         if [ -z "`echo $ARGS | grep $enable`" ]; then
+         if [ -z "`echo $MODULES | grep $enable`" ]; then
             echo "Not valid module."
             print_help
             exit 1
@@ -65,7 +65,7 @@ do
       --disable-*)
          disable=`echo $1 | sed 's|^--disable-||'`
          [ -z $disable ] && echo "Not valid module." && print_help && exit 1
-         if [ -z "`echo $ARGS | grep $disable`" ]; then
+         if [ -z "`echo $MODULES | grep $disable`" ]; then
             echo "Not valid module."
             print_help
             exit 1
@@ -285,7 +285,7 @@ echo " ALSA:            $HAVE_ALSA"
 echo " OSS:             $HAVE_OSS"
 echo " libAO:           $HAVE_LIBAO"
 echo " PortAudio:       $HAVE_PORTAUDIO"
-echo " PortAudio:       $HAVE_JACK"
+echo " JACK:            $HAVE_JACK"
 echo " Roar VS:         $HAVE_ROAR"
 echo " OpenAL:          $HAVE_OPENAL"
 echo " muRoar:          $HAVE_MUROAR"
