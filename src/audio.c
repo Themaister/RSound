@@ -426,19 +426,27 @@ int converter_fmt_to_s16ne(enum rsd_format format)
    int conversion = RSD_NULL;
    switch (format)
    {
+      case RSD_S32_LE:
+         conversion |= RSD_S32_TO_S16;
       case RSD_S16_LE:
          if ( !is_little_endian() )
             conversion |= RSD_SWAP_ENDIAN;
          break;
+      case RSD_S32_BE:
+         conversion |= RSD_S32_TO_S16;
       case RSD_S16_BE:
          if ( is_little_endian() )
             conversion |= RSD_SWAP_ENDIAN;
          break;
+      case RSD_U32_LE:
+         conversion |= RSD_S32_TO_S16;
       case RSD_U16_LE:
          conversion |= RSD_U_TO_S;
          if ( !is_little_endian() )
             conversion |= RSD_SWAP_ENDIAN;
          break;
+      case RSD_U32_BE:
+         conversion |= RSD_S32_TO_S16;
       case RSD_U16_BE:
          conversion |= RSD_U_TO_S;
          if ( is_little_endian() )
