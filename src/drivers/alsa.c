@@ -60,6 +60,18 @@ static int alsa_open(void *data, wav_header_t *w)
    snd_pcm_format_t format;
    switch ( w->rsd_format )
    {
+      case RSD_S32_LE:
+         format = SND_PCM_FORMAT_S32_LE;
+         break;
+      case RSD_S32_BE:
+         format = SND_PCM_FORMAT_S32_BE;
+         break;
+      case RSD_U32_LE:
+         format = SND_PCM_FORMAT_U32_LE;
+         break;
+      case RSD_U32_BE:
+         format = SND_PCM_FORMAT_U32_BE;
+         break;
       case RSD_S16_LE:
          format = SND_PCM_FORMAT_S16_LE;
          break;

@@ -1085,8 +1085,11 @@ static void* rsd_thread(void *thread_data)
    if ( resample_freq > 0 && resample_freq != (int)w.sampleRate )
    {
       w.sampleRate = resample_freq;
-      w.bitsPerSample = 16;
-      w.rsd_format = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
+      w.bitsPerSample = w_orig.bitsPerSample == 32 ? 32 : 16;
+      if (w_orig.bitsPerSample == 32)
+         w.rsd_format = (is_little_endian()) ? RSD_S32_LE : RSD_S32_BE;
+      else
+         w.rsd_format = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
       resample = 1;
       conn.rate_ratio = (float)w.sampleRate * w.bitsPerSample / ((float)w_orig.sampleRate * w_orig.bitsPerSample);
    }
@@ -1133,8 +1136,12 @@ static void* rsd_thread(void *thread_data)
       resample = 1;
       w.sampleRate = w_orig.sampleRate * backend_info.ratio;
       conn.rate_ratio = backend_info.ratio;
-      w.bitsPerSample = 16;
-      w.rsd_format = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
+
+      w.bitsPerSample = w_orig.bitsPerSample == 32 ? 32 : 16;
+      if (w_orig.bitsPerSample == 32)
+         w.rsd_format = (is_little_endian()) ? RSD_S32_LE : RSD_S32_BE;
+      else
+         w.rsd_format = (is_little_endian()) ? RSD_S16_LE : RSD_S16_BE;
    }
 
    size_t size = backend_info.chunk_size;
