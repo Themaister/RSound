@@ -9,7 +9,9 @@ You will need at least one of these (headers and libraries):
    portaudio
    openal
    muroar
+   libroar
    pulseaudio
+   jack
 
 ==========================
  To compile (Unix-like):
@@ -24,8 +26,11 @@ To explicitly disable support, you can add these
 --disable-libao
 --disable-portaudio
 --disable-muroar
+--disable-roar
 --disable-openal
 --disable-pulse
+--disable-jack
+--disable-syslog
 
 You can refer to which modules you can (un)install by checking ./configure --help
 

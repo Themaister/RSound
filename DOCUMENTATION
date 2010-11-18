@@ -447,6 +447,10 @@ Params:
 Description:
    This is basically a wrapper to rsd_start() and rsd_stop() currently.
    This function might be differently implemented in other implementations of rsound.
+   Portability note: After pausing a stream, only valid calls that can follow this call are:
+   rsd_stop() (stopping stream completely) or 
+   rsd_pause(handle, 0) (unpausing). 
+   Any different call is undefined.
 
 =================================
 int rsd_free(rsound_t* handle);
