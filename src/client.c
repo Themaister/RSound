@@ -338,6 +338,14 @@ static void parse_input(int argc, char **argv)
                format = RSD_ALAW;
             else if ( strcmp("MULAW", optarg) == 0 )
                format = RSD_MULAW;
+            else if ( strcmp("S32LE", optarg) == 0 )
+               format = RSD_S32_LE;
+            else if ( strcmp("S32BE", optarg) == 0 )
+               format = RSD_S32_BE;
+            else if ( strcmp("U32LE", optarg) == 0 )
+               format = RSD_U32_LE;
+            else if ( strcmp("U32BE", optarg) == 0 )
+               format = RSD_U32_BE;
             else
             {
                fprintf(stderr, "Invalid bit format.\n");
