@@ -523,22 +523,25 @@ size_t resample_callback(void *cb_data, float **data)
    }
    
    size_t bufsize = sizeof(state->buffer)/sizeof(state->buffer[0]);
+   uint8_t buf[bufsize * sizeof(int32_t)];
    union
    {
-      int16_t i16[bufsize * 2];
-      int32_t i32[bufsize];
+      int16_t *i16;
+      int32_t *i32;
+      void *ptr;
    } inbuffer;
+   inbuffer.ptr = buf;
 
    size_t read_size = bufsize * rsnd_format_to_bytes(state->format);
 
-   int rc = receive_data(state->data, state->conn, &inbuffer, read_size);
+   int rc = receive_data(state->data, state->conn, inbuffer.ptr, read_size);
    if ( rc <= 0 )
    {
       *data = NULL;
       return 0;
    }
 
-   audio_converter(&inbuffer, state->format, conversion, read_size);
+   audio_converter(inbuffer.ptr, state->format, conversion, read_size);
 #ifdef HAVE_SAMPLERATE
    if (rsnd_format_to_bytes(state->format) == 4)
       src_int_to_float_array(inbuffer.i32, state->buffer, bufsize);
