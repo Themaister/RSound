@@ -54,81 +54,15 @@ static int ao_rsd_open(void* data, wav_header_t *w)
    interface->converter = RSD_NULL;
    interface->fmt = w->rsd_format;
 
-   switch ( w->rsd_format )
+   if (rsnd_format_to_bytes(w->rsd_format) == 4) 
    {
-      case RSD_S32_LE:
-         bits = 32;
-         if ( !is_little_endian() )
-            interface->converter |= RSD_SWAP_ENDIAN;
-         break;
-
-      case RSD_S32_BE:
-         bits = 32;
-         if ( is_little_endian() )
-            interface->converter |= RSD_SWAP_ENDIAN;
-         break;
-
-      case RSD_U32_LE:
-         bits = 32;
-         if ( !is_little_endian() )
-            interface->converter |= RSD_SWAP_ENDIAN;
-         interface->converter |= RSD_U_TO_S;
-         break;
-
-      case RSD_U32_BE:
-         bits = 32;
-         if ( is_little_endian() )
-            interface->converter |= RSD_SWAP_ENDIAN;
-         interface->converter |= RSD_U_TO_S;
-         break;
-
-      case RSD_S16_LE:
-         bits = 16;
-         if ( !is_little_endian() )
-            interface->converter |= RSD_SWAP_ENDIAN;
-         break;
-
-      case RSD_U16_LE:
-         bits = 16;
-         if ( !is_little_endian() )
-            interface->converter |= RSD_SWAP_ENDIAN;
-         interface->converter |= RSD_U_TO_S;
-         break;
-
-      case RSD_U16_BE:
-         bits = 16;
-         if ( is_little_endian() )
-            interface->converter |= RSD_SWAP_ENDIAN;
-         interface->converter |= RSD_U_TO_S;
-         break;
-
-      case RSD_S16_BE:
-         bits = 16;
-         if ( is_little_endian() )
-            interface->converter |= RSD_SWAP_ENDIAN;
-         break;
-
-      case RSD_U8:
-         bits = 8;
-         interface->converter |= RSD_U_TO_S;
-         break;
-
-      case RSD_S8:
-         bits = 8;
-         break;
-
-      case RSD_ALAW:
-         bits = 16;
-         interface->converter |= RSD_ALAW_TO_S16;
-         break;
-
-      case RSD_MULAW:
-         bits = 16;
-         interface->converter |= RSD_MULAW_TO_S16;
-         break;
-
-      default:
-         return -1;
+      interface->converter = converter_fmt_to_s32ne(w->rsd_format);
+      bits = 32;
+   }
+   else
+   {
+      interface->converter = converter_fmt_to_s16ne(w->rsd_format);
+      bits = 16;
    }
 
    ao_sample_format format = {
@@ -162,7 +96,7 @@ static size_t ao_rsd_write(void *data, const void* inbuf, size_t size)
 
    if (sound->converter != RSD_NULL)
    {
-      osize = (sound->fmt & (RSD_ALAW | RSD_MULAW)) ? 2*size : size;
+      osize = (rsnd_format_to_bytes(sound->fmt) == 1) ? 2*size : size;
 
       memcpy(convbuf, inbuf, size);
 
