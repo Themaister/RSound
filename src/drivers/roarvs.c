@@ -59,6 +59,22 @@ static int roarvs_rsd_open(void* data, wav_header_t *w)
 
    switch ( w->rsd_format )
    {
+      case RSD_S32_LE:
+         info.bits = 32;
+         info.codec = ROAR_CODEC_PCM_S_LE;
+         break;
+      case RSD_S32_BE:
+         info.bits = 32;
+         info.codec = ROAR_CODEC_PCM_S_BE;
+         break;
+      case RSD_U32_LE:
+         info.bits = 32;
+         info.codec = ROAR_CODEC_PCM_U_LE;
+         break;
+      case RSD_U32_BE:
+         info.bits = 32;
+         info.codec = ROAR_CODEC_PCM_U_BE;
+         break;
       case RSD_S16_LE:
          info.bits  = 16;
          info.codec = ROAR_CODEC_PCM_S_LE;

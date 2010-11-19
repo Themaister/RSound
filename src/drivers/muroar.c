@@ -45,6 +45,22 @@ static int muroar_rsd_open(void* data, wav_header_t *w)
 
    switch ( w->rsd_format )
    {
+      case RSD_S32_LE:
+         bits = 32;
+         codec = MUROAR_CODEC_PCM_S_LE;
+         break;
+      case RSD_S32_BE:
+         bits = 32;
+         codec = MUROAR_CODEC_PCM_S_BE;
+         break;
+      case RSD_U32_LE:
+         bits = 32;
+         codec = MUROAR_CODEC_PCM_U_LE;
+         break;
+      case RSD_U32_BE:
+         bits = 32;
+         codec = MUROAR_CODEC_PCM_U_BE;
+         break;
       case RSD_S16_LE:
          bits  = 16;
          codec = MUROAR_CODEC_PCM_S_LE;
