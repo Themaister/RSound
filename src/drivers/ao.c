@@ -56,6 +56,32 @@ static int ao_rsd_open(void* data, wav_header_t *w)
 
    switch ( w->rsd_format )
    {
+      case RSD_S32_LE:
+         bits = 32;
+         if ( !is_little_endian() )
+            interface->converter |= RSD_SWAP_ENDIAN;
+         break;
+
+      case RSD_S32_BE:
+         bits = 32;
+         if ( is_little_endian() )
+            interface->converter |= RSD_SWAP_ENDIAN;
+         break;
+
+      case RSD_U32_LE:
+         bits = 32;
+         if ( !is_little_endian() )
+            interface->converter |= RSD_SWAP_ENDIAN;
+         interface->converter |= RSD_U_TO_S;
+         break;
+
+      case RSD_U32_BE:
+         bits = 32;
+         if ( is_little_endian() )
+            interface->converter |= RSD_SWAP_ENDIAN;
+         interface->converter |= RSD_U_TO_S;
+         break;
+
       case RSD_S16_LE:
          bits = 16;
          if ( !is_little_endian() )
