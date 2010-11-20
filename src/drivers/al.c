@@ -168,7 +168,7 @@ static size_t al_write(void *data, const void* inbuf, size_t size)
 
    if (al->conv != RSD_NULL)
    {
-      if (al->fmt & (RSD_ALAW | RSD_MULAW))
+      if (rsnd_format_to_bytes(al->fmt) == 1)
          osize = 2 * size;
       else if (rsnd_format_to_bytes(al->fmt) == 4)
          osize = size / 2;

@@ -19,8 +19,8 @@ TARGET_LIB_IMPLIB = lib/librsound.a
 
 TARGET_SERVER_LIBS = -lpthreadGC2 -lws2_32
 TARGET_LIB_LIBS = -lpthreadGC2 -lws2_32
-OPT_SERV_LIBS = lib/OpenAL32.lib
-OPT_SERV_OBJ = ../drivers/al.o
+OPT_SERV_LIBS = -ldsound -luuid
+OPT_SERV_OBJ = ../drivers/dsound.o
 
 TARGET_CLIENT_OBJ = ../client.o ../endian.o
 TARGET_CLIENT_LIBS = -lrsound -lws2_32
