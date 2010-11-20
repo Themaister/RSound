@@ -1,3 +1,8 @@
+[RSound 1.0rc2] - 2010-*-*:
+
+	*	32-bit audio support
+	*	DirectSound driver for Win32. OpenAL obsoleted for Win32.
+
 [RSound 1.0rc1] - 2010-11-17:
 
 	*	Updated MPlayer patch.

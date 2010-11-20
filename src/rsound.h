@@ -19,7 +19,7 @@
 #include "audio.h"
 
 #ifdef _WIN32
-#define RSD_VERSION "1.0rc1"
+#define RSD_VERSION "1.0rc2"
 #else
 #include "config.h"
 #endif

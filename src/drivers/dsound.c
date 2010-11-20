@@ -47,7 +47,6 @@ static void ds_deinit(void)
    IDirectSound_Release(g_ds);
 }
 
-
 static int ds_rsd_init(void** data)
 {
    ds_t *sound = calloc(1, sizeof(ds_t));
@@ -80,8 +79,8 @@ static int ds_rsd_open(void* data, wav_header_t *w)
    ds->fmt = w->rsd_format;
    ds->conv = converter_fmt_to_s16ne(w->rsd_format);
 
-   ds->rings = 8;
-   ds->latency = DEFAULT_CHUNK_SIZE * 2;
+   ds->rings = 4;
+   ds->latency = DEFAULT_CHUNK_SIZE * 4;
 
    memset(&ds->dsbd, 0, sizeof(ds->dsbd));
    ds->dsbd.dwSize = sizeof(ds->dsbd);
