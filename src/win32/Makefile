@@ -8,10 +8,11 @@ ifeq ($(CC),cc)
 endif
 
 CFLAGS := -Os -s -std=gnu99
-INCLUDE_DIRS := -Iinclude -I../librsound -Iinclude/pthread
+INCLUDE_DIRS := -Iinclude -I../librsound -Iinclude/pthread -Imuroar
 LIB_DIRS := -Lbin -Llib
 
 TARGET_SERVER = bin/rsd.exe
+DEFS = -D_DS -D_MUROAR
 TARGET_CLIENT = bin/rsdplay.exe
 TARGET_LIB = bin/rsound.dll
 TARGET_LIB_OBJ = ../librsound/librsound.o src/poll.o ../librsound/buffer.o
@@ -20,7 +21,7 @@ TARGET_LIB_IMPLIB = lib/librsound.a
 TARGET_SERVER_LIBS = -lpthreadGC2 -lws2_32
 TARGET_LIB_LIBS = -lpthreadGC2 -lws2_32
 OPT_SERV_LIBS = -ldsound -luuid
-OPT_SERV_OBJ = ../drivers/dsound.o
+OPT_SERV_OBJ = ../drivers/dsound.o ../drivers/muroar.o muroar/muroar.o muroar/muroar_noop.o muroar/muroario.c
 
 TARGET_CLIENT_OBJ = ../client.o ../endian.o
 TARGET_CLIENT_LIBS = -lrsound -lws2_32
@@ -57,7 +58,7 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 
 %.o: %.c
 	@echo "CC $<"
-	@$(CC) $(CFLAGS) $(INCLUDE_DIRS) -c -o $@ $<
+	@$(CC) $(CFLAGS) $(INCLUDE_DIRS) $(DEFS) -c -o $@ $<
 
 clean:
 	rm -rf $(TARGET_SERVER)

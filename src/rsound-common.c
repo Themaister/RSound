@@ -53,7 +53,6 @@
 
 /* Pulls in callback structs depending on compilation options. */
 
-#ifndef _WIN32
 #ifdef _ALSA
 extern const rsd_backend_callback_t rsd_alsa;
 #endif
@@ -89,7 +88,11 @@ extern const rsd_backend_callback_t rsd_jack;
 #ifdef _ROARVS
 extern const rsd_backend_callback_t rsd_roarvs;
 #endif
+
+#ifdef _DS
+extern const rsd_backend_callback_t rsd_ds;
 #endif
+
 
 #define MAX_PACKET_SIZE 1024
 
@@ -250,6 +253,7 @@ void parse_input(int argc, char **argv)
       { "debug", 0, NULL, 'B' },
       { "bind", 1, NULL, 'H' },
       { "rate", 1, NULL, 'R' },
+      { "backend", 1, NULL, 'b' },
 #ifdef HAVE_SAMPLERATE
       { "resampler", 1, NULL, 'Q' },
 #endif
@@ -257,7 +261,6 @@ void parse_input(int argc, char **argv)
       { "syslog", 0, NULL, 'L' },
 #endif
 #ifndef _WIN32
-      { "backend", 1, NULL, 'b' },
       { "sock", 1, NULL, 'S' },
       { "kill", 0, NULL, 'K' },
       { "single", 0, NULL, 'T' },
@@ -268,7 +271,7 @@ void parse_input(int argc, char **argv)
    };
 
 #ifdef _WIN32
-   char optstring[] = "p:vhR:";
+   char optstring[] = "p:vhR:b:";
 #else
 
 #ifdef HAVE_SYSLOG
@@ -399,7 +402,6 @@ void parse_input(int argc, char **argv)
             break;
 #endif
 
-#ifndef _WIN32
          case 'b':
 #ifdef _ALSA
             if ( !strcmp( "alsa", optarg ) )
@@ -464,11 +466,17 @@ void parse_input(int argc, char **argv)
                break;
             }
 #endif
+#ifdef _DS
+            if ( !strcmp( "dsound", optarg) )
+            {
+               backend = &rsd_ds;
+               break;
+            }
+#endif
 
             log_printf("\nValid backend not given. Exiting ...\n\n");
             print_help();
             exit(1);
-#endif
 
 #ifndef _WIN32
          case 'D':
@@ -507,15 +515,18 @@ void parse_input(int argc, char **argv)
       exit(1);
    }
 
-#ifndef _WIN32
    if ( backend == NULL )
    {
 
       /* Select a default backend if nothing was specified on the command line. */
 
-#ifdef __CYGWIN__
-      /* We prefer portaudio if we're in Windows. */
-#ifdef _PORTA
+#if defined(__CYGWIN__) || defined(_WIN32)
+      /* We prefer directsound if we're in Windows. */
+#ifdef _DS
+      backend = &rsd_ds;
+#elif _MUROAR
+      backend = &rsd_muroar;
+#elif _PORTA
       backend = &rsd_porta;
 #elif _AL
       backend = &rsd_al;
@@ -548,7 +559,6 @@ void parse_input(int argc, char **argv)
 #endif
 
    }
-#endif
 
 
    /* Shouldn't really happen, but ... */
@@ -577,7 +587,6 @@ static void print_help()
    printf("  Examples:\n\t-d hw:1,0\n\t-d /dev/audio\n\t"
           "    Defaults to \"default\" for alsa and /dev/dsp for OSS\n");
 
-#ifndef _WIN32
    printf("\n-b/--backend: Specifies which audio backend to use.\n");
    printf("Supported backends: ");
 
@@ -605,9 +614,11 @@ static void print_help()
 #ifdef _AL
    printf("openal ");
 #endif
+#ifdef _DS
+   printf("dsound ");
+#endif
 #ifdef _MUROAR
    printf("muroar ");
-#endif
 #endif
 
    putchar('\n');

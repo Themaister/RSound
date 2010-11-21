@@ -42,14 +42,11 @@ char device[128] = "default";
 char port[128] = "12345";
 char bindaddr[128] = "";
 
+const rsd_backend_callback_t *backend = NULL;
 #ifndef _WIN32
 char unix_sock[128] = "";
-const rsd_backend_callback_t *backend = NULL;
 int daemonize = 0;
 int no_threading = 0;
-#else
-extern const rsd_backend_callback_t rsd_ds;
-const rsd_backend_callback_t *backend = &rsd_ds;
 #endif
 
 #ifdef HAVE_SAMPLERATE
