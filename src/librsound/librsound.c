@@ -144,13 +144,6 @@ static int init_wsock(void)
 }
 #endif
 
-#ifdef _WIN32
-static void deinit_wsock(void)
-{
-   WSACleanup();
-}
-#endif
-
 
 // Does some logging
 static void rsnd_log(enum rsd_logtype type, const char *fmt, ...)
@@ -1646,12 +1639,6 @@ int rsd_free(rsound_t *rsound)
       RSD_WARN("Error: %s\n", strerror(err));
 
    free(rsound);
-
-#ifdef _WIN32
-   init_count--;
-   if (init_count == 0)
-      deinit_wsock();
-#endif
 
    return 0;
 }
