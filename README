@@ -16,8 +16,8 @@ The package compiles and runs on the following platforms:
 Unix-like                  - ALSA (Linux), OSS, libao, PortAudio, PulseAudio, 
                              µRoar, OpenAL, RoarAudio VS, Jack
 Microsoft Windows (Cygwin) - PortAudio, (OSS), libao, OpenAL
-                  (Win32)  - OpenAL, DirectSound
-(Mac OSX)                  - Not tested.
+                  (Win32)  - DirectSound, µRoar
+Mac OSX                    - libao (possibly more)
 
 On how to use these programs, refer to the --help in the respective programs, or the man-pages.
 
