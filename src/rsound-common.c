@@ -574,7 +574,7 @@ void parse_input(int argc, char **argv)
    /* Shouldn't really happen, but ... */
    if ( backend == NULL )
    {
-      log_printf("rsd was not compiled with any output support, exiting ...");
+      log_printf("rsd was not compiled with any output support, exiting ...\n");
       exit(1);
    }
 
@@ -867,7 +867,7 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
    // RSD will no longer use this for writing
 #ifdef _WIN32
    shutdown(conn.socket, SD_SEND);
-#else
+#elif !defined(__APPLE__) // OSX doesn't seem to like shutdown() ...
    shutdown(conn.socket, SHUT_WR);
 #endif
 

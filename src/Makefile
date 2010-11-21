@@ -1,8 +1,19 @@
 include config.mk
 
+uname := $(shell uname -a)
+ifneq ($(findstring Darwin,$(uname)),)
+   PLATFORM := OSX
+else
+   PLATFORM := X
+endif
+
 TARGET_SERVER = rsd
 TARGET_CLIENT = rsdplay
-TARGET_LIB = librsound/librsound.so.2.0.0
+ifeq ($(PLATFORM),OSX)
+   TARGET_LIB = librsound/librsound.dylib
+else
+   TARGET_LIB = librsound/librsound.so.2.0.0
+endif
 TARGET_LIB_OBJ = librsound/librsound.o librsound/buffer.o
 TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
@@ -97,9 +108,13 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
 	@echo "LD $@"
+ifeq ($(PLATFORM),OSX)
+	@$(CC) -shared -dynamiclib -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -install_name $(PREFIX)/lib/librsound.dylib
+else
 	@$(CC) -shared -Wl,-soname,librsound.so.2 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
 	@ln -sf librsound.so.2.0.0 librsound/librsound.so.2
 	@ln -sf librsound.so.2.0.0 librsound/librsound.so
+endif
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	@echo "LD $@"

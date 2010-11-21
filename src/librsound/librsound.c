@@ -276,6 +276,7 @@ static int rsnd_connect_socket(int fd, const struct sockaddr *addr, socklen_t ad
 /* Creates sockets and attempts to connect to the server. Returns -1 when failed, and 0 when success. */
 static int rsnd_connect_server( rsound_t *rd )
 {
+   RSD_DEBUG("rsnd_connect_server");
    struct addrinfo hints, *res = NULL;
 #ifndef _WIN32
    struct sockaddr_un un;
@@ -350,6 +351,8 @@ static int rsnd_connect_server( rsound_t *rd )
 
    if ( res != NULL && (res->ai_family != AF_UNIX) )
       freeaddrinfo(res);
+
+   RSD_DEBUG("rsnd_connect_server completeted!");
    return 0;
 
    /* Cleanup for errors. */
@@ -520,7 +523,10 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    uint32_t rsnd_header[2] = {0};
 
    if ( rsnd_recv_chunk(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 1) != RSND_HEADER_SIZE )
+   {
+      RSD_ERR("Couldn't receive chunk.");
       return -1;
+   }
 
    /* Again, we can't be 100% certain that sizeof(backend_info_t) is equal on every system */
 
@@ -545,7 +551,10 @@ static int rsnd_get_backend_info ( rsound_t *rd )
       rsnd_fifo_free(rd->fifo_buffer);
    rd->fifo_buffer = rsnd_fifo_new (rd->buffer_size);
    if ( rd->fifo_buffer == NULL )
+   {
+      RSD_ERR("Failed to create fifobuf");
       return -1;
+   }
 
    // Only bother with setting network buffer size if we're doing TCP.
    if ( rd->conn_type & RSD_CONN_TCP )
@@ -571,11 +580,13 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    // This is non-blocking.
    if ( rsnd_recv_chunk(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 0) == RSND_HEADER_SIZE )
       rd->conn_type |= RSD_CONN_PROTO; 
+   else
+   {  RSD_DEBUG("Failed to get new proto"); }
 
    // We no longer want to read from this socket.
 #ifdef _WIN32
    shutdown(rd->conn.socket, SD_RECEIVE);
-#else
+#elif !defined(__APPLE__) // OSX doesn't seem to like shutdown()
    shutdown(rd->conn.socket, SHUT_RD);
 #endif
 
@@ -594,6 +605,7 @@ static int rsnd_create_connection(rsound_t *rd)
       rc = rsnd_connect_server(rd);
       if (rc < 0)
       {
+         RSD_ERR("connect server failed!");
          rsd_stop(rd);
          return -1;
       }
@@ -606,12 +618,14 @@ static int rsnd_create_connection(rsound_t *rd)
 
       if ( rsnd_poll(&fd, 1, 2000) < 0 )
       {
+         RSD_ERR("rsnd_poll failed!");
          rsd_stop(rd);
          return -1;
       }
 
       if ( !(fd.revents & POLLOUT) )
       {
+         RSD_ERR("Poll didn't return what we wanted!");
          rsd_stop(rd);
          return -1;
       }
@@ -627,6 +641,7 @@ static int rsnd_create_connection(rsound_t *rd)
       rc = rsnd_send_header_info(rd);
       if (rc < 0)
       {
+         RSD_ERR("Send header failed!");
          rsd_stop(rd);
          return -1;
       }
@@ -634,6 +649,7 @@ static int rsnd_create_connection(rsound_t *rd)
       rc = rsnd_get_backend_info(rd);
       if (rc < 0)
       {
+         RSD_ERR("Get backend info failed!");
          rsd_stop(rd);
          return -1;
       }
@@ -641,12 +657,15 @@ static int rsnd_create_connection(rsound_t *rd)
       rc = rsnd_start_thread(rd);
       if (rc < 0)
       {
+         RSD_ERR("Starting thread failed!");
          rsd_stop(rd);
          return -1;
       }
 
       if ( (rd->conn_type & RSD_CONN_PROTO) && strlen(rd->identity) > 0 )
+      {
          rsnd_send_identity_info(rd);
+      }
 
       rd->ready_for_data = 1;
    }
@@ -723,10 +742,16 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
    while ( has_read < size )
    {
       if ( rsnd_poll(&fd, 1, sleep_time) < 0 )
+      {
+         RSD_ERR("Poll failed");
          return -1;
+      }
 
       if ( fd.revents & POLLHUP )
+      {
+         RSD_ERR("Server hung up");
          return -1;
+      }
 
       if ( fd.revents & POLLIN )
       {
@@ -742,7 +767,10 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
       else
       {
          if ( blocking )
+         {
+            RSD_ERR("Block FAIL!");
             return -1;
+         }
          else
             return has_read;
       }
@@ -785,7 +813,7 @@ static void rsnd_drain(rsound_t *rd)
       /* Falls back to gettimeofday() when CLOCK_MONOTONIC is not supported */
 
       /* Calculates the amount of bytes that the server has consumed. */
-#ifdef _POSIX_MONOTONIC_CLOCK
+#if defined(_POSIX_MONOTONIC_CLOCK) && !defined(__APPLE__)
       struct timespec now_tv;
       clock_gettime(CLOCK_MONOTONIC, &now_tv);
 
@@ -1198,7 +1226,7 @@ static void* rsnd_thread ( void * thread_data )
          if ( !rd->has_written )
          {
             pthread_mutex_lock(&rd->thread.mutex);
-#ifdef _POSIX_MONOTONIC_CLOCK
+#if defined(_POSIX_MONOTONIC_CLOCK) && !defined(__APPLE__)
             clock_gettime(CLOCK_MONOTONIC, &rd->start_tv_nsec);
 #else
             gettimeofday(&rd->start_tv_usec, NULL);
@@ -1338,18 +1366,25 @@ int rsd_start(rsound_t *rsound)
 int rsd_exec(rsound_t *rsound)
 {
    assert(rsound != NULL);
+   RSD_DEBUG("rsd_exec()");
 
    // Makes sure we have a working connection
    if ( rsound->conn.socket < 0 )
    {
+      RSD_DEBUG("Calling rsd_start()");
       if ( rsd_start(rsound) < 0 )
+      {
+         RSD_ERR("rsd_start() failed!");
          return -1;
+      }
    }
 
+   RSD_DEBUG("Closing ctl");
    if ( rsnd_close_ctl(rsound) < 0 )
       return -1;
 
    int fd = rsound->conn.socket;
+   RSD_DEBUG("Socket: %d", fd);
 
    rsnd_stop_thread(rsound);
 
@@ -1361,6 +1396,7 @@ int rsd_exec(rsound_t *rsound)
    int flags = fcntl(fd, F_GETFL);
    if ( flags < 0 )
    {
+      RSD_ERR("Failed to get fcntl flags.");
       rsnd_start_thread(rsound);
       return -1;
    }
@@ -1368,6 +1404,7 @@ int rsd_exec(rsound_t *rsound)
    flags &= ~O_NONBLOCK;
    if ( fcntl(fd, F_SETFL, flags) < 0 )
    {
+      RSD_ERR("Failed to set fcntl flags.");
       rsnd_start_thread(rsound);
       return -1;
    }
@@ -1381,11 +1418,13 @@ int rsd_exec(rsound_t *rsound)
       rsnd_fifo_read(rsound->fifo_buffer, buffer, sizeof(buffer));
       if ( rsnd_send_chunk(fd, buffer, sizeof(buffer), 1) != (ssize_t)sizeof(buffer) )
       {
+         RSD_DEBUG("Failed flushing buffer!");
          close(fd);
          return -1;
       }
    }
 
+   RSD_DEBUG("Returning from rsd_exec()");
    rsd_free(rsound);
    return fd;
 }
