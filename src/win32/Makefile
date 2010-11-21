@@ -21,7 +21,7 @@ TARGET_LIB_IMPLIB = lib/librsound.a
 TARGET_SERVER_LIBS = -lpthreadGC2 -lws2_32
 TARGET_LIB_LIBS = -lpthreadGC2 -lws2_32
 OPT_SERV_LIBS = -ldsound -luuid
-OPT_SERV_OBJ = ../drivers/dsound.o ../drivers/muroar.o muroar/muroar.o muroar/muroar_noop.o muroar/muroario.c
+OPT_SERV_OBJ = ../drivers/dsound.o ../drivers/muroar.o muroar/muroar.o muroar/muroario.c
 
 TARGET_CLIENT_OBJ = ../client.o ../endian.o
 TARGET_CLIENT_LIBS = -lrsound -lws2_32
