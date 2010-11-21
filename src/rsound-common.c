@@ -161,7 +161,17 @@ void log_printf(const char *fmt, ...)
    va_start(ap, fmt);
 #if HAVE_SYSLOG
    if (use_syslog)
-      vsyslog(LOG_INFO, fmt, ap);
+   {
+      if (strlen(fmt) == 0)
+         return;
+
+      char tmp_fmt[strlen(fmt) + 1];
+      strncpy(tmp_fmt, fmt, sizeof(tmp_fmt));
+      char *last = tmp_fmt + strlen(fmt) - 1;
+      if (*last == '\n') // Strip away newline at end.
+         *last = '\0';
+      vsyslog(LOG_INFO, tmp_fmt, ap);
+   }
    else
 #endif
       vfprintf(stderr, fmt, ap);
