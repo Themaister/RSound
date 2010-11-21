@@ -44,7 +44,7 @@ static void ds_init(void)
 
 static void ds_deinit(void)
 {
-   IDirectSound_Release(g_ds);
+   //IDirectSound_Release(g_ds); // Crashes for some reason in Win32.
 }
 
 static int ds_rsd_init(void** data)
@@ -58,9 +58,7 @@ static int ds_rsd_init(void** data)
 
 static void clear_buffers(ds_t *ds)
 {
-   ds->readring = 0;
    ds->writering = ds->rings - 1;
-   ds->distance = ds->rings - 1;
 
    DWORD size;
    void *output;
@@ -139,22 +137,16 @@ static size_t ds_rsd_write(void *data, const void* inbuf, size_t size)
    }
 
    DWORD pos, ds_size;
-   while (ds->distance >= ds->rings - 1)
+   ds->writering = (ds->writering + 1) % ds->rings;
+   for (;;)
    {
       IDirectSoundBuffer_GetCurrentPosition(ds->dsb_b, &pos, 0);
       unsigned activering = pos / ds->latency;
-      if (activering == ds->readring)
-      {
-         Sleep(1);
-         continue;
-      }
+      if (activering != ds->writering)
+         break;
 
-      ds->distance -= (ds->rings + activering - ds->readring) % ds->rings;
-      ds->readring = activering;
+      Sleep(1);
    }
-
-   ds->writering = (ds->writering + 1) % ds->rings;
-   ds->distance = (ds->distance + 1) % ds->rings;
 
    void *output;
    if (IDirectSoundBuffer_Lock(ds->dsb_b, ds->writering * ds->latency, osize, &output, &ds_size, 0, 0, 0) == DS_OK)

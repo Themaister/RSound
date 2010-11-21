@@ -30,9 +30,7 @@ typedef struct
    int fmt;
    int rings;
    int latency;
-   int readring;
    int writering;
-   int distance;
 } ds_t;
 
 #endif
