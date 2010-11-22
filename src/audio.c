@@ -522,8 +522,9 @@ size_t resample_callback(void *cb_data, float **data)
       return 0;
    }
    
+   assert(sizeof(float) == 4);
    size_t bufsize = sizeof(state->buffer)/sizeof(state->buffer[0]);
-   uint8_t buf[bufsize * sizeof(int32_t)];
+   uint32_t buf[bufsize];
    union
    {
       int16_t *i16;
@@ -532,7 +533,8 @@ size_t resample_callback(void *cb_data, float **data)
    } inbuffer;
    inbuffer.ptr = buf;
 
-   size_t read_size = bufsize * rsnd_format_to_bytes(state->format);
+   int channels = state->framesize / rsnd_format_to_bytes(state->format);
+   size_t read_size = (bufsize / channels) * state->framesize;
 
    int rc = receive_data(state->data, state->conn, inbuffer.ptr, read_size);
    if ( rc <= 0 )
