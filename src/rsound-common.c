@@ -1155,7 +1155,7 @@ static void* rsd_thread(void *thread_data)
    if ( backend_info.resample )
    {
       resample = 1;
-      w.sampleRate = w_orig.sampleRate * backend_info.ratio;
+      w.sampleRate = w.sampleRate * backend_info.ratio;
       conn.rate_ratio = backend_info.ratio;
 
       w.bitsPerSample = w_orig.bitsPerSample == 32 ? 32 : 16;

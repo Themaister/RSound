@@ -23,8 +23,8 @@
 #include <jack/types.h>
 #include <jack/ringbuffer.h>
 
-#define MAX_CHANS 6
-#define MAX_PORTS 6
+#define MAX_CHANS 8
+#define MAX_PORTS 8
 #define JACK_BUFFER_SIZE 0x8000
 typedef struct
 {
