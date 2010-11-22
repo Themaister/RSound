@@ -36,10 +36,13 @@ static void ds_rsd_close(void *data)
 }
 
 static LPDIRECTSOUND g_ds;
+static int g_ds_alive = 1;
 static void ds_init(void)
 {
-   DirectSoundCreate(0, &g_ds, 0);
-   IDirectSound_SetCooperativeLevel(g_ds, GetDesktopWindow(), DSSCL_PRIORITY);
+   if (DirectSoundCreate(0, &g_ds, 0) != DS_OK)
+      g_ds_alive = 0;
+   else
+      IDirectSound_SetCooperativeLevel(g_ds, GetDesktopWindow(), DSSCL_PRIORITY);
 }
 
 static void ds_deinit(void)
@@ -72,12 +75,14 @@ static void clear_buffers(ds_t *ds)
 static int ds_rsd_open(void* data, wav_header_t *w)
 {
    ds_t* ds = data;
+   if (!g_ds_alive)
+      return -1;
 
    int bits = 16;
    ds->fmt = w->rsd_format;
    ds->conv = converter_fmt_to_s16ne(w->rsd_format);
 
-   ds->rings = 4;
+   ds->rings = 8;
    ds->latency = DEFAULT_CHUNK_SIZE * 4;
 
    memset(&ds->dsbd, 0, sizeof(ds->dsbd));
