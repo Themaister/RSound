@@ -1,8 +1,8 @@
 diff --git a/Makefile.am b/Makefile.am
-index 8f12667..292a1dd 100644
+index 0966a2a..cb2a872 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -48,6 +48,7 @@ mpd_headers = \
+@@ -49,6 +49,7 @@ mpd_headers = \
  	src/output_state.h \
  	src/output_print.h \
  	src/output_command.h \
@@ -10,15 +10,15 @@ index 8f12667..292a1dd 100644
  	src/filter_internal.h \
  	src/filter_config.h \
  	src/filter_plugin.h \
-@@ -649,6 +650,7 @@ OUTPUT_LIBS = \
+@@ -654,6 +655,7 @@ OUTPUT_LIBS = \
  	$(LIBWRAP_LDFLAGS) \
  	$(AO_LIBS) \
  	$(ALSA_LIBS) \
 +   $(RSOUND_LIBS) \
+ 	$(FFADO_LIBS) \
  	$(JACK_LIBS) \
  	$(OPENAL_LIBS) \
- 	$(PULSE_LIBS) \
-@@ -664,8 +666,7 @@ OUTPUT_API_SRC = \
+@@ -670,8 +672,7 @@ OUTPUT_API_SRC = \
  	src/output_command.c \
  	src/output_init.c
  
@@ -28,7 +28,7 @@ index 8f12667..292a1dd 100644
  
  MIXER_API_SRC = \
  	src/mixer_control.c \
-@@ -681,6 +682,10 @@ OUTPUT_SRC += src/output/alsa_plugin.c
+@@ -687,6 +688,10 @@ OUTPUT_SRC += src/output/alsa_plugin.c
  MIXER_SRC += src/mixer/alsa_mixer_plugin.c
  endif
  
@@ -36,11 +36,11 @@ index 8f12667..292a1dd 100644
 +OUTPUT_SRC += src/output/rsound_plugin.c
 +endif
 +
- if HAVE_AO
- OUTPUT_SRC += src/output/ao_plugin.c
+ if ENABLE_FFADO_OUTPUT
+ OUTPUT_SRC += src/output/ffado_output_plugin.c
  endif
 diff --git a/configure.ac b/configure.ac
-index c598450..8504092 100644
+index 9422150..5d31b9b 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -40,7 +40,6 @@ AC_SUBST(AM_CFLAGS,"")
@@ -63,7 +63,7 @@ index c598450..8504092 100644
  AC_ARG_ENABLE(audiofile,
  	AS_HELP_STRING([--enable-audiofile],
  		[enable audiofile support (WAV and others)]),,
-@@ -1205,6 +1209,17 @@ fi
+@@ -1209,6 +1213,17 @@ fi
  
  AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
  
@@ -78,25 +78,25 @@ index c598450..8504092 100644
 +
 +AM_CONDITIONAL(HAVE_RSOUND, test x$enable_rsound = xyes)
 +
- dnl ----------------------------------- FIFO ----------------------------------
- if test x$enable_fifo = xyes; then
- 	AC_CHECK_FUNC([mkfifo],
-@@ -1394,6 +1409,7 @@ AM_CONDITIONAL(ENABLE_WINMM_OUTPUT, test x$enable_winmm_output = xyes)
+ dnl ----------------------------------- FFADO ---------------------------------
+ 
+ MPD_AUTO_PKG(ffado, FFADO, [libffado],
+@@ -1409,6 +1424,7 @@ AM_CONDITIONAL(ENABLE_WINMM_OUTPUT, test x$enable_winmm_output = xyes)
  dnl --------------------- Post Audio Output Plugins Tests ---------------------
  if
  	test x$enable_alsa = xno &&
 +   test x$enable_rsound = xno &&
  	test x$enable_ao = xno &&
+ 	test x$enable_ffado = xno &&
  	test x$enable_fifo = xno &&
- 	test x$enable_httpd_output = xno &&
-@@ -1529,6 +1545,7 @@ results(id3,[ID3])
+@@ -1545,6 +1561,7 @@ results(id3,[ID3])
  
  echo -en '\nPlayback support:\n\t'
  results(alsa,ALSA)
 +results(rsound,RSOUND)
+ results(ffado,FFADO)
  results(fifo,FIFO)
  results(recorder_output,[File Recorder])
- results(httpd_output,[HTTP Daemon])
 diff --git a/src/output/rsound_plugin.c b/src/output/rsound_plugin.c
 new file mode 100644
 index 0000000..1a64493
@@ -250,7 +250,7 @@ index 0000000..1a64493
 +
 +
 diff --git a/src/output_list.c b/src/output_list.c
-index 0d1e709..974a7cd 100644
+index 8238f58..4ea1460 100644
 --- a/src/output_list.c
 +++ b/src/output_list.c
 @@ -36,6 +36,7 @@ extern const struct audio_output_plugin mvp_output_plugin;
@@ -259,9 +259,9 @@ index 0d1e709..974a7cd 100644
  extern const struct audio_output_plugin recorder_output_plugin;
 +extern const struct audio_output_plugin rsound_output_plugin;
  extern const struct audio_output_plugin winmm_output_plugin;
+ extern const struct audio_output_plugin ffado_output_plugin;
  
- const struct audio_output_plugin *audio_output_plugins[] = {
-@@ -82,6 +83,9 @@ const struct audio_output_plugin *audio_output_plugins[] = {
+@@ -83,6 +84,9 @@ const struct audio_output_plugin *audio_output_plugins[] = {
  #ifdef ENABLE_RECORDER_OUTPUT
  	&recorder_output_plugin,
  #endif
