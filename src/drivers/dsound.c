@@ -162,13 +162,22 @@ static int ds_rsd_latency(void* data)
 {
    ds_t *ds = data;
 
+   DWORD pos;
+   IDirectSoundBuffer_GetCurrentPosition(ds->dsb_b, &pos, 0);
+   unsigned activering = pos / ds->latency;
+   unsigned next_writering = (ds->writering + 1) % ds->rings;
+   if (next_writering <= activering)
+      next_writering += ds->rings;
+
+   int delta = next_writering - activering;
+
    int latency = ds->latency;
    if (rsnd_format_to_bytes(ds->fmt) == 1)
       latency /= 2;
    else if (rsnd_format_to_bytes(ds->fmt) == 4)
       latency *= 2;
 
-   return ds->latency * ds->rings;
+   return ds->latency * delta;
 }
 
 static void ds_rsd_get_backend(void *data, backend_info_t *backend_info)
