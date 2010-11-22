@@ -202,6 +202,7 @@ static int jack_open(void *data, wav_header_t *w)
    }
 
 
+   jack_free(jports);
    for (int i = 0; i < num_parsed_ports; i++)
       free(dest_ports[i]);
    return 0;
@@ -264,7 +265,7 @@ static size_t write_buffer(jack_t *jd, const void* buf, size_t size)
 
       size_t avail = jack_ringbuffer_write_space(jd->buffer[0]);
 
-      if (avail > sizeof(jack_default_audio_sample_t) * BYTES_TO_SAMPLES(size, jd->format))
+      if (avail >= sizeof(jack_default_audio_sample_t) * BYTES_TO_SAMPLES(size, jd->format) / jd->channels)
          break;
 
       // TODO: Need to do something more intelligent here!
