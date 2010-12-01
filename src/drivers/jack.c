@@ -67,7 +67,7 @@ static int process_cb(jack_nframes_t nframes, void *data)
 
    for (int i = 0; i < jd->channels; i++)
    {
-      out = jack_port_get_buffer(jd->ports[i], min_avail * sizeof(jack_default_audio_sample_t));
+      out = jack_port_get_buffer(jd->ports[i], nframes);
       jack_ringbuffer_read(jd->buffer[i], (char*)out, min_avail * sizeof(jack_default_audio_sample_t));
 
       for (jack_nframes_t f = min_avail; f < nframes; f++)
