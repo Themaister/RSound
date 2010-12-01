@@ -52,18 +52,25 @@ static int process_cb(jack_nframes_t nframes, void *data)
       return 0;
 
    jack_default_audio_sample_t *out;
-   jack_nframes_t available = jack_ringbuffer_read_space(jd->buffer[0]);
-   available /= sizeof(jack_default_audio_sample_t);
 
-   if (available > nframes)
-      available = nframes;
+   jack_nframes_t min_avail = jack_ringbuffer_read_space(jd->buffer[0]);
+   for (int i = 1; i < jd->channels; i++)
+   {
+      jack_nframes_t avail = jack_ringbuffer_read_space(jd->buffer[i]);
+      if (avail < min_avail)
+         min_avail = avail;
+   }
+   min_avail /= sizeof(jack_default_audio_sample_t);
+
+   if (min_avail > nframes)
+      min_avail = nframes;
 
    for (int i = 0; i < jd->channels; i++)
    {
-      out = jack_port_get_buffer(jd->ports[i], nframes);
-      jack_ringbuffer_read(jd->buffer[i], (char*)out, available * sizeof(jack_default_audio_sample_t));
+      out = jack_port_get_buffer(jd->ports[i], min_avail * sizeof(jack_default_audio_sample_t));
+      jack_ringbuffer_read(jd->buffer[i], (char*)out, min_avail * sizeof(jack_default_audio_sample_t));
 
-      for (jack_nframes_t f = available; f < nframes; f++)
+      for (jack_nframes_t f = min_avail; f < nframes; f++)
          out[f] = 0.0f;
    }
    return 0;
@@ -263,9 +270,15 @@ static size_t write_buffer(jack_t *jd, const void* buf, size_t size)
       if (jd->shutdown)
          return 0;
 
-      size_t avail = jack_ringbuffer_write_space(jd->buffer[0]);
+      size_t min_avail = jack_ringbuffer_write_space(jd->buffer[0]);
+      for (int i = 1; i < jd->channels; i++)
+      {
+         size_t avail = jack_ringbuffer_write_space(jd->buffer[i]);
+         if (avail < min_avail)
+            min_avail = avail;
+      }
 
-      if (avail >= sizeof(jack_default_audio_sample_t) * BYTES_TO_SAMPLES(size, jd->format) / jd->channels)
+      if (min_avail >= sizeof(jack_default_audio_sample_t) * BYTES_TO_SAMPLES(size, jd->format) / jd->channels)
          break;
 
       // TODO: Need to do something more intelligent here!
