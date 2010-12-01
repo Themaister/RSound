@@ -1146,13 +1146,14 @@ static int rsnd_update_server_info(rsound_t *rd)
       RSD_DEBUG("Delay: %d, Delta: %d", delay, delta);
 
       // We only update the pointer if the data we got is quite recent.
-      if ( rd->total_written - client_ptr <  16 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
+      if ( rd->total_written - client_ptr < 4 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
       {
          int offset_delta = delta - delay;
-         if ( offset_delta < -50 )
-            offset_delta = -50;
-         else if ( offset_delta > 50 )
-            offset_delta = 50;
+         int max_offset = rd->backend_info.chunk_size;
+         if ( offset_delta < -max_offset )
+            offset_delta = -max_offset;
+         else if ( offset_delta > max_offset )
+            offset_delta = max_offset;
 
          pthread_mutex_lock(&rd->thread.mutex);
          rd->delay_offset += offset_delta;
