@@ -168,7 +168,6 @@ install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
 	install -m644 rsound.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig
 	install -m644 ../doc/rsd.1 $(DESTDIR)$(PREFIX)/share/man/man1
 	install -m644 ../doc/rsdplay.1 $(DESTDIR)$(PREFIX)/share/man/man1
-	ldconfig
 
 install-server: $(TARGET_SERVER)
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
