@@ -1,10 +1,11 @@
 [RSound 1.0rc2] - 2010-12-03:
 
-	*	32-bit audio support
+	*	32-bit audio support.
 	*	DirectSound driver default for Win32. OpenAL obsoleted for Win32.
 	*	Add µRoar driver for Win32.
 	*	Make latency compensation more aggressive in librsound. Improves buffer underrun recovery.
 	*	Some bug fixes in Jack driver.
+	*	Mac OSX support.
 
 [RSound 1.0rc1] - 2010-11-17:
 
