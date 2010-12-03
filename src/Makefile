@@ -111,7 +111,7 @@ $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
 ifeq ($(PLATFORM),OSX)
 	@$(CC) -shared -dynamiclib -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -install_name $(PREFIX)/lib/librsound.dylib
 else
-	@$(CC) -shared -Wl,-soname,librsound.so.2 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
+	@$(CC) -shared -Wl,-soname,librsound.so.2 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -fPIC
 	@ln -sf librsound.so.2.0.0 librsound/librsound.so.2
 	@ln -sf librsound.so.2.0.0 librsound/librsound.so
 endif
@@ -168,6 +168,7 @@ install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
 	install -m644 rsound.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig
 	install -m644 ../doc/rsd.1 $(DESTDIR)$(PREFIX)/share/man/man1
 	install -m644 ../doc/rsdplay.1 $(DESTDIR)$(PREFIX)/share/man/man1
+	ldconfig
 
 install-server: $(TARGET_SERVER)
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
