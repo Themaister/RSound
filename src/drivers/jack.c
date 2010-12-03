@@ -28,7 +28,7 @@ static void jack_close(void *data)
       jack_client_close(jd->client);
    }
 
-   for (int i = 0; i < jd->channels; i++)
+   for (int i = 0; i < jd->channels && i < MAX_CHANS; i++)
       if (jd->buffer[i] != NULL)
          jack_ringbuffer_free(jd->buffer[i]);
 
