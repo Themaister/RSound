@@ -78,7 +78,7 @@ namespace RSound
          }
          if (rc == (IntPtr)0)
          {
-            throw new Exception("Connection closed");
+            throw new Exception("Connection closed.");
          }
       }
 
