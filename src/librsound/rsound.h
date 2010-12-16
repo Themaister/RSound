@@ -42,7 +42,7 @@ extern "C" {
 #define RSD_DEFAULT_OBJECT "rsound"
 
 #ifndef RSD_VERSION
-#define RSD_VERSION "1.0rc2"
+#define RSD_VERSION "1.0"
 #endif
 
 /* Feature tests */

@@ -1,3 +1,7 @@
+[RSound 1.0] - 2010-12-16:
+	*	Add builds for various things that were previously patches: ALSA, VLC, DeaDBeeF.
+	*	Updated binds for Python, and added binds for C#/.NET.
+
 [RSound 1.0rc2] - 2010-12-03:
 
 	*	32-bit audio support.
