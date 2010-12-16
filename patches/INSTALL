@@ -32,3 +32,17 @@ DeaDBeeF output plugin.
 
 $ make
 # make install
+
+===============
+ MPlayer patch
+===============
+
+MPlayer doesn't support a plugin interface, so this patch will need to be applied.
+
+
+===============
+ MPD patch
+===============
+
+MPD doesn't support a plugin interface, so this patch will need to be applied.
+
