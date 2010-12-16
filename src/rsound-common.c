@@ -26,10 +26,10 @@
 #ifndef _WIN32
 #include <fcntl.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/un.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <sys/un.h>
 #else
 #define _WIN32_WINNT 0x0501
 #define WIN32_LEAN_AND_MEAN

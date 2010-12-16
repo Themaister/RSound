@@ -24,10 +24,10 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
 #include <time.h>
-#include <netinet/in.h>
 #endif
 
 #ifdef HAVE_SYSLOG
