@@ -29,10 +29,10 @@ For certain types of applications of librsound, it might be useful to peek into 
 
 Return values:
 
-librsound uses the POSIX standard return value scheme with 0 (or positive number) and negative number for error.
+librsound uses the POSIX standard return value scheme with 0 (or positive number) for success, and negative return value for error.
 librsound does not however use errno or similar. Exceptions to this will be noted. 
 Do note that functions which return with unsigned types like size_t will generally return with 0 as error.
-Errors must always be checked for even if the example code below doesn't do so!
+Errors must always be checked for even if the example code below doesn't do so! They are avoided for code clarity.
 
 
 Style:
@@ -286,6 +286,7 @@ Description:
    The returned socket will be blocking.
    This call will block until all internal buffers have been written to the network.
    This function call might be more useful on Unix systems as sockets are general file descriptors, while Win32 sockets are not.
+   Win32 systems will need to use send() on sockets. This could be useful when going over the internet, as there is no protocol overhead at all.
 
 Errors:
    Should rsd_exec() return a negative number, this will indicate that either rsd_start() failed or the request could not be honored.
@@ -312,6 +313,16 @@ Example:
    close(fd);
 
 
+rsd_exec() can also be used to make sure that all audio data in buffers will be written.
+
+Example:
+   rsd_stop(handle); // Might not flush buffers completely.
+   rsd_free(handle); // Free handle here.
+
+Example:
+   close(rsd_exec(handle)); // Will close handle and write all data in buffers.
+
+
 ==================================
 int rsd_stop(rsound_t* handle);
 ==================================
@@ -321,6 +332,9 @@ Description:
    and will not assure that all audio has been played back before returning.
    It shouldn't really fail, and if it happens for some reason, 
    there isn't much the programmer can or should do about it.
+
+   If you want to make sure that all audio in buffers will be written, use
+   rsd_exec(). See example.
 
 Example:
 rsd_stop(handle);
@@ -365,6 +379,9 @@ Description:
 Example:
    size_t ptr = rsd_pointer(handle);
 
+Note:
+   This function is deprecated, and should not be used in new applications.
+
 
 =======================================
 size_t rsd_get_avail(rsound_t* handle);
@@ -382,7 +399,7 @@ size_t rsd_delay(rsound_t* handle);
 Description:
    Returns the current audio delay of the stream in terms of bytes. 
    The audio delay is measured as time it takes for a rsd_write() until the data written can be heard.
-   Essential for A/V sync. Only call after rsd_start(). It is not guaranteed to be perfectly exact, but is a good estimate.
+   Essential for A/V sync. Only call after rsd_start(). It is not guaranteed to be perfectly exact, but is a good estimate. Calling rsd_delay() right after rsd_start() returns the absolute minimum latency that can be achieved (but not guaranteed!).
 
 Example:
    size_t delay = rsd_delay(handle);
@@ -425,11 +442,11 @@ Description:
    How low latency you can achieve with this method will greatly vary on how the network behaves, 
    and also on how accurate the server can measure latency from the audio drivers.
 
-To maintain a reasonably low latency for your audio, you should try to write in small chunks 
-and call rsd_delay_wait() before each call to rsd_write().
+   To maintain a reasonably low latency for your audio, you should try to write in small chunks 
+   and call rsd_delay_wait() before each call to rsd_write().
 
-In detail, this function will measure the current audio latency, and sleep until the latency is lower, 
-or equals the desired latency given in RSD_LATENCY.
+   In detail, this function will measure the current audio latency, and sleep until the latency is lower, 
+   or equals the desired latency given in RSD_LATENCY.
 
 Example:
    int max_delay = 150; // 150 ms
@@ -494,6 +511,7 @@ the WAVE header that the client sends will be a conforming wave header if the au
 For different audio formats, the wave header will signify this by settings the format bytes in the header to 0. 
 These are bytes 20-21. You will then have to check bytes 42-43 to obtain the correct audio format. 
 The format bytes will then have the same values as found in the rsound header files.
+Do note that this value will be in little-endian format as well.
 
 Should the format be either S16_LE or U8 we set the 20-21 bytes to 1. 
 Then we can check the bits per sample to determine which sample format we have. 
@@ -522,14 +540,14 @@ Support:
                A sane default here for librsound is 512 bytes. The client is not forced to follow this suggestion, but it should.
                A server might set this chunk size equal the fragment size of the audio driver.
 
-   8-11        This will always be 0.
-   12-15       This will always be 0.
+   8-11        This will always be 0. Later protocol revisions might use these values for something else.
+   12-15       This will always be 0. Later protocol revisions might use these values for something else.
 
    The server can now decide to send only 8 bytes, or 16 bytes. The client will have to check if it can read 8 bytes, or 16 bytes
    from the network stream. If it can only read 8 bytes, writing to or reading from the control socket is undefined in this case.
 
 
-Deprecated "8 byte" behaviour:
+Deprecated "8 byte" behavior:
 ==================================
 
 After this initial handshaking has taken place, the client can send raw audio data to the server on the data socket. 
@@ -543,7 +561,7 @@ The server can drop the data in the network buffers if it chooses to.
 
 
 
-"16 byte" behaviour:
+"16 byte" behavior:
 ==========================
 
 If the control socket is enabled, the client can choose to send a message on the control socket, or audio data on the data socket.
@@ -600,7 +618,7 @@ Try to empty the network buffer each time the server does control handling.
 If deemed appropriate, a server might ignore a request for INFO.
 
 The server will take this message, and respond with appending the number of bytes actually played back to the speakers (or something similiar). 
-To do this, the server will record number of bytes written to the audio driver and subtract the audio latency of the driver, 
+To do this, the server could record number of bytes written to the audio driver and subtract the audio latency of the driver, 
 effectively calculating the number of bytes "written" to the speakers. 
 Note that this value should obviously _never_ be larger than the value recieved from the client. 
 That is clearly a sign of having a full control socket network buffer, or buggy code somewhere in either library or otherwise. 
@@ -610,7 +628,8 @@ The server will then reply to the control socket with something like this:
 
 When the client recieves this message, 
 it can determine that there is a (1532455 - 1502333) delta between writing to the network before hearing it. 
-Network latencies are assumed to be so small, that they aren't noticable.
+Network latencies are assumed to be so small, that they aren't noticable. The protocol is not designed for perfectly accurate
+latency measurements.
 
 
 IDENTITY: This is used for the client to identity itself with a name. 
@@ -620,7 +639,7 @@ Example message: "RSD   24 IDENTITY Example client"
 
 
 CLOSECTL: When the server recieves this, the client will no longer use the control socket for anything, 
-and closing down the socket on the client side should never make the server drop the data connection. The server can safely close the control socket. Before closing down the control socket, the server will respond to the client either with "CLOSECTL OK" or "CLOSECTL ERROR".
+and closing down the socket on the client side should never make the server drop the data connection. The server can safely close the control socket. Before closing down the control socket, the server will respond to the client either with "CLOSECTL OK" or "CLOSECTL ERROR". This protocol call is used for rsd_exec().
 
 Example:
    Recieves: 
