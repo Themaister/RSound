@@ -1,0 +1,34 @@
+===============
+ General note
+===============
+
+The Makefiles will respond to PREFIX and DESTDIR variables where appropriate.
+
+===============
+ ALSA plugin
+===============
+
+ALSA output plugin for Linux. Needs alsa-libs installed.
+
+$ make
+# make install
+
+
+==============
+ VLC plugin
+==============
+
+VLC audio plugin. Needs VLC installed and pkg-config.
+
+$ make
+# make install
+
+
+=============
+ DeaDBeeF
+=============
+
+DeaDBeeF output plugin.
+
+$ make
+# make install
