@@ -57,7 +57,11 @@ ifeq ($(HAVE_MUROAR), 1)
 endif
 
 ifeq ($(HAVE_AL), 1)
+ifneq ($(findstring Darwin,$(shell uname -a)),)
+   OPT_SERV_LIBS += -framework OpenAL
+else
    OPT_SERV_LIBS += -lopenal
+endif
    OPT_SERV_OBJ += drivers/al.o
 endif
 

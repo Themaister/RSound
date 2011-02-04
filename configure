@@ -41,15 +41,16 @@ print_help()
 
 while [ ! -z "$1" ]
 do
-   prefix=`echo $1 | sed -e 's|^--prefix=\(\S\S*\)$|\1|' -e 's|\(\S\S*\)/|\1|'`
-
-   if [ "$prefix" != "$1" ]; then
-      PREFIX="$prefix"
-      shift
-      continue
-   fi
-
+   
    case "$1" in
+
+      --prefix=*)
+         prefix="`echo $1 | sed -e 's|^--prefix=||' -e 's|^\(.*\)/$|\1|'`"
+
+         if [ "$prefix" != "$1" ]; then
+            PREFIX="$prefix"
+         fi
+         ;;
 
       --enable-*)
          enable=`echo $1 | sed 's|^--enable-||'`
@@ -91,12 +92,12 @@ done
 
 check_lib()
 {
-   echo -n "Checking function $3 in -l$2 ... "
+   echo -n "Checking function $3 in $2 ... "
    echo "void $3(void); int main(void) { $3(); return 0; }" > $TEMP_C
 
    eval HAVE_$1=no
    answer=no
-   $CC -o $TEMP_EXE $TEMP_C $CFLAGS -l$2 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
+   $CC -o $TEMP_EXE $TEMP_C $CFLAGS $2 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
 
    echo $answer
 
@@ -148,28 +149,34 @@ if [ $HAVE_WEXTRA = yes ]; then
    CFLAGS="$CFLAGS -Wextra"
 fi
 
-check_lib PTHREAD pthread pthread_create
+check_lib PTHREAD -lpthread pthread_create
 if [ $HAVE_PTHREAD = no ]; then
    echo "Couldn't find pthread library. Cannot build."
    exit 1
 fi
 
-[ $HAVE_ALSA = auto ] && check_lib ALSA asound snd_pcm_open
+[ $HAVE_ALSA = auto ] && check_lib ALSA -lasound snd_pcm_open
 check_header SYS_SOUNDCARD_H sys/soundcard.h
 check_header SOUNDCARD_H soundcard.h
-check_lib OSSAUDIO ossaudio _oss_ioctl
-[ $HAVE_LIBAO = auto ] && check_lib LIBAO ao ao_open_live
-[ $HAVE_ROAR = auto ] && check_lib ROAR roar roar_vs_new
-[ $HAVE_PULSE = auto ] && check_lib PULSE pulse-simple pa_simple_new
-[ $HAVE_MUROAR = auto ] && check_lib MUROAR muroar muroar_stream
-[ $HAVE_OPENAL = auto ] && check_lib OPENAL openal alcOpenDevice
-[ $HAVE_PORTAUDIO = auto ] && check_lib PORTAUDIO portaudio Pa_OpenStream
-[ $HAVE_JACK = auto ] && check_lib JACK jack jack_client_open
-[ $HAVE_SAMPLERATE = auto ] && check_lib SAMPLERATE samplerate src_callback_new
-[ $HAVE_SYSLOG = auto ] && check_lib SYSLOG c openlog
+check_lib OSSAUDIO -lossaudio _oss_ioctl
+[ $HAVE_LIBAO = auto ] && check_lib LIBAO -lao ao_open_live
+[ $HAVE_ROAR = auto ] && check_lib ROAR -lroar roar_vs_new
+[ $HAVE_PULSE = auto ] && check_lib PULSE -lpulse-simple pa_simple_new
+[ $HAVE_MUROAR = auto ] && check_lib MUROAR -lmuroar muroar_stream
 
-check_lib RT rt clock_gettime
-check_lib DECNET dnet dnet_conn
+if [ ! -z "`uname -a | grep Darwin`" ]; then
+   [ $HAVE_OPENAL = auto ] && check_lib OPENAL "-framework OpenAL" alcOpenDevice
+else
+   [ $HAVE_OPENAL = auto ] && check_lib OPENAL -lopenal alcOpenDevice
+fi
+
+[ $HAVE_PORTAUDIO = auto ] && check_lib PORTAUDIO -lportaudio Pa_OpenStream
+[ $HAVE_JACK = auto ] && check_lib JACK -ljack jack_client_open
+[ $HAVE_SAMPLERATE = auto ] && check_lib SAMPLERATE -lsamplerate src_callback_new
+[ $HAVE_SYSLOG = auto ] && check_lib SYSLOG -lc openlog
+
+check_lib RT -lrt clock_gettime
+check_lib DECNET -ldnet dnet_conn
 
 if [ $HAVE_OSS = auto ]; then
    if [ $HAVE_SYS_SOUNDCARD_H = yes ]; then
