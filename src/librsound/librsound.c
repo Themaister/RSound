@@ -123,7 +123,8 @@ static int rsnd_update_server_info(rsound_t *rd);
 
 static int rsnd_poll(struct pollfd *fd, int numfd, int timeout);
 
-static void* rsnd_thread ( void * thread_data );
+static void* rsnd_cb_thread(void *thread_data);
+static void* rsnd_thread(void *thread_data);
 
 #ifdef _WIN32
 // Stupid winsock
@@ -898,7 +899,7 @@ static int rsnd_start_thread(rsound_t *rd)
    if ( !rd->thread_active )
    {
       rd->thread_active = 1;
-      rc = pthread_create(&rd->thread.threadId, NULL, rsnd_thread, rd);
+      rc = pthread_create(&rd->thread.threadId, NULL, rd->audio_callback ? rsnd_cb_thread : rsnd_thread, rd);
       if ( rc < 0 )
       {
          rd->thread_active = 0;
@@ -1170,7 +1171,7 @@ static int rsnd_update_server_info(rsound_t *rd)
    if ( !rd->thread_active ) \
       break
 
-/* Ze thread */
+/* The blocking thread */
 static void* rsnd_thread ( void * thread_data )
 {
    /* We share data between thread and callable functions */
@@ -1274,6 +1275,64 @@ static void* rsnd_thread ( void * thread_data )
       }
 
    }
+}
+
+/* Callback thread */
+static void* rsnd_cb_thread(void *thread_data)
+{
+   rsound_t *rd = thread_data;
+   size_t buffer_size = rd->backend_info.chunk_size;
+   if (rd->cb_max_size != 0 && rd->cb_max_size < buffer_size)
+      buffer_size = rd->cb_max_size;
+
+   uint8_t buffer[buffer_size];
+
+   while (rd->thread_active)
+   {
+      if ( (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize) )
+      {
+         rsnd_send_info_query(rd); 
+         rsnd_update_server_info(rd);
+      }
+
+      if (rd->has_written)
+         rsd_delay_wait(rd);
+
+      ssize_t ret = rd->audio_callback(buffer, buffer_size, rd->cb_data);
+      if (ret < 0)
+      {
+         rsnd_reset(rd);
+         pthread_detach(pthread_self());
+         rd->error_callback(rd->cb_data);
+         pthread_exit(NULL);
+      }
+
+      if (ret < (ssize_t)buffer_size)
+         memset(buffer + ret, 0, buffer_size - ret);
+
+      ret = rsnd_send_chunk(rd->conn.socket, buffer, buffer_size, 1);
+      if (ret != (ssize_t)buffer_size)
+      {
+         rsnd_reset(rd);
+         pthread_detach(pthread_self());
+         rd->error_callback(rd->cb_data);
+         pthread_exit(NULL);
+      }
+
+      /* If this was the first write, set the start point for the timer. */
+      if (!rd->has_written)
+      {
+#if defined(_POSIX_MONOTONIC_CLOCK) && !defined(__APPLE__)
+         clock_gettime(CLOCK_MONOTONIC, &rd->start_tv_nsec);
+#else
+         gettimeofday(&rd->start_tv_usec, NULL);
+#endif
+         rd->has_written = 1;
+      }
+
+      rd->total_written += ret;
+   }
+   pthread_exit(NULL);
 }
 
 static int rsnd_reset(rsound_t *rd)
@@ -1655,6 +1714,18 @@ int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, cons
    }
 
    return 0;
+}
+
+void rsd_set_callback(rsound_t *rsound, rsd_audio_callback_t audio_cb, rsd_error_callback_t err_cb, size_t max_size, void *userdata)
+{
+   assert(rsound != NULL);
+   assert(audio_cb);
+   assert(err_cb);
+
+   rsound->audio_callback = audio_cb;
+   rsound->error_callback = err_cb;
+   rsound->cb_max_size = max_size;
+   rsound->cb_data = userdata;
 }
 
 int rsd_free(rsound_t *rsound)

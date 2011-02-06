@@ -30,6 +30,7 @@ extern "C" {
 #include <stddef.h>
 #else
 #include <stddef.h>
+#include <sys/types.h>
 #endif
 
 #ifdef _WIN32
@@ -42,7 +43,7 @@ extern "C" {
 #define RSD_DEFAULT_OBJECT "rsound"
 
 #ifndef RSD_VERSION
-#define RSD_VERSION "1.0"
+#define RSD_VERSION "1.1"
 #endif
 
 /* Feature tests */
@@ -81,6 +82,10 @@ extern "C" {
 #define RSD_NO_FMT                  RSD_NO_FMT
 #define RSD_USES_OPAQUE_TYPE        RSD_USES_OPAQUE_TYPE
 #define RSD_USES_SAMPLESIZE_MEMBER  RSD_USES_SAMPLESIZE_MEMBER
+
+#define RSD_AUDIO_CALLBACK_T        RSD_AUDIO_CALLBACK_T
+#define RSD_ERROR_CALLBACK_T        RSD_ERROR_CALLBACK_T
+#define RSD_SET_CALLBACK            RSD_SET_CALLBACK
 /* End feature tests */
 
 
@@ -120,6 +125,12 @@ extern "C" {
       RSD_IDENTITY
    };
 
+   /* Audio callback for rsd_set_callback. Return -1 to trigger an error in the stream. */
+   typedef ssize_t (*rsd_audio_callback_t)(void *data, size_t bytes, void *userdata);
+
+   /* Error callback. Signals caller that stream has been stopped, either by audio callback returning -1 or stream was hung up. */
+   typedef void (*rsd_error_callback_t)(void *userdata);
+
 
 #ifdef RSD_EXPOSE_STRUCT
 
@@ -138,10 +149,10 @@ extern "C" {
 
       char *host;
       char *port;
-      char *buffer; // Obsolete, but kept for backwards header compatibility.
+      char *buffer; /* Obsolete, but kept for backwards header compatibility. */
       int conn_type;
 
-      volatile int buffer_pointer; // Obsolete, but kept for backwards header compatibility.
+      volatile int buffer_pointer; /* Obsolete, but kept for backwards header compatibility. */
       size_t buffer_size; 
       rsound_fifo_buffer_t *fifo_buffer;
 
@@ -175,6 +186,11 @@ extern "C" {
       } thread;
 
       char identity[256];
+
+      rsd_audio_callback_t audio_callback;
+      rsd_error_callback_t error_callback;
+      size_t cb_max_size;
+      void *cb_data;
    } rsound_t;
 #else
    typedef struct rsound rsound_t;
@@ -240,6 +256,17 @@ extern "C" {
 
    int rsd_set_param (rsound_t *rd, enum rsd_settings option, void* param);
 
+   /* Enables use of the callback interface. This must be set when stream is not active. 
+      When callback is active, use of the blocking interface is disabled. 
+      Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(). Calling any other function is undefined. 
+      The callback is called at regular intervals and is asynchronous, so thread safety must be ensured by the caller. 
+      If not enough data can be given to the callback, librsound will fill the rest of the callback data with silence. 
+      librsound will attempt to obey latency information given with RSD_LATENCY as given before calling rsd_start().
+      max_size signifies the maximum size that will ever be requested by librsound. Set this to 0 to let librsound decide the maximum size.
+      Should an error occur to the stream, err_callback will be called, and the stream will be stopped. The stream can be started again. */
+
+   void rsd_set_callback (rsound_t *rd, rsd_audio_callback_t callback, rsd_error_callback_t err_callback, size_t max_size, void *userdata);
+
    /* Establishes connection to server. Might fail if connection can't be established or that one of 
       the mandatory options isn't set in rsd_set_param(). This needs to be called after params have been set
       with rsd_set_param(), and before rsd_write(). */ 
@@ -264,7 +291,8 @@ extern "C" {
 
    /* Gets the position of the buffer pointer. 
       Not really interesting for normal applications. 
-      Might be useful for implementing rsound on top of other blocking APIs. */
+      Might be useful for implementing rsound on top of other blocking APIs. 
+      *NOTE* This function is deprecated, it should not be used in new applications. */
    size_t rsd_pointer (rsound_t *rd);
 
    /* Aquires how much data can be written to the buffer without blocking */
@@ -277,7 +305,7 @@ extern "C" {
    size_t rsd_delay_ms (rsound_t *rd);
 
    /* Returns bytes per sample */
-   int rsd_samplesize( rsound_t *rd );
+   int rsd_samplesize(rsound_t *rd);
 
    /* Will sleep until latency of stream reaches maximum allowed latency defined earlier by rsd_set_param - RSD_LATENCY 
       Useful for hard headed blocking I/O design where user defined latency is needed. If rsd_set_param hasn't been set

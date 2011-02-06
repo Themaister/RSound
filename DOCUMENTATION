@@ -41,6 +41,11 @@ librsound will seem somewhat familiar to those who have developed for OSS (Open 
 It is a blocking I/O audio library, but supports features for non-blocking situations.
 
 
+Typedefs:
+
+typedef ssize_t (*rsd_audio_callback_t)(void *out_data, size_t bytes, void *userdata);
+typedef void (*rsd_error_callback_t)(void *userdata);
+
 
 Function calls:
 
@@ -50,6 +55,7 @@ All librsound calls are named with rsd_*.
 int rsd_init(rsound_t** handle);
 int rsd_simple_start(rsound_t** handle, const char* host, const char* port, const char* ident, int rate, int channels, enum rsd_format format);
 int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);
+void rsd_set_callback(rsound_t* handle, rsd_audio_callback_t audio_cb, rsd_error_callback_t err_cb, size_t max_size, void *userdata);
 int rsd_start(rsound_t* handle);
 int rsd_exec(rsound_t* handle);
 int rsd_stop(rsound_t* handle);
@@ -258,6 +264,37 @@ Note:
    ... // do stuff
    #endif
    
+===========================================================================
+void rsd_set_callback(rsound_t* handle, rsd_audio_callback_t callback, 
+      rsd_error_callback_t err_callback, size_t max_size, void *userdata);
+===========================================================================
+
+Description:
+   Enables use of the callback interface. This must be set when stream is not active. 
+   When callback is active, use of the blocking interface is disabled. 
+   Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(). 
+   Calling any other function is undefined. 
+   The callback is called at regular intervals and is asynchronous, so thread safety must be ensured by the caller. 
+   If not enough data can be given to the callback, librsound will fill the rest of the callback data with silence. 
+   librsound will attempt to obey latency information given with RSD_LATENCY as given before calling rsd_start().
+   max_size signifies the maximum size that will ever be requested by librsound. 
+   Set this to 0 to let librsound decide the maximum size.
+   Should an error occur to the stream, err_callback will be called, and the stream will be stopped. The stream can be started again.
+
+Example:
+   rsound_t *handle;
+   rsd_init(&handle);
+
+   ... // Set some params
+
+   rsd_set_callback(handle, callback, err_callback, 0, userdata);
+
+   rsd_start(handle);
+   ... // Let magic happen in the callback.
+
+   rsd_stop(handle);
+   rsd_free(handle);
+
 
 
 ===================================

@@ -12,7 +12,7 @@ TARGET_CLIENT = rsdplay
 ifeq ($(PLATFORM),OSX)
    TARGET_LIB = librsound/librsound.dylib
 else
-   TARGET_LIB = librsound/librsound.so.2.0.0
+   TARGET_LIB = librsound/librsound.so.3.0.0
 endif
 TARGET_LIB_OBJ = librsound/librsound.o librsound/buffer.o
 TARGET_LIB_OBJ_STATIC = librsound/librsound.a
@@ -115,9 +115,9 @@ $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
 ifeq ($(PLATFORM),OSX)
 	@$(CC) -shared -dynamiclib -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -install_name $(PREFIX)/lib/librsound.dylib
 else
-	@$(CC) -shared -Wl,-soname,librsound.so.2 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -fPIC
-	@ln -sf librsound.so.2.0.0 librsound/librsound.so.2
-	@ln -sf librsound.so.2.0.0 librsound/librsound.so
+	@$(CC) -shared -Wl,-soname,librsound.so.3 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -fPIC
+	@ln -sf librsound.so.3.0.0 librsound/librsound.so.3
+	@ln -sf librsound.so.3.0.0 librsound/librsound.so
 endif
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
@@ -167,7 +167,7 @@ install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
 	mkdir -p $(DESTDIR)$(PREFIX)/{lib/pkgconfig,include,share/man/man1}
 	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib
 ifneq ($(PLATFORM),OSX)
-	cp -P librsound/librsound.so librsound/librsound.so.2 $(DESTDIR)$(PREFIX)/lib
+	cp -P librsound/librsound.so librsound/librsound.so.3 $(DESTDIR)$(PREFIX)/lib
 endif
 	install -m644 $(TARGET_LIB_OBJ_STATIC) $(DESTDIR)$(PREFIX)/lib
 	install -m644 librsound/rsound.h $(DESTDIR)$(PREFIX)/include
