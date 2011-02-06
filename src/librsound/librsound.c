@@ -1281,37 +1281,55 @@ static void* rsnd_thread ( void * thread_data )
 static void* rsnd_cb_thread(void *thread_data)
 {
    rsound_t *rd = thread_data;
-   size_t buffer_size = rd->backend_info.chunk_size;
-   if (rd->cb_max_size != 0 && rd->cb_max_size < buffer_size)
-      buffer_size = rd->cb_max_size;
+   size_t read_size = rd->backend_info.chunk_size;
+   if (rd->cb_max_size != 0 && rd->cb_max_size < read_size)
+      read_size = rd->cb_max_size;
 
-   uint8_t buffer[buffer_size];
+   uint8_t buffer[rd->backend_info.chunk_size];
 
    while (rd->thread_active)
    {
-      if ( (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize) )
+      size_t has_read = 0;
+
+      while (has_read < rd->backend_info.chunk_size)
       {
-         rsnd_send_info_query(rd); 
-         rsnd_update_server_info(rd);
+         size_t will_read = read_size < rd->backend_info.chunk_size - has_read ? read_size : rd->backend_info.chunk_size - has_read;
+         ssize_t ret = rd->audio_callback(buffer + has_read, will_read, rd->cb_data);
+         if (ret < 0)
+         {
+            rsnd_reset(rd);
+            pthread_detach(pthread_self());
+            rd->error_callback(rd->cb_data);
+            pthread_exit(NULL);
+         }
+
+         has_read += ret;
+
+         if (ret < (ssize_t)will_read)
+         {
+            if ((int)rsd_delay_ms(rd) < rd->max_latency / 2)
+            {
+               RSD_DEBUG("Callback thread: Requested %d bytes, got %d\n", (int)will_read, (int)ret);
+               memset(buffer + has_read, 0, will_read - ret);
+               has_read += will_read - ret;
+            }
+            else
+            {
+#ifdef _WIN32
+               Sleep(1);
+#else
+               struct timespec tv = {
+                  .tv_sec = 0,
+                  .tv_nsec = 1000000
+               };
+               nanosleep(&tv, NULL);
+#endif
+            }
+         }
       }
 
-      if (rd->has_written)
-         rsd_delay_wait(rd);
-
-      ssize_t ret = rd->audio_callback(buffer, buffer_size, rd->cb_data);
-      if (ret < 0)
-      {
-         rsnd_reset(rd);
-         pthread_detach(pthread_self());
-         rd->error_callback(rd->cb_data);
-         pthread_exit(NULL);
-      }
-
-      if (ret < (ssize_t)buffer_size)
-         memset(buffer + ret, 0, buffer_size - ret);
-
-      ret = rsnd_send_chunk(rd->conn.socket, buffer, buffer_size, 1);
-      if (ret != (ssize_t)buffer_size)
+      ssize_t ret = rsnd_send_chunk(rd->conn.socket, buffer, rd->backend_info.chunk_size, 1);
+      if (ret != (ssize_t)rd->backend_info.chunk_size)
       {
          rsnd_reset(rd);
          pthread_detach(pthread_self());
@@ -1330,7 +1348,16 @@ static void* rsnd_cb_thread(void *thread_data)
          rd->has_written = 1;
       }
 
-      rd->total_written += ret;
+      rd->total_written += rd->backend_info.chunk_size;
+
+      if ( (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize) )
+      {
+         rsnd_send_info_query(rd); 
+         rsnd_update_server_info(rd);
+      }
+
+      if (rd->has_written)
+         rsd_delay_wait(rd);
    }
    pthread_exit(NULL);
 }
@@ -1574,16 +1601,18 @@ void rsd_delay_wait(rsound_t *rd)
       /* Latency of stream in ms */
       int latency_ms = rsd_delay_ms(rd);
 
+
       /* Should we sleep for a while to keep the latency low? */
       if ( rd->max_latency < latency_ms )
       {
          int64_t sleep_ms = latency_ms - rd->max_latency;
+         RSD_DEBUG("Delay wait: %d ms\n", (int)sleep_ms);
 #ifdef _WIN32
          Sleep(sleep_ms);
 #else
          const struct timespec tv = {
             .tv_sec = sleep_ms / 1000,
-            .tv_nsec = (sleep_ms * 1000000)%1000000000
+            .tv_nsec = (sleep_ms * 1000000) % 1000000000
          };
 
          /* Sleepy time */
