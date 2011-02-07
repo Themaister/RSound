@@ -99,12 +99,12 @@ static void rsnd_log(enum rsd_logtype type, const char *fmt, ...);
 #define RSD_ERR(fmt, args...) rsnd_log(RSD_LOG_ERR, "(%s:%d): " fmt , __FILE__, __LINE__ , ##args)
 
 static inline int rsnd_is_little_endian(void);
-static inline void rsnd_swap_endian_16 ( uint16_t * x );
-static inline void rsnd_swap_endian_32 ( uint32_t * x );
-static inline int rsnd_format_to_samplesize( enum rsd_format fmt );
-static int rsnd_connect_server( rsound_t *rd );
+static inline void rsnd_swap_endian_16(uint16_t * x);
+static inline void rsnd_swap_endian_32(uint32_t * x);
+static inline int rsnd_format_to_samplesize(enum rsd_format fmt);
+static int rsnd_connect_server(rsound_t *rd);
 static int rsnd_send_header_info(rsound_t *rd);
-static int rsnd_get_backend_info ( rsound_t *rd );
+static int rsnd_get_backend_info(rsound_t *rd);
 static int rsnd_create_connection(rsound_t *rd);
 static int rsnd_connect_socket(int fd, const struct sockaddr *addr, socklen_t addr_len);
 static ssize_t rsnd_send_chunk(int socket, const void *buf, size_t size, int blocking);
@@ -122,6 +122,7 @@ static int rsnd_send_info_query(rsound_t *rd);
 static int rsnd_update_server_info(rsound_t *rd);
 
 static int rsnd_poll(struct pollfd *fd, int numfd, int timeout);
+static void rsnd_sleep(int msec);
 
 static void* rsnd_cb_thread(void *thread_data);
 static void* rsnd_thread(void *thread_data);
@@ -799,6 +800,19 @@ static int rsnd_poll(struct pollfd *fd, int numfd, int timeout)
    return 0;
 }
 
+static void rsnd_sleep(int msecs)
+{
+#ifdef _WIN32
+   Sleep(msecs);
+#else
+   struct timespec tv = {
+      .tv_sec = msecs / 1000,
+      .tv_nsec = ((long long)msecs * 1000000) % 1000000000
+   };
+   nanosleep(&tv, NULL);
+#endif
+}
+
 
 /* Calculates how many bytes there are in total in the virtual buffer. This is calculated client side.
    It should be accurate enough unless we have big problems with buffer underruns.
@@ -1315,15 +1329,10 @@ static void* rsnd_cb_thread(void *thread_data)
             }
             else
             {
-#ifdef _WIN32
-               Sleep(1);
-#else
-               struct timespec tv = {
-                  .tv_sec = 0,
-                  .tv_nsec = 1000000
-               };
-               nanosleep(&tv, NULL);
-#endif
+               // The network might do things in large chunks, so it may request large amounts of data in short periods of time.
+               // This breaks when the caller cannot buffer up big buffers beforehand, so do short sleeps inbetween.
+               // This is somewhat dirty, but I cannot see a better solution
+               rsnd_sleep(1);
             }
          }
       }
@@ -1607,17 +1616,7 @@ void rsd_delay_wait(rsound_t *rd)
       {
          int64_t sleep_ms = latency_ms - rd->max_latency;
          RSD_DEBUG("Delay wait: %d ms\n", (int)sleep_ms);
-#ifdef _WIN32
-         Sleep(sleep_ms);
-#else
-         const struct timespec tv = {
-            .tv_sec = sleep_ms / 1000,
-            .tv_nsec = (sleep_ms * 1000000) % 1000000000
-         };
-
-         /* Sleepy time */
-         nanosleep(&tv, NULL);
-#endif
+         rsnd_sleep(sleep_ms);
       }
    }
 }
