@@ -16,6 +16,7 @@ $(TARGET): $(OBJ)
 	$(CC) -shared -o $@ $< -Wl,-no-undefined -pthread $(LIBS) -fPIC
 
 install:
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/alsa-lib
 	install -m755 $(TARGET) $(DESTDIR)$(PREFIX)/lib/alsa-lib
 
 uninstall:
