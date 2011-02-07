@@ -1748,8 +1748,6 @@ int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, cons
 void rsd_set_callback(rsound_t *rsound, rsd_audio_callback_t audio_cb, rsd_error_callback_t err_cb, size_t max_size, void *userdata)
 {
    assert(rsound != NULL);
-   assert(audio_cb);
-   assert(err_cb);
 
    rsound->audio_callback = audio_cb;
    rsound->error_callback = err_cb;

@@ -263,7 +263,9 @@ extern "C" {
       If not enough data can be given to the callback, librsound will fill the rest of the callback data with silence. 
       librsound will attempt to obey latency information given with RSD_LATENCY as given before calling rsd_start().
       max_size signifies the maximum size that will ever be requested by librsound. Set this to 0 to let librsound decide the maximum size.
-      Should an error occur to the stream, err_callback will be called, and the stream will be stopped. The stream can be started again. */
+      Should an error occur to the stream, err_callback will be called, and the stream will be stopped. The stream can be started again. 
+
+      Callbacks can be disabled by setting callbacks to NULL. */
 
    void rsd_set_callback (rsound_t *rd, rsd_audio_callback_t callback, rsd_error_callback_t err_callback, size_t max_size, void *userdata);
 

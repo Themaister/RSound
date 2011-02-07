@@ -272,14 +272,23 @@ void rsd_set_callback(rsound_t* handle, rsd_audio_callback_t callback,
 Description:
    Enables use of the callback interface. This must be set when stream is not active. 
    When callback is active, use of the blocking interface is disabled. 
-   Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(). 
+   Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(), 
+   or restarting the stream should an error have occured.
    Calling any other function is undefined. 
+
    The callback is called at regular intervals and is asynchronous, so thread safety must be ensured by the caller. 
-   If not enough data can be given to the callback, librsound will fill the rest of the callback data with silence. 
-   librsound will attempt to obey latency information given with RSD_LATENCY as given before calling rsd_start().
+   The callback should return as fast as possible so try to avoid doing operations that may block for longer periods.
+   If not enough data can be given to the callback, librsound may choose to fill the rest of the callback data with silence. 
+
+   librsound will attempt to target the latency information given with RSD_LATENCY as given before calling rsd_start().
+
    max_size signifies the maximum size that will ever be requested by librsound. 
    Set this to 0 to let librsound decide the maximum size.
-   Should an error occur to the stream, err_callback will be called, and the stream will be stopped. The stream can be started again.
+
+   Should an error occur to the stream, err_callback will be called, and the stream will be stopped. 
+   The stream can be started again with rsd_start().
+
+   The callback can be disabled when a stream is not running by setting both callbacks to NULL.
 
 Example:
    rsound_t *handle;
@@ -293,7 +302,23 @@ Example:
    ... // Let magic happen in the callback.
 
    rsd_stop(handle);
+
+   // Disable callback here and go back to blocking API.
+   rsd_set_callback(handle, NULL, NULL, 0, NULL);
+   rsd_start(handle);
+
+   // Write stuff normally.
+   rsd_write(handle, buffer, size);
+
+   rsd_stop(handle);
    rsd_free(handle);
+
+Note:
+   This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
+
+   #ifdef RSD_SET_CALLBACK
+   ... // do stuff
+   #endif
 
 
 
