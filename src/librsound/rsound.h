@@ -86,6 +86,8 @@ extern "C" {
 #define RSD_AUDIO_CALLBACK_T        RSD_AUDIO_CALLBACK_T
 #define RSD_ERROR_CALLBACK_T        RSD_ERROR_CALLBACK_T
 #define RSD_SET_CALLBACK            RSD_SET_CALLBACK
+#define RSD_CALLBACK_LOCK           RSD_CALLBACK_LOCK
+#define RSD_CALLBACK_UNLOCK         RSD_CALLBACK_UNLOCK
 /* End feature tests */
 
 
@@ -191,6 +193,7 @@ extern "C" {
       rsd_error_callback_t error_callback;
       size_t cb_max_size;
       void *cb_data;
+      pthread_mutex_t cb_lock;
    } rsound_t;
 #else
    typedef struct rsound rsound_t;
@@ -268,6 +271,14 @@ extern "C" {
       Callbacks can be disabled by setting callbacks to NULL. */
 
    void rsd_set_callback (rsound_t *rd, rsd_audio_callback_t callback, rsd_error_callback_t err_callback, size_t max_size, void *userdata);
+
+   /* Lock and unlock the callback. When the callback lock is aquired, the callback is guaranteed to not be executing.
+      The lock has to be unlocked afterwards.
+      Attemping to call several rsd_callback_lock() in succession might cause a deadlock.
+      The lock should be held for as short period as possible. 
+      Try to avoid calling code that may block when holding the lock. */
+   void rsd_callback_lock (rsound_t *rd);
+   void rsd_callback_unlock (rsound_t *rd);
 
    /* Establishes connection to server. Might fail if connection can't be established or that one of 
       the mandatory options isn't set in rsd_set_param(). This needs to be called after params have been set

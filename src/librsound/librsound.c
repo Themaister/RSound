@@ -1308,7 +1308,11 @@ static void* rsnd_cb_thread(void *thread_data)
       while (has_read < rd->backend_info.chunk_size)
       {
          size_t will_read = read_size < rd->backend_info.chunk_size - has_read ? read_size : rd->backend_info.chunk_size - has_read;
+
+         rsd_callback_lock(rd);
          ssize_t ret = rd->audio_callback(buffer + has_read, will_read, rd->cb_data);
+         rsd_callback_unlock(rd);
+
          if (ret < 0)
          {
             rsnd_reset(rd);
@@ -1678,6 +1682,7 @@ int rsd_init(rsound_t** rsound)
 
    pthread_mutex_init(&(*rsound)->thread.mutex, NULL);
    pthread_mutex_init(&(*rsound)->thread.cond_mutex, NULL);
+   pthread_mutex_init(&(*rsound)->cb_lock, NULL);
    pthread_cond_init(&(*rsound)->thread.cond, NULL);
 
    // Assumes default of S16_LE samples.
@@ -1752,6 +1757,19 @@ void rsd_set_callback(rsound_t *rsound, rsd_audio_callback_t audio_cb, rsd_error
    rsound->error_callback = err_cb;
    rsound->cb_max_size = max_size;
    rsound->cb_data = userdata;
+
+   if (rsound->audio_callback)
+      assert(rsound->error_callback);
+}
+
+void rsd_callback_lock(rsound_t *rsound)
+{
+   pthread_mutex_lock(&rsound->cb_lock);
+}
+
+void rsd_callback_unlock(rsound_t *rsound)
+{
+   pthread_mutex_unlock(&rsound->cb_lock);
 }
 
 int rsd_free(rsound_t *rsound)
@@ -1767,13 +1785,28 @@ int rsd_free(rsound_t *rsound)
    int err;
 
    if ( (err = pthread_mutex_destroy(&rsound->thread.mutex)) != 0 )
+   {
       RSD_WARN("Error: %s\n", strerror(err));
+      return -1;
+   }
 
    if ( (err = pthread_mutex_destroy(&rsound->thread.cond_mutex)) != 0 )
+   {
       RSD_WARN("Error: %s\n", strerror(err));
+      return -1;
+   }
+
+   if ( (err = pthread_mutex_destroy(&rsound->cb_lock)) != 0 )
+   {
+      RSD_WARN("Error: %s\n", strerror(err));
+      return -1;
+   }
 
    if ( (err = pthread_cond_destroy(&rsound->thread.cond)) != 0 )
+   {
       RSD_WARN("Error: %s\n", strerror(err));
+      return -1;
+   }
 
    free(rsound);
 

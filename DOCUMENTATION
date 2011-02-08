@@ -56,6 +56,8 @@ int rsd_init(rsound_t** handle);
 int rsd_simple_start(rsound_t** handle, const char* host, const char* port, const char* ident, int rate, int channels, enum rsd_format format);
 int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);
 void rsd_set_callback(rsound_t* handle, rsd_audio_callback_t audio_cb, rsd_error_callback_t err_cb, size_t max_size, void *userdata);
+void rsd_callback_lock(rsound_t *handle);
+void rsd_callback_unlock(rsound_t *handle);
 int rsd_start(rsound_t* handle);
 int rsd_exec(rsound_t* handle);
 int rsd_stop(rsound_t* handle);
@@ -321,6 +323,40 @@ Note:
    #endif
 
 
+===========================================
+void rsd_callback_lock(rsound_t *handle);
+===========================================
+
+Description:
+   Aquire the lock to the callback function. While this lock is held, the callback is guaranteed to not be in execution.
+   Attempting to aquire this lock when already locked could lead to a deadlock.
+
+Example:
+   rsd_callback_lock(handle);
+   ... // Push data safely to a buffer that is drained by the callback later.
+   rsd_callback_unlock(handle);
+
+Note:
+   This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
+
+   #ifdef RSD_CALLBACK_LOCK
+   ... // Do stuff
+   #endif
+
+
+===========================================
+void rsd_callback_unlock(rsound_t *handle);
+===========================================
+
+Description:
+   Release the lock to the callback function. See description on rsd_callback_lock() for usage.
+
+Note:
+   This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
+
+   #ifdef RSD_CALLBACK_UNLOCK
+   ... // Do stuff
+   #endif
 
 ===================================
 int rsd_start(rsound_t* handle);
