@@ -273,6 +273,8 @@ void rsd_set_callback(rsound_t* handle, rsd_audio_callback_t callback,
 
 Description:
    Enables use of the callback interface. This must be set when stream is not active. 
+   Enabling error callback is not optional, as it is the only way to signal caller of errors that could occur.
+
    When callback is active, use of the blocking interface is disabled. 
    Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(), 
    or restarting the stream should an error have occured.
@@ -284,7 +286,7 @@ Description:
 
    librsound will attempt to target the latency information given with RSD_LATENCY as given before calling rsd_start().
 
-   max_size signifies the maximum size that will ever be requested by librsound. 
+   max_size signifies the maximum size that will ever be requested by librsound in a single callback. 
    Set this to 0 to let librsound decide the maximum size.
 
    Should an error occur to the stream, err_callback will be called, and the stream will be stopped. 
@@ -329,7 +331,7 @@ void rsd_callback_lock(rsound_t *handle);
 
 Description:
    Aquire the lock to the callback function. While this lock is held, the callback is guaranteed to not be in execution.
-   Attempting to aquire this lock when already locked could lead to a deadlock.
+   Attempting to aquire this lock when already locked in the same thread could lead to a deadlock.
 
 Example:
    rsd_callback_lock(handle);
