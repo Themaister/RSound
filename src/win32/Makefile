@@ -48,6 +48,7 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ) $(TARGET_LIB)
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ)
 	@mkdir -p bin
+	@mkdir -p lib
 	@echo "LD $@"
 	@$(CC) -shared -Wl,--out-implib,$(TARGET_LIB_IMPLIB) -o $(TARGET_LIB) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) $(LIB_DIRS)
 
