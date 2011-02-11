@@ -27,9 +27,10 @@ clean:
 	rm -f *.o
 
 install:
-	install -m755 $(TARGET_LIB) $(PREFIX)/lib/vlc/plugins/audio_output
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/vlc/plugins/audio_output
+	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib/vlc/plugins/audio_output
 
 uninstall:
-	rm -f $(PREFIX)/lib/vlc/plugins/audio_output/$(TARGET_LIB)
+	rm -f $(DESTDIR)$(PREFIX)/lib/vlc/plugins/audio_output/$(TARGET_LIB)
 
 .PHONY: clean install uninstall
