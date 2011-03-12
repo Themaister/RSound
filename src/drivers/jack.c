@@ -223,6 +223,19 @@ error:
    return -1;
 }
 
+static jack_nframes_t jack_internal_latency(jack_t *jd)
+{
+   jack_latency_range_t range;
+   jack_nframes_t latency = 0;
+   for (int i = 0; i < jd->channels; i++)
+   {
+      jack_port_get_latency_range(jd->ports[i], JackPlaybackLatency, &range);
+      if (range.max > latency)
+         latency = range.max;
+   }
+   return latency;
+}
+
 static void jack_get_backend(void *data, backend_info_t *backend_info)
 {
    jack_t *jd = data;
@@ -241,14 +254,14 @@ static void jack_get_backend(void *data, backend_info_t *backend_info)
    else
       backend_info->resample = 0;
 
-   backend_info->latency = jack_port_get_total_latency(jd->client, jd->ports[0]) * jd->channels * rsnd_format_to_bytes(jd->format);
+   backend_info->latency = jack_internal_latency(jd) * jd->channels * rsnd_format_to_bytes(jd->format);
 }
 
 static int jack_latency(void* data)
 {
    jack_t *jd = data;
-   jack_nframes_t frames = jack_port_get_total_latency(jd->client, jd->ports[0]) + jack_ringbuffer_read_space(jd->buffer[0]) / sizeof(jack_default_audio_sample_t);
 
+   jack_nframes_t frames = jack_internal_latency(jd) + jack_ringbuffer_read_space(jd->buffer[0]) / sizeof(jack_default_audio_sample_t);
    return frames * jd->channels * rsnd_format_to_bytes(jd->format);
 }
 
