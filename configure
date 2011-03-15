@@ -171,7 +171,7 @@ else
 fi
 
 [ $HAVE_PORTAUDIO = auto ] && check_lib PORTAUDIO -lportaudio Pa_OpenStream
-[ $HAVE_JACK = auto ] && check_lib JACK -ljack jack_client_open
+[ $HAVE_JACK = auto ] && check_lib JACK -ljack jack_port_get_latency_range
 [ $HAVE_SAMPLERATE = auto ] && check_lib SAMPLERATE -lsamplerate src_callback_new
 [ $HAVE_SYSLOG = auto ] && check_lib SYSLOG -lc openlog
 
