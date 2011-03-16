@@ -1,18 +1,18 @@
-From ce0fe92a93cf4e411a04835697e9ad567af685e1 Mon Sep 17 00:00:00 2001
+From 3e4041b5a59800d7ea608ae5c530b18eee68220b Mon Sep 17 00:00:00 2001
 From: Themaister <maister@archlinux.us>
 Date: Tue, 15 Mar 2011 21:11:05 +0100
 Subject: [PATCH] RSound plugin
 
 ---
- Makefile.am                |    9 ++-
- configure.ac               |   19 +++++-
+ Makefile.am                |    6 ++
+ configure.ac               |   17 ++++
  src/output/rsound_plugin.c |  182 ++++++++++++++++++++++++++++++++++++++++++++
  src/output_list.c          |    4 +
- 4 files changed, 211 insertions(+), 3 deletions(-)
+ 4 files changed, 209 insertions(+), 0 deletions(-)
  create mode 100644 src/output/rsound_plugin.c
 
 diff --git a/Makefile.am b/Makefile.am
-index d4fec31..747f7e4 100644
+index 7b41d1c..396178f 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -51,6 +51,7 @@ mpd_headers = \
@@ -23,26 +23,16 @@ index d4fec31..747f7e4 100644
  	src/filter_internal.h \
  	src/filter_config.h \
  	src/filter_plugin.h \
-@@ -673,6 +674,7 @@ OUTPUT_LIBS = \
- 	$(LIBWRAP_LDFLAGS) \
+@@ -675,6 +676,7 @@ OUTPUT_LIBS = \
  	$(AO_LIBS) \
  	$(ALSA_LIBS) \
+ 	$(ROAR_LIBS) \
 +	$(RSOUND_LIBS) \
  	$(FFADO_LIBS) \
  	$(JACK_LIBS) \
  	$(OPENAL_LIBS) \
-@@ -689,8 +691,7 @@ OUTPUT_API_SRC = \
- 	src/output_command.c \
- 	src/output_init.c
- 
--OUTPUT_SRC = \
--	src/output/null_plugin.c
-+OUTPUT_SRC = src/output/null_plugin.c
- 
- MIXER_API_SRC = \
- 	src/mixer_control.c \
-@@ -706,6 +707,10 @@ OUTPUT_SRC += src/output/alsa_plugin.c
- MIXER_SRC += src/mixer/alsa_mixer_plugin.c
+@@ -713,6 +715,10 @@ OUTPUT_SRC += src/output/roar_plugin.c
+ MIXER_SRC += src/mixer/roar_mixer_plugin.c
  endif
  
 +if HAVE_RSOUND
@@ -53,18 +43,10 @@ index d4fec31..747f7e4 100644
  OUTPUT_SRC += src/output/ffado_output_plugin.c
  endif
 diff --git a/configure.ac b/configure.ac
-index 89b5ce3..aaafcbc 100644
+index 0d07555..14a807f 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -41,7 +41,6 @@ AC_SUBST(AM_CFLAGS,"")
- 
- AC_SUBST(MPD_LIBS)
- AC_SUBST(MPD_CFLAGS)
--MPD_LIBS=""
- MPD_CFLAGS=""
- 
- dnl ---------------------------------------------------------------------------
-@@ -126,6 +125,11 @@ AC_ARG_ENABLE(ao,
+@@ -131,6 +131,11 @@ AC_ARG_ENABLE(ao,
  		[enable support for libao]),,
  	enable_ao=auto)
  
@@ -76,11 +58,10 @@ index 89b5ce3..aaafcbc 100644
  AC_ARG_ENABLE(audiofile,
  	AS_HELP_STRING([--enable-audiofile],
  		[enable audiofile support (WAV and others)]),,
-@@ -1221,6 +1225,17 @@ fi
+@@ -1236,6 +1241,16 @@ fi
  
- AM_CONDITIONAL(HAVE_ALSA, test x$enable_alsa = xyes)
+ AM_CONDITIONAL(HAVE_ROAR, test x$enable_roar = xyes)
  
-+
 +dnl ---------------------------------- RSOUND ---------------------------------
 +MPD_AUTO_PKG(rsound, RSOUND, [rsound >= 1.0],
 +	[RSOUND output plugin], [librsound not found])
@@ -94,18 +75,18 @@ index 89b5ce3..aaafcbc 100644
  dnl ----------------------------------- FFADO ---------------------------------
  
  MPD_AUTO_PKG(ffado, FFADO, [libffado],
-@@ -1430,6 +1445,7 @@ AM_CONDITIONAL(ENABLE_WINMM_OUTPUT, test x$enable_winmm_output = xyes)
- dnl --------------------- Post Audio Output Plugins Tests ---------------------
+@@ -1446,6 +1461,7 @@ dnl --------------------- Post Audio Output Plugins Tests ---------------------
  if
  	test x$enable_alsa = xno &&
+ 	test x$enable_roar = xno &&
 +	test x$enable_rsound = xno &&
  	test x$enable_ao = xno &&
  	test x$enable_ffado = xno &&
  	test x$enable_fifo = xno &&
-@@ -1566,6 +1582,7 @@ results(id3,[ID3])
- 
+@@ -1583,6 +1599,7 @@ results(id3,[ID3])
  printf '\nPlayback support:\n\t'
  results(alsa,ALSA)
+ results(roar,ROAR)
 +results(rsound,RSOUND)
  results(ffado,FFADO)
  results(fifo,FIFO)
@@ -299,10 +280,10 @@ index 0000000..c53921f
 +
 +
 diff --git a/src/output_list.c b/src/output_list.c
-index 24b089e..3b6ffc5 100644
+index 75d24d6..4594b48 100644
 --- a/src/output_list.c
 +++ b/src/output_list.c
-@@ -37,6 +37,7 @@ extern const struct audio_output_plugin mvp_output_plugin;
+@@ -38,6 +38,7 @@ extern const struct audio_output_plugin mvp_output_plugin;
  extern const struct audio_output_plugin jack_output_plugin;
  extern const struct audio_output_plugin httpd_output_plugin;
  extern const struct audio_output_plugin recorder_output_plugin;
@@ -310,7 +291,7 @@ index 24b089e..3b6ffc5 100644
  extern const struct audio_output_plugin winmm_output_plugin;
  extern const struct audio_output_plugin ffado_output_plugin;
  
-@@ -87,6 +88,9 @@ const struct audio_output_plugin *audio_output_plugins[] = {
+@@ -91,6 +92,9 @@ const struct audio_output_plugin *audio_output_plugins[] = {
  #ifdef ENABLE_RECORDER_OUTPUT
  	&recorder_output_plugin,
  #endif
