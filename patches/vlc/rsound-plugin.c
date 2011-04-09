@@ -47,6 +47,7 @@
 struct aout_sys_t
 {
     rsound_t *rd;
+    vlc_thread_t thread;
 };
 
 /*****************************************************************************
@@ -56,7 +57,7 @@ static int  Open         ( vlc_object_t * );
 static void Close        ( vlc_object_t * );
 
 static void Play         ( aout_instance_t * );
-static void* RSDThread   ( vlc_object_t * );
+static void* RSDThread   ( void * );
 
 static mtime_t BufferDuration( aout_instance_t * p_aout );
 
@@ -184,7 +185,7 @@ static int Open( vlc_object_t *p_this )
     }
 
     /* Create RSound thread and wait for its readiness. */
-    if( vlc_thread_create( p_aout, "aout", RSDThread,
+    if( vlc_clone( &p_sys->thread, RSDThread, p_aout,
                            VLC_THREAD_PRIORITY_OUTPUT ) )
     {
         msg_Err( p_aout, "cannot create RSound thread (%m)" );
@@ -213,7 +214,7 @@ static void Close( vlc_object_t * p_this )
     struct aout_sys_t * p_sys = p_aout->output.p_sys;
 
     vlc_object_kill( p_aout );
-    vlc_thread_join( p_aout );
+    vlc_join( p_sys->thread, NULL );
     p_aout->b_die = false;
 
     rsd_stop(p_sys->rd);
@@ -240,9 +241,9 @@ static mtime_t BufferDuration( aout_instance_t * p_aout )
 
 #define MIN_LATENCY_US 50000
 
-static void* RSDThread( vlc_object_t *p_this )
+static void* RSDThread( void *p_this )
 {
-    aout_instance_t * p_aout = (aout_instance_t*)p_this;
+    aout_instance_t * p_aout = p_this;
     struct aout_sys_t * p_sys = p_aout->output.p_sys;
     int canc = vlc_savecancel ();
 
