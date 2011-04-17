@@ -1,0 +1,38 @@
+#ckport(1) database for librsound
+!NAME: RSound client library
+!TARGET: librsound3
+!TYPE: func
+
+# Basic object mangement:
+rsd_init		ok
+rsd_free		ok
+
+# Parameter handling:
+rsd_set_param		ok
+rsd_samplesize		ok
+
+# Start and stop streaming:
+rsd_start		ok
+rsd_stop		ok
+rsd_pause		ok
+
+# IO functions:
+rsd_write		ok
+rsd_exec		maybe	May not work on all systems
+
+# Delay handling:
+rsd_pointer		ok
+rsd_get_avail		ok
+rsd_delay		ok
+rsd_delay_ms		ok
+rsd_delay_wait		ok
+
+# Simple API:
+rsd_simple_start	ok
+
+# Callback API:
+rsd_set_callback		ok
+rsd_callback_lock		ok	
+rsd_set_callback		ok
+
+#ll

@@ -164,8 +164,9 @@ install: install-lib install-server install-client
 
 
 install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
-	mkdir -p $(DESTDIR)$(PREFIX)/{lib/pkgconfig,include,share/man/man1}
+	mkdir -p $(DESTDIR)$(PREFIX)/{lib/pkgconfig,include,share/man/man1,lib/ckport/db}
 	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib
+	install -m644 ../ckport/librsound.ckport $(DESTDIR)$(PREFIX)/lib/ckport/db
 ifneq ($(PLATFORM),OSX)
 	cp -P librsound/librsound.so librsound/librsound.so.3 $(DESTDIR)$(PREFIX)/lib
 endif
