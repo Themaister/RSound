@@ -164,7 +164,10 @@ install: install-lib install-server install-client
 
 
 install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
-	mkdir -p $(DESTDIR)$(PREFIX)/{lib/pkgconfig,include,share/man/man1,lib/ckport/db}
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/pkgconfig 2>/dev/null || /bin/true
+	mkdir -p $(DESTDIR)$(PREFIX)/include 2>/dev/null || /bin/true
+	mkdir -p $(DESTDIR)$(PREFIX)/share/man/man1 2>/dev/null || /bin/true
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/ckport/db 2>/dev/null || /bin/true
 	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib
 	install -m644 ../ckport/librsound.ckport $(DESTDIR)$(PREFIX)/lib/ckport/db
 ifneq ($(PLATFORM),OSX)
