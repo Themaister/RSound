@@ -60,12 +60,9 @@ int rsd_conn_type = RSD_CONN_TCP;
 int resample_freq = 0;
 int daemonize = 0;
 
-#ifndef _WIN32
 static void* get_addr(struct sockaddr*);
-static int legal_ip(const char*);
 static int valid_ips(struct sockaddr_storage *their_addr);
 static void log_message(const char* ip);
-#endif
 
 // Union for casting without aliasing violations.
 static union
@@ -210,7 +207,6 @@ int main(int argc, char ** argv)
          continue;
       }
 
-#ifndef _WIN32
       /* Checks if they are from same source, if not, close the connection. */
       /* Check will be ignored if there is no ctl-socket active. */
       /* TODO: Security here is *retarded* :D */
@@ -220,7 +216,6 @@ int main(int argc, char ** argv)
          close(s_ctl); s_ctl = -1;
          continue;
       }
-#endif
 
       conn.socket = s_new;
       conn.ctl_socket = s_ctl;
@@ -232,7 +227,6 @@ int main(int argc, char ** argv)
    return 0;
 }
 
-#ifndef _WIN32
 static void* get_addr(struct sockaddr *sa)
 {
    union
@@ -256,16 +250,47 @@ static void* get_addr(struct sockaddr *sa)
    return NULL;
 }
 
-/* For now, just accept the IP blindly (tinfoil hat off) */
-static int legal_ip( const char* remoteIP )
+// Hooray!
+#ifdef _WIN32
+static const char *inet_ntop(int af, const void *src, char *dst, socklen_t cnt)
 {
-   (void)remoteIP;
-   return 1;
+   union
+   {
+      struct sockaddr *sa;
+      struct sockaddr_in *v4;
+      struct sockaddr_in6 *v6;
+   } u;
+
+   if (af == AF_INET)
+   {
+      struct sockaddr_in in;
+      memset(&in, 0, sizeof(in));
+      in.sin_family = AF_INET;
+      memcpy(&in.sin_addr, src, sizeof(struct in_addr));
+
+      u.v4 = &in;
+      getnameinfo(u.sa, sizeof(struct
+               sockaddr_in), dst, cnt, NULL, 0, NI_NUMERICHOST);
+      return dst;
+   }
+   else if (af == AF_INET6)
+   {
+      struct sockaddr_in6 in;
+      memset(&in, 0, sizeof(in));
+      in.sin6_family = AF_INET6;
+      memcpy(&in.sin6_addr, src, sizeof(struct in_addr6));
+
+      u.v6 = &in;
+      getnameinfo(u.sa, sizeof(struct
+               sockaddr_in6), dst, cnt, NULL, 0, NI_NUMERICHOST);
+      return dst;
+   }
+   return NULL;
 }
+#endif
 
 static int valid_ips( struct sockaddr_storage *their_addr )
 {
-
    char remoteIP[2][INET6_ADDRSTRLEN] = { "", "" };
 
    inet_ntop(their_addr[0].ss_family, 
@@ -285,14 +310,7 @@ static int valid_ips( struct sockaddr_storage *their_addr )
 
    log_message(remoteIP[1]);
 
-   /* Currently, legal_ip always returns 1 */
-   if ( !legal_ip( remoteIP[0] ) )
-   {
-      return -1;
-   }
-
    return 0;
-
 }
 
 static void log_message( const char * ip )
@@ -303,12 +321,8 @@ static void log_message( const char * ip )
    {
       time_t cur_time;
       time(&cur_time);
-      strftime(timestring, 63, "%F - %H:%M:%S", localtime(&cur_time)); 
+      strftime(timestring, 63, "%Y-%m-%d - %H:%M:%S", localtime(&cur_time)); 
       log_printf("Connection :: [ %s ] [ %s ] ::\n", timestring, ip);
    }
-
 }
-#endif
-
-
 
