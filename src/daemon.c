@@ -45,7 +45,6 @@ char bindaddr[128] = "";
 const rsd_backend_callback_t *backend = NULL;
 #ifndef _WIN32
 char unix_sock[128] = "";
-int daemonize = 0;
 int no_threading = 0;
 #endif
 
@@ -59,6 +58,7 @@ int use_syslog = 0;
 int listen_socket = 0;
 int rsd_conn_type = RSD_CONN_TCP;
 int resample_freq = 0;
+int daemonize = 0;
 
 #ifndef _WIN32
 static void* get_addr(struct sockaddr*);
@@ -89,7 +89,10 @@ int main(int argc, char ** argv)
    /* Parses input and sets the global variables */
    parse_input(argc, argv);
 
-#ifndef _WIN32
+#ifdef _WIN32
+   if ( daemonize )
+      FreeConsole();
+#else
    /* Should we fork and kill our parent? :p */
    if ( daemonize )
    {

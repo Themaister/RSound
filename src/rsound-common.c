@@ -275,13 +275,13 @@ void parse_input(int argc, char **argv)
       { "kill", 0, NULL, 'K' },
       { "single", 0, NULL, 'T' },
       { "device", 1, NULL, 'd' },
-      { "daemon", 0, NULL, 'D' },
 #endif
+      { "daemon", 0, NULL, 'D' },
       { NULL, 0, NULL, 0 }
    };
 
 #ifdef _WIN32
-   char optstring[] = "p:vhR:b:";
+   char optstring[] = "p:vhR:b:D";
 #else
 
 #ifdef HAVE_SYSLOG
@@ -488,11 +488,9 @@ void parse_input(int argc, char **argv)
             print_help();
             exit(1);
 
-#ifndef _WIN32
          case 'D':
             daemonize = 1;
             break;
-#endif
 
          case 'v':
             verbose = 1;
@@ -585,7 +583,7 @@ static void print_help()
    printf("rsd - version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", RSD_VERSION);
    printf("==========================================================================\n");
 #ifdef _WIN32
-   printf("Usage: rsd [ -p/--port | --bind | -R/--rate | -v/--verbose | --debug | -h/--help ]\n");
+   printf("Usage: rsd [ -p/--port | --bind | -R/--rate | -v/--verbose | --debug | -h/--help | -D/--daemon ]\n");
 #else
 #ifdef HAVE_SAMPLERATE
    printf("Usage: rsd [ -d/--device | -b/--backend | -p/--port | --bind | -R/--rate | -Q/--resampler | -D/--daemon | -v/--verbose | --debug | -h/--help | --single | --kill ]\n");
@@ -634,8 +632,8 @@ static void print_help()
    putchar('\n');
    putchar('\n');
 
-#ifndef _WIN32
    printf("-D/--daemon: Runs as daemon.\n");
+#ifndef _WIN32
    printf("-p/--port: Defines which port to listen on.\n");
    printf("--single: Only allows a single connection at a time.\n");
    printf("--kill: Cleanly shuts downs the running rsd process.\n");
