@@ -75,7 +75,7 @@ static union
 
 int main(int argc, char ** argv)
 {
-   int s = -1, s_new = -1, s_ctl = -1, i;
+   int s = -1, s_new = -1, s_ctl = -1;
    connection_t conn;
    struct sockaddr_storage their_addr[2];
    u[0].storage = &their_addr[0];
@@ -95,7 +95,7 @@ int main(int argc, char ** argv)
    {
       if ( debug )
          log_printf("Forking into background ...\n");
-      i = fork();
+      int i = fork();
       if ( i < 0 ) exit(1);
       if ( i > 0 ) exit(0);
       /* Forking into background */

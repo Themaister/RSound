@@ -7,7 +7,7 @@ ifeq ($(CC),cc)
    CC := gcc
 endif
 
-CFLAGS := -O2 -std=gnu99
+CFLAGS := -O2 -std=gnu99 -g -Wall
 INCLUDE_DIRS := -Iinclude -I../librsound -Iinclude/pthread -Imuroar
 LIB_DIRS := -Lbin -Llib
 

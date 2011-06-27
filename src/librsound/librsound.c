@@ -1082,12 +1082,16 @@ static int rsnd_send_info_query(rsound_t *rd)
    char tmpbuf[RSD_PROTO_MAXSIZE];
    char sendbuf[RSD_PROTO_MAXSIZE];
 
+#ifdef _WIN32
+   snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, " INFO %I64d", (__int64)rd->total_written);
+#else
    snprintf(tmpbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld", (long long int)rd->total_written);
+#endif
    tmpbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
    snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
    sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
 
-   if ( rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != (ssize_t)strlen(sendbuf) )
+   if (rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != (ssize_t)strlen(sendbuf))
       return -1;
 
    return 0;
@@ -1152,7 +1156,6 @@ static int rsnd_update_server_info(rsound_t *rd)
 
    if (client_ptr > 0 && serv_ptr > 0)
    {
-
       int delay = rsd_delay(rd);
       int delta = (int)(client_ptr - serv_ptr);
       pthread_mutex_lock(&rd->thread.mutex);
