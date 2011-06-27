@@ -25,43 +25,43 @@
 
 int poll(struct pollfd *fd, int num, int timeout)
 {
-	fd_set read_fd;
-	fd_set write_fd;
-	FD_ZERO(&read_fd);
-	FD_ZERO(&write_fd);
+   fd_set read_fd;
+   fd_set write_fd;
+   FD_ZERO(&read_fd);
+   FD_ZERO(&write_fd);
 
-	int maxfd = 0;
-	for (int i = 0; i < num; i++)
-	{
-		if (fd[i].events & POLLIN)
-			FD_SET((SOCKET)fd[i].fd, &read_fd);
-		else if (fd[i].events & POLLOUT)
-			FD_SET((SOCKET)fd[i].fd, &write_fd);
-		if (fd[i].fd > maxfd)
-			maxfd = fd[i].fd;
-		fd[i].revents = 0;
-	}
-
-	struct timeval tv = {
-		.tv_sec = (timeout * 1000) / 1000000,
-		.tv_usec = (timeout * 1000) % 1000000
-	};
-
-	if (select(maxfd+1, &read_fd, &write_fd, NULL, &tv) < 0)
+   int maxfd = 0;
+   for (int i = 0; i < num; i++)
    {
-      errno = EBADF;
-		return -1;
+      if (fd[i].events & POLLIN)
+         FD_SET((SOCKET)fd[i].fd, &read_fd);
+      else if (fd[i].events & POLLOUT)
+         FD_SET((SOCKET)fd[i].fd, &write_fd);
+      if (fd[i].fd > maxfd)
+         maxfd = fd[i].fd;
+      fd[i].revents = 0;
    }
 
-	for (int i = 0; i < num; i++)
-	{
-		if (FD_ISSET(fd[i].fd, &read_fd))
-			fd[i].revents = POLLIN;
-		else if (FD_ISSET(fd[i].fd, &write_fd))
-			fd[i].revents = POLLOUT;
-	}
+   struct timeval tv = {
+      .tv_sec = (timeout * 1000) / 1000000,
+      .tv_usec = (timeout * 1000) % 1000000
+   };
 
-	return 0;
+   if (select(maxfd+1, &read_fd, &write_fd, NULL, &tv) < 0)
+   {
+      errno = EBADF;
+      return -1;
+   }
+
+   for (int i = 0; i < num; i++)
+   {
+      if (FD_ISSET(fd[i].fd, &read_fd))
+         fd[i].revents = POLLIN;
+      else if (FD_ISSET(fd[i].fd, &write_fd))
+         fd[i].revents = POLLOUT;
+   }
+
+   return 0;
 }
 
 #endif

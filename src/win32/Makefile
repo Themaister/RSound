@@ -7,7 +7,7 @@ ifeq ($(CC),cc)
    CC := gcc
 endif
 
-CFLAGS := -Os -s -std=gnu99
+CFLAGS := -O2 -std=gnu99
 INCLUDE_DIRS := -Iinclude -I../librsound -Iinclude/pthread -Imuroar
 LIB_DIRS := -Lbin -Llib
 
@@ -15,11 +15,11 @@ TARGET_SERVER = bin/rsd.exe
 DEFS = -D_DS -D_MUROAR
 TARGET_CLIENT = bin/rsdplay.exe
 TARGET_LIB = bin/rsound.dll
-TARGET_LIB_OBJ = ../librsound/librsound.o src/poll.o ../librsound/buffer.o
+TARGET_LIB_OBJ = ../librsound/librsound.o src/poll.o src/pthread.o ../librsound/buffer.o
 TARGET_LIB_IMPLIB = lib/librsound.a
 
-TARGET_SERVER_LIBS = -lpthreadGC2 -lws2_32
-TARGET_LIB_LIBS = -lpthreadGC2 -lws2_32
+TARGET_SERVER_LIBS = -lws2_32
+TARGET_LIB_LIBS = -lws2_32
 OPT_SERV_LIBS = -ldsound -luuid
 OPT_SERV_OBJ = ../drivers/dsound.o ../drivers/muroar.o muroar/muroar.o muroar/muroario.o
 
@@ -27,10 +27,10 @@ TARGET_CLIENT_OBJ = ../client.o ../endian.o
 TARGET_CLIENT_LIBS = -lrsound -lws2_32
 
 TARGET_SERVER_LIBS += $(OPT_SERV_LIBS)
-TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) ../audio.o ../endian.o ../daemon.o ../rsound-common.o ../proto.o ../resampler.o src/poll.o
+TARGET_SERVER_OBJ = $(OPT_SERV_OBJ) ../audio.o ../endian.o ../daemon.o ../rsound-common.o ../proto.o ../resampler.o src/poll.o src/pthread.o
 
 TARGET_DIST = rsound-win32-1.1.zip
-DIST_EXTRAS = bin/pthreadGC2.dll README.txt include/rsound.h COPYING.txt
+DIST_EXTRAS = README.txt include/rsound.h COPYING.txt
 
 all: client lib server
 
@@ -62,18 +62,17 @@ $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	@$(CC) $(CFLAGS) $(INCLUDE_DIRS) $(DEFS) -c -o $@ $<
 
 clean:
-	rm -rf $(TARGET_SERVER)
-	rm -rf $(TARGET_CLIENT)
-	rm -rf $(TARGET_CLIENT_OBJ)
-	rm -rf $(TARGET_LIB)
-	rm -rf $(TARGET_LIB_OBJ)
-	rm -rf $(TARGET_LIB_IMPLIB)
-	rm -rf $(TARGET_SERVER_OBJ)
-	rm -rf ../rsound.pc
+	rm -f $(TARGET_SERVER)
+	rm -f $(TARGET_CLIENT)
+	rm -f $(TARGET_CLIENT_OBJ)
+	rm -f $(TARGET_LIB)
+	rm -f $(TARGET_LIB_OBJ)
+	rm -f $(TARGET_LIB_IMPLIB)
+	rm -f $(TARGET_SERVER_OBJ)
 
 distclean: clean
-	rm -rf config.h
-	rm -rf config.mk
+	rm -f config.h
+	rm -f config.mk
 
 dist: all
 	@cp -r ../librsound/rsound.h include/rsound.h

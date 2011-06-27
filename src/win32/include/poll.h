@@ -20,22 +20,21 @@
 #ifndef _POLL_H
 #define _POLL_H
 
-enum poll_event { 
-	POLLIN = 0x0001,
-	POLLOUT = 0x0002,
-	POLLHUP = 0x0004
+enum poll_event 
+{ 
+   POLLIN = 0x0001,
+   POLLOUT = 0x0002,
+   POLLHUP = 0x0004
 };
-
 
 struct pollfd
 {
-	int fd;
-	int events;
-	int revents;
+   int fd;
+   int events;
+   int revents;
 };
 
 int poll(struct pollfd *fd, int num, int timeout);
 
 #endif
-
 #endif
