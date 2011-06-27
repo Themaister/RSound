@@ -1339,7 +1339,7 @@ static void* rsnd_cb_thread(void *thread_data)
             {
                // The network might do things in large chunks, so it may request large amounts of data in short periods of time.
                // This breaks when the caller cannot buffer up big buffers beforehand, so do short sleeps inbetween.
-               // This is somewhat dirty, but I cannot see a better solution
+               // This is somewhat dirty, but I cannot see a better solution.
                rsnd_sleep(1);
             }
          }
@@ -1367,7 +1367,7 @@ static void* rsnd_cb_thread(void *thread_data)
 
       rd->total_written += rd->backend_info.chunk_size;
 
-      if ( (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize) )
+      if ((rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize))
       {
          rsnd_send_info_query(rd); 
          rsnd_update_server_info(rd);
@@ -1384,7 +1384,7 @@ static int rsnd_reset(rsound_t *rd)
    if (rd->conn.socket != -1)
       close(rd->conn.socket);
 
-   if (rd->conn.socket != 1)
+   if (rd->conn.ctl_socket != 1)
       close(rd->conn.ctl_socket);
 
    /* Pristine stuff, baby! */

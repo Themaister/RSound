@@ -15,8 +15,7 @@
 
 
 #include "pthread.h"
-
-#include <stdio.h>
+#include <stdlib.h>
 
 struct winthread_param
 {
@@ -31,8 +30,9 @@ pthread_t pthread_self(void)
 
 static DWORD CALLBACK winthread_entry(void *param_)
 {
-   const struct winthread_param *param = param_;
-   param->proc(param->data);
+   struct winthread_param param = *(const struct winthread_param*)param_;
+   free(param_);
+   param.proc(param.data);
    ExitThread(0);
    return 0;
 }
@@ -85,21 +85,18 @@ int pthread_cond_destroy(pthread_cond_t *cond)
 
 int pthread_cond_wait(pthread_cond_t * restrict cond, pthread_mutex_t * restrict mutex)
 {
-   fprintf(stderr, "COND_WAIT start\n");
+   WaitForSingleObject(*cond, 0); // Clear out current wait condition.
    pthread_mutex_unlock(mutex);
    // This has some different semantics than condition variables, but we don't really care ;D
    WaitForSingleObject(*cond, INFINITE);
    pthread_mutex_lock(mutex);
 
-   fprintf(stderr, "COND_WAIT stop\n");
    return 0;
 }
 
 int pthread_cond_signal(pthread_cond_t *cond)
 {
-   fprintf(stderr, "COND_SIGNAL start\n");
    SetEvent(*cond);
-   fprintf(stderr, "COND_SIGNAL stop\n");
    return 0;
 }
 
@@ -107,11 +104,13 @@ int pthread_create(pthread_t *thread, void *dummy, void *(*start_routine)(void*)
 {
    (void)dummy;
 
-   struct winthread_param param = {
-      .proc = start_routine,
-      .data = arg
-   };
-   *thread = CreateThread(NULL, 0, winthread_entry, &param, 0, NULL);
+   struct winthread_param *param = malloc(sizeof(*param));
+   if (!param)
+      return -1;
+   param->proc = start_routine;
+   param->data = arg;
+
+   *thread = CreateThread(NULL, 0, winthread_entry, param, 0, NULL);
    if (!*thread)
       return -1;
    return 0;
@@ -122,6 +121,7 @@ int pthread_join(pthread_t thread, void **dummy)
    (void)dummy;
 
    WaitForSingleObject(thread, INFINITE);
+   CloseHandle(thread);
    return 0;
 }
 
