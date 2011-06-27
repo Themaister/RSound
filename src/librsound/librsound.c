@@ -14,6 +14,7 @@
  */
 
 #define RSD_EXPOSE_STRUCT
+#define RSD_DLL_EXPORT
 #include "rsound.h"
 #include "buffer.h"
 
@@ -136,7 +137,7 @@ static int init_wsock(void)
    WSADATA wsaData;
    int retval;
 
-   if ((retval = WSAStartup(MAKEWORD(2,2), &wsaData)) != 0)
+   if ((retval = WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0)
    {
       RSD_ERR("Could not start Winsock\n");
       WSACleanup();
@@ -154,7 +155,7 @@ static void rsnd_log(enum rsd_logtype type, const char *fmt, ...)
    va_start(args, fmt);
 
    const char *logtype;
-   switch ( type )
+   switch (type)
    {
       case RSD_LOG_DEBUG:
          logtype = "DEBUG";
@@ -187,12 +188,12 @@ static inline int rsnd_is_little_endian(void)
 }
 
 /* Simple functions for swapping bytes */
-static inline void rsnd_swap_endian_16 ( uint16_t * x )
+static inline void rsnd_swap_endian_16(uint16_t * x)
 {
    *x = (*x>>8) | (*x<<8);
 }
 
-static inline void rsnd_swap_endian_32 ( uint32_t * x )
+static inline void rsnd_swap_endian_32(uint32_t * x)
 {
    *x =  (*x >> 24 ) |
       ((*x<<8) & 0x00FF0000) |
@@ -200,7 +201,7 @@ static inline void rsnd_swap_endian_32 ( uint32_t * x )
       (*x << 24);
 }
 
-static inline int rsnd_format_to_samplesize ( enum rsd_format fmt )
+static inline int rsnd_format_to_samplesize(enum rsd_format fmt)
 {
    switch(fmt)
    {
@@ -231,7 +232,7 @@ static inline int rsnd_format_to_samplesize ( enum rsd_format fmt )
    }
 }
 
-int rsd_samplesize( rsound_t *rd )
+int rsd_samplesize(rsound_t *rd)
 {
    assert(rd != NULL);
    return rd->samplesize;
@@ -293,7 +294,7 @@ static int rsnd_connect_server( rsound_t *rd )
    hints.ai_socktype = SOCK_STREAM;
 
 #ifndef _WIN32
-   if ( rd->host[0] == '/' )
+   if (rd->host[0] == '/')
    {
       rd->conn_type = RSD_CONN_UNIX;
       res = &hints;
@@ -306,7 +307,7 @@ static int rsnd_connect_server( rsound_t *rd )
       un.sun_path[sizeof(un.sun_path)-1] = '\0';
    }
 #ifdef HAVE_DECNET
-   else if ( (delm = strstr(rd->host, "::")) != NULL )
+   else if ((delm = strstr(rd->host, "::")) != NULL)
    {
       rd->conn_type = RSD_CONN_DECNET;
       object = delm;
@@ -334,24 +335,24 @@ static int rsnd_connect_server( rsound_t *rd )
 #endif
    {
       rd->conn_type = RSD_CONN_TCP;
-      if ( getaddrinfo(rd->host, rd->port, &hints, &res) != 0 )
+      if (getaddrinfo(rd->host, rd->port, &hints, &res) != 0)
          goto error;
    }
 
    rd->conn.socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
    rd->conn.ctl_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-   if ( rd->conn.socket < 0 || rd->conn.ctl_socket < 0 )
+   if (rd->conn.socket < 0 || rd->conn.ctl_socket < 0)
    {
       RSD_ERR("Getting sockets failed.");
       goto error;
    }
 
-   if ( rsnd_connect_socket(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0 )
+   if (rsnd_connect_socket(rd->conn.socket, res->ai_addr, res->ai_addrlen) < 0)
       goto error;
-   if ( rsnd_connect_socket(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0 )
+   if (rsnd_connect_socket(rd->conn.ctl_socket, res->ai_addr, res->ai_addrlen) < 0)
       goto error;
 
-   if ( res != NULL && (res->ai_family != AF_UNIX) )
+   if (res != NULL && (res->ai_family != AF_UNIX))
       freeaddrinfo(res);
 
    RSD_DEBUG("rsnd_connect_server completeted!");
@@ -361,7 +362,7 @@ static int rsnd_connect_server( rsound_t *rd )
 error:
    RSD_ERR("Connecting to server failed. \"%s\"", rd->host);
 
-   if ( res != NULL && (res->ai_family != AF_UNIX) )
+   if (res != NULL && (res->ai_family != AF_UNIX))
       freeaddrinfo(res);
    return -1;
 }
@@ -369,7 +370,6 @@ error:
 /* Conjures a WAV-header and sends this to server. Returns -1 when failed, and 0 when success. */
 static int rsnd_send_header_info(rsound_t *rd)
 {
-
    /* Defines the size of a wave header */
 #define HEADER_SIZE 44
    char *header = calloc(1, HEADER_SIZE);
@@ -399,29 +399,29 @@ static int rsnd_send_header_info(rsound_t *rd)
    uint16_t temp_format = rd->format;
 
    // Checks the format for native endian which will need to be set properly.
-   switch ( temp_format )
+   switch (temp_format)
    {
       case RSD_S16_NE:
-         if ( rsnd_is_little_endian() )
+         if (rsnd_is_little_endian())
             temp_format = RSD_S16_LE;
          else
             temp_format = RSD_S16_BE;
          break;
 
       case RSD_U16_NE:
-         if ( rsnd_is_little_endian() )
+         if (rsnd_is_little_endian())
             temp_format = RSD_U16_LE;
          else
             temp_format = RSD_U16_BE;
          break;
       case RSD_S32_NE:
-         if ( rsnd_is_little_endian() )
+         if (rsnd_is_little_endian())
             temp_format = RSD_S32_LE;
          else
             temp_format = RSD_S32_BE;
          break;
       case RSD_U32_NE:
-         if ( rsnd_is_little_endian() )
+         if (rsnd_is_little_endian())
             temp_format = RSD_U32_LE;
          else
             temp_format = RSD_U32_BE;
@@ -456,7 +456,7 @@ static int rsnd_send_header_info(rsound_t *rd)
 
    temp16 = 0; // PCM data
 
-   switch( rd->format )
+   switch(rd->format)
    {
       case RSD_S16_LE:
       case RSD_U8:
@@ -504,7 +504,7 @@ static int rsnd_send_header_info(rsound_t *rd)
 
    // End static header
 
-   if ( rsnd_send_chunk(rd->conn.socket, header, HEADER_SIZE, 1) != HEADER_SIZE )
+   if (rsnd_send_chunk(rd->conn.socket, header, HEADER_SIZE, 1) != HEADER_SIZE)
    {
       free(header);
       return -1;
@@ -524,7 +524,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    // Header is 2 uint32_t's. = 8 bytes.
    uint32_t rsnd_header[2] = {0};
 
-   if ( rsnd_recv_chunk(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 1) != RSND_HEADER_SIZE )
+   if (rsnd_recv_chunk(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 1) != RSND_HEADER_SIZE)
    {
       RSD_ERR("Couldn't receive chunk.");
       return -1;
@@ -532,7 +532,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
    /* Again, we can't be 100% certain that sizeof(backend_info_t) is equal on every system */
 
-   if ( rsnd_is_little_endian() )
+   if (rsnd_is_little_endian())
    {
       rsnd_swap_endian_32(&rsnd_header[LATENCY]);
       rsnd_swap_endian_32(&rsnd_header[CHUNKSIZE]);
@@ -542,24 +542,24 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    rd->backend_info.chunk_size = rsnd_header[CHUNKSIZE];
 
 #define MAX_CHUNK_SIZE 1024 // We do not want larger chunk sizes than this.
-   if ( rd->backend_info.chunk_size > MAX_CHUNK_SIZE || rd->backend_info.chunk_size <= 0 )
+   if (rd->backend_info.chunk_size > MAX_CHUNK_SIZE || rd->backend_info.chunk_size <= 0)
       rd->backend_info.chunk_size = MAX_CHUNK_SIZE;
 
    /* Assumes a default buffer size should it cause problems of being too small */
-   if ( rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size * 2 )
+   if (rd->buffer_size <= 0 || rd->buffer_size < rd->backend_info.chunk_size * 2)
       rd->buffer_size = rd->backend_info.chunk_size * 32;
 
-   if ( rd->fifo_buffer != NULL )
+   if (rd->fifo_buffer != NULL)
       rsnd_fifo_free(rd->fifo_buffer);
    rd->fifo_buffer = rsnd_fifo_new (rd->buffer_size);
-   if ( rd->fifo_buffer == NULL )
+   if (rd->fifo_buffer == NULL)
    {
       RSD_ERR("Failed to create fifobuf");
       return -1;
    }
 
    // Only bother with setting network buffer size if we're doing TCP.
-   if ( rd->conn_type & RSD_CONN_TCP )
+   if (rd->conn_type & RSD_CONN_TCP)
    {
 #define MAX_TCP_BUFSIZE (1 << 14)
       int bufsiz = rd->buffer_size;
@@ -580,10 +580,12 @@ static int rsnd_get_backend_info ( rsound_t *rd )
 
    // Can we read the last 8 bytes so we can use the protocol interface?
    // This is non-blocking.
-   if ( rsnd_recv_chunk(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 0) == RSND_HEADER_SIZE )
+   if (rsnd_recv_chunk(rd->conn.socket, rsnd_header, RSND_HEADER_SIZE, 0) == RSND_HEADER_SIZE)
       rd->conn_type |= RSD_CONN_PROTO; 
    else
-   {  RSD_DEBUG("Failed to get new proto"); }
+   {  
+      RSD_DEBUG("Failed to get new proto"); 
+   }
 
    // We no longer want to read from this socket.
 #ifdef _WIN32
@@ -602,7 +604,7 @@ static int rsnd_create_connection(rsound_t *rd)
    int rc;
 
    /* Are we connected to the server? If not, these values have been set to <0, so we make sure that we connect */
-   if ( rd->conn.socket <= 0 && rd->conn.ctl_socket <= 0 )
+   if (rd->conn.socket <= 0 && rd->conn.ctl_socket <= 0)
    {
       rc = rsnd_connect_server(rd);
       if (rc < 0)
@@ -618,14 +620,14 @@ static int rsnd_create_connection(rsound_t *rd)
          .events = POLLOUT
       };
 
-      if ( rsnd_poll(&fd, 1, 2000) < 0 )
+      if (rsnd_poll(&fd, 1, 2000) < 0)
       {
          RSD_ERR("rsnd_poll failed!");
          rsd_stop(rd);
          return -1;
       }
 
-      if ( !(fd.revents & POLLOUT) )
+      if (!(fd.revents & POLLOUT))
       {
          RSD_ERR("Poll didn't return what we wanted!");
          rsd_stop(rd);
@@ -633,7 +635,7 @@ static int rsnd_create_connection(rsound_t *rd)
       }
    }
    /* Is the server ready for data? The first thing it expects is the wave header */
-   if ( !rd->ready_for_data )
+   if (!rd->ready_for_data)
    {
       /* Part of the uber simple protocol.
          1. Send wave header.
@@ -664,7 +666,7 @@ static int rsnd_create_connection(rsound_t *rd)
          return -1;
       }
 
-      if ( (rd->conn_type & RSD_CONN_PROTO) && strlen(rd->identity) > 0 )
+      if ((rd->conn_type & RSD_CONN_PROTO) && strlen(rd->identity) > 0)
       {
          rsnd_send_identity_info(rd);
       }
@@ -691,23 +693,23 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
 
 #define MAX_PACKET_SIZE 1024
 
-   while ( wrote < size )
+   while (wrote < size)
    {
-      if ( rsnd_poll(&fd, 1, sleep_time) < 0 )
+      if (rsnd_poll(&fd, 1, sleep_time) < 0)
          return -1;
 
-      if ( fd.revents & POLLHUP )
+      if (fd.revents & POLLHUP)
       {
          RSD_WARN("*** Remote side hung up! ***");
          return -1;
       }
 
-      if ( fd.revents & POLLOUT )
+      if (fd.revents & POLLOUT)
       {
          /* We try to limit ourselves to 1KiB packet sizes. */
          send_size = (size - wrote) > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - wrote;
          rc = send(socket, (const char*)buf + wrote, send_size, 0);
-         if ( rc < 0 )
+         if (rc < 0)
          {
             RSD_ERR("Error sending chunk, %s\n", strerror(errno));
             return rc;
@@ -717,7 +719,7 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
       else
       {
          /* If server hasn't stopped blocking after 10 secs, then we should probably shut down the stream. */
-         if ( blocking )
+         if (blocking)
             return -1;
          else
             return wrote;
@@ -741,25 +743,25 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
 
    int sleep_time = (blocking) ? 5000 : 0;
 
-   while ( has_read < size )
+   while (has_read < size)
    {
-      if ( rsnd_poll(&fd, 1, sleep_time) < 0 )
+      if (rsnd_poll(&fd, 1, sleep_time) < 0)
       {
          RSD_ERR("Poll failed");
          return -1;
       }
 
-      if ( fd.revents & POLLHUP )
+      if (fd.revents & POLLHUP)
       {
          RSD_ERR("Server hung up");
          return -1;
       }
 
-      if ( fd.revents & POLLIN )
+      if (fd.revents & POLLIN)
       {
          read_size = (size - has_read) > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - has_read;
          rc = recv(socket, (char*)buf + has_read, read_size, 0);
-         if ( rc <= 0 )
+         if (rc <= 0)
          {
             RSD_ERR("Error receiving chunk, %s\n", strerror(errno));
             return rc;
@@ -768,7 +770,7 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
       }
       else
       {
-         if ( blocking )
+         if (blocking)
          {
             RSD_ERR("Block FAIL!");
             return -1;
@@ -785,7 +787,7 @@ static int rsnd_poll(struct pollfd *fd, int numfd, int timeout)
 {
    for(;;)
    {
-      if ( poll(fd, numfd, timeout) < 0 )
+      if (poll(fd, numfd, timeout) < 0)
       {
          if ( errno == EINTR )
             continue;
@@ -821,7 +823,7 @@ static void rsnd_sleep(int msecs)
 static void rsnd_drain(rsound_t *rd)
 {
    /* If the audio playback has started on the server we need to use timers. */
-   if ( rd->has_written )
+   if (rd->has_written)
    {
       int64_t temp, temp2;
 
@@ -874,11 +876,11 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
    for (;;)
    {
       /* Should the thread be shut down while we're running, return with error */
-      if ( !rd->thread_active )
+      if (!rd->thread_active)
          return 0;
 
       pthread_mutex_lock(&rd->thread.mutex);
-      if ( rsnd_fifo_write_avail(rd->fifo_buffer) >= size )
+      if (rsnd_fifo_write_avail(rd->fifo_buffer) >= size)
       {
          pthread_mutex_unlock(&rd->thread.mutex);
          break;
@@ -910,11 +912,11 @@ static size_t rsnd_fill_buffer(rsound_t *rd, const char *buf, size_t size)
 static int rsnd_start_thread(rsound_t *rd)
 {
    int rc;
-   if ( !rd->thread_active )
+   if (!rd->thread_active)
    {
       rd->thread_active = 1;
       rc = pthread_create(&rd->thread.threadId, NULL, rd->audio_callback ? rsnd_cb_thread : rsnd_thread, rd);
-      if ( rc < 0 )
+      if (rc < 0)
       {
          rd->thread_active = 0;
          RSD_ERR("Failed to create thread.");
@@ -929,7 +931,7 @@ static int rsnd_start_thread(rsound_t *rd)
 /* Makes sure that the playback thread has been correctly shut down */
 static int rsnd_stop_thread(rsound_t *rd)
 {
-   if ( rd->thread_active )
+   if (rd->thread_active)
    {
 
       RSD_DEBUG("Shutting down thread.");
@@ -939,7 +941,7 @@ static int rsnd_stop_thread(rsound_t *rd)
       pthread_cond_signal(&rd->thread.cond);
       pthread_mutex_unlock(&rd->thread.cond_mutex);
 
-      if ( pthread_join(rd->thread.threadId, NULL) < 0 )
+      if (pthread_join(rd->thread.threadId, NULL) < 0)
          RSD_WARN("*** Warning, did not terminate thread. ***");
       else
          RSD_DEBUG("Thread joined successfully.");
@@ -968,7 +970,7 @@ static size_t rsnd_get_delay(rsound_t *rd)
    RSD_DEBUG("Offset: %d", rd->delay_offset);
    pthread_mutex_unlock(&rd->thread.mutex);
 
-   if ( ptr < 0 )
+   if (ptr < 0)
       ptr = 0;
 
    return (size_t)ptr;
@@ -997,7 +999,7 @@ static int rsnd_send_identity_info(rsound_t *rd)
    snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tmpbuf), tmpbuf);
    sendbuf[RSD_PROTO_MAXSIZE - 1] = '\0';
 
-   if ( rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != (ssize_t)strlen(sendbuf) )
+   if (rsnd_send_chunk(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) != (ssize_t)strlen(sendbuf))
       return -1;
 
    return 0;
@@ -1005,7 +1007,7 @@ static int rsnd_send_identity_info(rsound_t *rd)
 
 static int rsnd_close_ctl(rsound_t *rd)
 {
-   if ( !(rd->conn_type & RSD_CONN_PROTO) )
+   if (!(rd->conn_type & RSD_CONN_PROTO))
       return -1;
 
    struct pollfd fd = {
@@ -1013,16 +1015,16 @@ static int rsnd_close_ctl(rsound_t *rd)
       .events = POLLOUT
    };
 
-   if ( rsnd_poll(&fd, 1, 0) < 0 )
+   if (rsnd_poll(&fd, 1, 0) < 0)
       return -1;
 
-   if ( fd.revents & POLLOUT )
+   if (fd.revents & POLLOUT)
    {
       const char *sendbuf = "RSD    9 CLOSECTL";
       if ( send(rd->conn.ctl_socket, sendbuf, strlen(sendbuf), 0) < 0 )
          return -1;
    }
-   else if ( fd.revents & POLLHUP )
+   else if (fd.revents & POLLHUP)
       return 0;
 
    // Let's wait for reply (or POLLHUP)
@@ -1033,29 +1035,29 @@ static int rsnd_close_ctl(rsound_t *rd)
 
    for(;;)
    {
-      if ( rsnd_poll(&fd, 1, 2000) < 0 )
+      if (rsnd_poll(&fd, 1, 2000) < 0)
          return -1;
 
-      if ( fd.revents & POLLHUP )
+      if (fd.revents & POLLHUP)
          break;
 
-      else if ( fd.revents & POLLIN )
+      else if (fd.revents & POLLIN)
       {
          const char *subchar;
          int rc;
 
          // We just read everything in large chunks until we find what we're looking for
-         if ( (rc = recv(rd->conn.ctl_socket, buf + index, RSD_PROTO_MAXSIZE*2 - 1 - index, 0)) <= 0 )
+         if ((rc = recv(rd->conn.ctl_socket, buf + index, RSD_PROTO_MAXSIZE*2 - 1 - index, 0)) <= 0)
             return -1;
 
          // Can we find it directly?
-         if ( strstr(buf, "RSD   12 CLOSECTL OK") != NULL )
+         if (strstr(buf, "RSD   12 CLOSECTL OK") != NULL)
             break;
-         else if ( strstr(buf, "RSD   15 CLOSECTL ERROR") != NULL )
+         else if (strstr(buf, "RSD   15 CLOSECTL ERROR") != NULL)
             return -1;
 
          subchar = strrchr(buf, 'R');
-         if ( subchar == NULL )
+         if (subchar == NULL)
             index = 0;
          else
          {
@@ -1095,7 +1097,6 @@ static int rsnd_send_info_query(rsound_t *rd)
 // In that case, we read the packet.
 static int rsnd_update_server_info(rsound_t *rd)
 {
-
    ssize_t rc;
 
    long long int client_ptr = -1;
@@ -1111,9 +1112,9 @@ static int rsnd_update_server_info(rsound_t *rd)
 
       // We first recieve the small header. We just use the larger buffer as it is disposable.
       rc = rsnd_recv_chunk(rd->conn.ctl_socket, temp, RSD_PROTO_CHUNKSIZE, 0);
-      if ( rc == 0 )
+      if (rc == 0)
          break;
-      else if ( rc < RSD_PROTO_CHUNKSIZE )
+      else if (rc < RSD_PROTO_CHUNKSIZE)
          return -1;
 
       temp[RSD_PROTO_CHUNKSIZE] = '\0';
@@ -1128,28 +1129,28 @@ static int rsnd_update_server_info(rsound_t *rd)
       long int len = strtol(substr, NULL, 0);
 
       // Recieve the rest of the data.
-      if ( rsnd_recv_chunk(rd->conn.ctl_socket, temp, len, 0) < len )
+      if (rsnd_recv_chunk(rd->conn.ctl_socket, temp, len, 0) < len)
          return -1;
 
       // We only bother if this is an INFO message.
       substr = strstr(temp, "INFO");
-      if ( substr == NULL )
+      if (substr == NULL)
          continue;
 
       // Jump over "INFO" in header
       substr += 4;
 
       client_ptr = strtoull(substr, &tmpstr, 0);
-      if ( client_ptr == 0 || *tmpstr == '\0' )
+      if (client_ptr == 0 || *tmpstr == '\0')
          return -1;
 
       substr = tmpstr;
       serv_ptr = strtoull(substr, NULL, 0);
-      if ( serv_ptr <= 0 )
+      if (serv_ptr <= 0)
          return -1;
    }
 
-   if ( client_ptr > 0 && serv_ptr > 0 )
+   if (client_ptr > 0 && serv_ptr > 0)
    {
 
       int delay = rsd_delay(rd);
@@ -1161,13 +1162,13 @@ static int rsnd_update_server_info(rsound_t *rd)
       RSD_DEBUG("Delay: %d, Delta: %d", delay, delta);
 
       // We only update the pointer if the data we got is quite recent.
-      if ( rd->total_written - client_ptr < 4 * rd->backend_info.chunk_size && rd->total_written > client_ptr )
+      if (rd->total_written - client_ptr < 4 * rd->backend_info.chunk_size && rd->total_written > client_ptr)
       {
          int offset_delta = delta - delay;
          int max_offset = rd->backend_info.chunk_size;
-         if ( offset_delta < -max_offset )
+         if (offset_delta < -max_offset)
             offset_delta = -max_offset;
-         else if ( offset_delta > max_offset )
+         else if (offset_delta > max_offset)
             offset_delta = max_offset;
 
          pthread_mutex_lock(&rd->thread.mutex);
@@ -1182,7 +1183,7 @@ static int rsnd_update_server_info(rsound_t *rd)
 
 // Sort of simulates the behavior of pthread_cancel()
 #define _TEST_CANCEL() \
-   if ( !rd->thread_active ) \
+   if (!rd->thread_active) \
       break
 
 /* The blocking thread */
@@ -1203,7 +1204,7 @@ static void* rsnd_thread ( void * thread_data )
 
          // We ask the server to send its latest backend data. Do not really care about errors atm.
          // We only bother to check after 1 sec of audio has been played, as it might be quite inaccurate in the start of the stream.
-         if ( (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize) )
+         if ((rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize))
          {
             rsnd_send_info_query(rd); 
             rsnd_update_server_info(rd);
@@ -1211,7 +1212,7 @@ static void* rsnd_thread ( void * thread_data )
 
          /* If the buffer is empty or we've stopped the stream, jump out of this for loop */
          pthread_mutex_lock(&rd->thread.mutex);
-         if ( rsnd_fifo_read_avail(rd->fifo_buffer) < rd->backend_info.chunk_size || !rd->thread_active )
+         if (rsnd_fifo_read_avail(rd->fifo_buffer) < rd->backend_info.chunk_size || !rd->thread_active)
          {
             pthread_mutex_unlock(&rd->thread.mutex);
             break;
@@ -1225,7 +1226,7 @@ static void* rsnd_thread ( void * thread_data )
          rc = rsnd_send_chunk(rd->conn.socket, buffer, sizeof(buffer), 1);
 
          /* If this happens, we should make sure that subsequent and current calls to rsd_write() will fail. */
-         if ( rc != (int)rd->backend_info.chunk_size )
+         if (rc != (int)rd->backend_info.chunk_size)
          {
             _TEST_CANCEL();
             rsnd_reset(rd);
@@ -1239,7 +1240,7 @@ static void* rsnd_thread ( void * thread_data )
          }
 
          /* If this was the first write, set the start point for the timer. */
-         if ( !rd->has_written )
+         if (!rd->has_written)
          {
             pthread_mutex_lock(&rd->thread.mutex);
 #if defined(_POSIX_MONOTONIC_CLOCK) && !defined(__APPLE__)
@@ -1263,7 +1264,7 @@ static void* rsnd_thread ( void * thread_data )
 
       /* If we're still good to go, sleep. We are waiting for fill_buffer() to fill up some data. */
 
-      if ( rd->thread_active )
+      if (rd->thread_active)
       {
          // There is a very slim change of getting a deadlock using the cond_wait scheme.
          // This solution is rather dirty, but avoids complete deadlocks at the very least.
@@ -1271,7 +1272,7 @@ static void* rsnd_thread ( void * thread_data )
          pthread_mutex_lock(&rd->thread.cond_mutex);
          pthread_cond_signal(&rd->thread.cond);
 
-         if ( rd->thread_active )
+         if (rd->thread_active)
          {
             RSD_DEBUG("Thread going to sleep.");
             pthread_cond_wait(&rd->thread.cond, &rd->thread.cond_mutex);
@@ -1377,10 +1378,10 @@ static void* rsnd_cb_thread(void *thread_data)
 
 static int rsnd_reset(rsound_t *rd)
 {
-   if ( rd->conn.socket != -1 )
+   if (rd->conn.socket != -1)
       close(rd->conn.socket);
 
-   if ( rd->conn.socket != 1 )
+   if (rd->conn.socket != 1)
       close(rd->conn.ctl_socket);
 
    /* Pristine stuff, baby! */
@@ -1418,7 +1419,7 @@ int rsd_stop(rsound_t *rd)
 size_t rsd_write( rsound_t *rsound, const void* buf, size_t size)
 {
    assert(rsound != NULL);
-   if ( !rsound->ready_for_data )
+   if (!rsound->ready_for_data)
    {
       return 0;
    }
@@ -1431,12 +1432,12 @@ size_t rsd_write( rsound_t *rsound, const void* buf, size_t size)
 
    /* Makes sure that we can handle arbitrary large write sizes */
 
-   while ( written < size )
+   while (written < size)
    {
       write_size = (size - written) > max_write ? max_write : (size - written); 
       result = rsnd_fill_buffer(rsound, (const char*)buf + written, write_size);
 
-      if ( result <= 0 )
+      if (result <= 0)
       {
          rsd_stop(rsound);
          return 0;
@@ -1454,11 +1455,10 @@ int rsd_start(rsound_t *rsound)
    assert(rsound->host != NULL);
    assert(rsound->port != NULL);
 
-   if ( rsnd_create_connection(rsound) < 0 )
+   if (rsnd_create_connection(rsound) < 0)
    {
       return -1;
    }
-
 
    return 0;
 }
@@ -1469,10 +1469,10 @@ int rsd_exec(rsound_t *rsound)
    RSD_DEBUG("rsd_exec()");
 
    // Makes sure we have a working connection
-   if ( rsound->conn.socket < 0 )
+   if (rsound->conn.socket < 0)
    {
       RSD_DEBUG("Calling rsd_start()");
-      if ( rsd_start(rsound) < 0 )
+      if (rsd_start(rsound) < 0)
       {
          RSD_ERR("rsd_start() failed!");
          return -1;
@@ -1480,7 +1480,7 @@ int rsd_exec(rsound_t *rsound)
    }
 
    RSD_DEBUG("Closing ctl");
-   if ( rsnd_close_ctl(rsound) < 0 )
+   if (rsnd_close_ctl(rsound) < 0)
       return -1;
 
    int fd = rsound->conn.socket;
@@ -1512,11 +1512,11 @@ int rsd_exec(rsound_t *rsound)
 
    // Flush the buffer
 
-   if ( rsnd_fifo_read_avail(rsound->fifo_buffer) > 0 )
+   if (rsnd_fifo_read_avail(rsound->fifo_buffer) > 0)
    {
       char buffer[rsnd_fifo_read_avail(rsound->fifo_buffer)];
       rsnd_fifo_read(rsound->fifo_buffer, buffer, sizeof(buffer));
-      if ( rsnd_send_chunk(fd, buffer, sizeof(buffer), 1) != (ssize_t)sizeof(buffer) )
+      if (rsnd_send_chunk(fd, buffer, sizeof(buffer), 1) != (ssize_t)sizeof(buffer))
       {
          RSD_DEBUG("Failed flushing buffer!");
          close(fd);
@@ -1539,7 +1539,7 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
    switch(option)
    {
       case RSD_SAMPLERATE:
-         if ( *(int*)param > 0 )
+         if (*(int*)param > 0)
          {
             rd->rate = *((int*)param);
             break;
@@ -1547,7 +1547,7 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
          else
             return -1;
       case RSD_CHANNELS:
-         if ( *(int*)param > 0 )
+         if (*(int*)param > 0)
          {
             rd->channels = *((int*)param);
             break;
@@ -1555,17 +1555,17 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
          else
             return -1;
       case RSD_HOST:
-         if ( rd->host != NULL )
+         if (rd->host != NULL)
             free(rd->host);
-         rd->host = strdup((char*)param);
+         rd->host = strdup(param);
          break;
       case RSD_PORT:
-         if ( rd->port != NULL )
+         if (rd->port != NULL)
             free(rd->port);
-         rd->port = strdup((char*)param);
+         rd->port = strdup(param);
          break;
       case RSD_BUFSIZE:
-         if ( *(int*)param > 0 )
+         if (*(int*)param > 0)
          {
             rd->buffer_size = *((int*)param);
             break;
@@ -1580,7 +1580,7 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
          // Checks if format is valid.   
       case RSD_FORMAT:
          rd->format = (uint16_t)(*((int*)param));
-         if ( (rd->samplesize = rsnd_format_to_samplesize(rd->format)) == -1 )
+         if ((rd->samplesize = rsnd_format_to_samplesize(rd->format)) == -1)
          {
             rd->format = RSD_S16_LE;
             rd->samplesize = rsnd_format_to_samplesize(RSD_S16_LE);
@@ -1609,14 +1609,14 @@ void rsd_delay_wait(rsound_t *rd)
       ( We simulate that we're a low latency sound card ) */
 
    /* Should we bother with checking latency at all? */
-   if ( rd->max_latency > 0 )
+   if (rd->max_latency > 0)
    {
       /* Latency of stream in ms */
       int latency_ms = rsd_delay_ms(rd);
 
 
       /* Should we sleep for a while to keep the latency low? */
-      if ( rd->max_latency < latency_ms )
+      if (rd->max_latency < latency_ms)
       {
          int64_t sleep_ms = latency_ms - rd->max_latency;
          RSD_DEBUG("Delay wait: %d ms\n", (int)sleep_ms);
@@ -1647,7 +1647,7 @@ size_t rsd_delay(rsound_t *rd)
 {
    assert(rd != NULL);
    int ptr = rsnd_get_delay(rd);
-   if ( ptr < 0 )
+   if (ptr < 0)
       ptr = 0;
 
    return ptr;
@@ -1664,7 +1664,7 @@ size_t rsd_delay_ms(rsound_t* rd)
 int rsd_pause(rsound_t* rsound, int enable)
 {
    assert(rsound != NULL);
-   if ( enable )
+   if (enable)
       return rsd_stop(rsound);
    else
       return rsd_start(rsound);
@@ -1674,7 +1674,7 @@ int rsd_init(rsound_t** rsound)
 {
    assert(rsound != NULL);
    *rsound = calloc(1, sizeof(rsound_t));
-   if ( *rsound == NULL )
+   if (*rsound == NULL)
       return -1;
 
    (*rsound)->conn.socket = -1;
@@ -1692,20 +1692,20 @@ int rsd_init(rsound_t** rsound)
    /* Checks if environment variable RSD_SERVER and RSD_PORT are set, and valid */
    char *rsdhost = getenv("RSD_SERVER");
    char *rsdport = getenv("RSD_PORT");
-   if ( rsdhost != NULL && strlen(rsdhost) )
+   if (rsdhost != NULL && strlen(rsdhost))
       rsd_set_param(*rsound, RSD_HOST, rsdhost);
    else
       rsd_set_param(*rsound, RSD_HOST, RSD_DEFAULT_HOST);
 
-   if ( rsdport != NULL && strlen(rsdport) )
+   if (rsdport != NULL && strlen(rsdport))
       rsd_set_param(*rsound, RSD_PORT, rsdport);
    else
       rsd_set_param(*rsound, RSD_PORT, RSD_DEFAULT_PORT);
 
 #ifdef _WIN32
-   if ( !init_count )
+   if (!init_count)
    {
-      if ( init_wsock() < 0 )
+      if (init_wsock() < 0)
       {
          rsd_free(*rsound);
          return -1;
@@ -1720,16 +1720,16 @@ int rsd_init(rsound_t** rsound)
 int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, const char* ident,
                      int rate, int channels, enum rsd_format format)
 {
-   if ( rsd_init(rsound) < 0 )
+   if (rsd_init(rsound) < 0)
       return -1;
 
    int fmt = format;
 
-   if ( host != NULL )
+   if (host != NULL)
       rsd_set_param(*rsound, RSD_HOST, (void*)host);
-   if ( port != NULL )
+   if (port != NULL)
       rsd_set_param(*rsound, RSD_PORT, (void*)port);
-   if ( ident != NULL )
+   if (ident != NULL)
       rsd_set_param(*rsound, RSD_IDENTITY, (void*)ident);
 
    if (  rsd_set_param(*rsound, RSD_SAMPLERATE, &rate) < 0 ||
@@ -1740,7 +1740,7 @@ int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, cons
       return -1;
    }
 
-   if ( rsd_start(*rsound) < 0 )
+   if (rsd_start(*rsound) < 0)
    {
       rsd_free(*rsound);
       return -1;
@@ -1784,25 +1784,25 @@ int rsd_free(rsound_t *rsound)
 
    int err;
 
-   if ( (err = pthread_mutex_destroy(&rsound->thread.mutex)) != 0 )
+   if ((err = pthread_mutex_destroy(&rsound->thread.mutex)) != 0)
    {
       RSD_WARN("Error: %s\n", strerror(err));
       return -1;
    }
 
-   if ( (err = pthread_mutex_destroy(&rsound->thread.cond_mutex)) != 0 )
+   if ((err = pthread_mutex_destroy(&rsound->thread.cond_mutex)) != 0)
    {
       RSD_WARN("Error: %s\n", strerror(err));
       return -1;
    }
 
-   if ( (err = pthread_mutex_destroy(&rsound->cb_lock)) != 0 )
+   if ((err = pthread_mutex_destroy(&rsound->cb_lock)) != 0)
    {
       RSD_WARN("Error: %s\n", strerror(err));
       return -1;
    }
 
-   if ( (err = pthread_cond_destroy(&rsound->thread.cond)) != 0 )
+   if ((err = pthread_cond_destroy(&rsound->thread.cond)) != 0)
    {
       RSD_WARN("Error: %s\n", strerror(err));
       return -1;
