@@ -58,6 +58,10 @@ extern "C" {
 #define RSD_API_CALLTYPE
 #endif
 
+#ifdef _MSC_VER
+typedef long ssize_t;
+#endif
+
 /* Feature tests */
 #define RSD_SAMPLERATE              RSD_SAMPLERATE 
 #define RSD_CHANNELS                RSD_CHANNELS
