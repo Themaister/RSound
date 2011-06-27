@@ -9,14 +9,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <time.h>
-// Dummy.
-struct timespec
-{
-   time_t tv_sec;
-   long tv_nsec;
-};
-
 typedef HANDLE pthread_t;
 typedef HANDLE pthread_cond_t;
 typedef HANDLE pthread_mutex_t;

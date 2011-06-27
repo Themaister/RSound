@@ -177,7 +177,9 @@ typedef long ssize_t;
       volatile int thread_active;
 
       int64_t total_written;
+#ifndef _WIN32
       struct timespec start_tv_nsec;
+#endif
       struct timeval start_tv_usec;
       volatile int has_written;
       int bytes_in_buffer;
