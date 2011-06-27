@@ -30,18 +30,14 @@ int poll(struct pollfd *fd, int num, int timeout)
 	FD_ZERO(&read_fd);
 	FD_ZERO(&write_fd);
 
-	int i;
-
 	int maxfd = 0;
-
-
-	for( i = 0; i < num; i++ )
+	for (int i = 0; i < num; i++)
 	{
-		if ( fd[i].events & POLLIN )
+		if (fd[i].events & POLLIN)
 			FD_SET((SOCKET)fd[i].fd, &read_fd);
-		else if ( fd[i].events & POLLOUT )
+		else if (fd[i].events & POLLOUT)
 			FD_SET((SOCKET)fd[i].fd, &write_fd);
-		if ( fd[i].fd > maxfd )
+		if (fd[i].fd > maxfd)
 			maxfd = fd[i].fd;
 		fd[i].revents = 0;
 	}
@@ -51,27 +47,21 @@ int poll(struct pollfd *fd, int num, int timeout)
 		.tv_usec = (timeout * 1000) % 1000000
 	};
 
-	if ( select(maxfd+1, &read_fd, &write_fd, NULL, &tv) < 0 )
+	if (select(maxfd+1, &read_fd, &write_fd, NULL, &tv) < 0)
    {
       errno = EBADF;
 		return -1;
    }
 
-	for ( i = 0; i < num; i++ )
+	for (int i = 0; i < num; i++)
 	{
-		if ( FD_ISSET(fd[i].fd, &read_fd) )
-		{
+		if (FD_ISSET(fd[i].fd, &read_fd))
 			fd[i].revents = POLLIN;
-		}
-
-		else if ( FD_ISSET(fd[i].fd, &write_fd) )
-		{
+		else if (FD_ISSET(fd[i].fd, &write_fd))
 			fd[i].revents = POLLOUT;
-		}
 	}
 
 	return 0;
-
 }
 
 #endif
