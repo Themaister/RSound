@@ -21,6 +21,7 @@ static DWORD CALLBACK winthread_entry(void *param_)
 int pthread_mutex_init(pthread_mutex_t * restrict mutex, void * restrict dummy)
 {
    (void)dummy;
+
    *mutex = CreateMutex(NULL, FALSE, NULL);
    if (!*mutex)
       return -1;
@@ -41,12 +42,15 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex)
 
 int pthread_mutex_destroy(pthread_mutex_t *mutex)
 {
-   CloseHandle(*mutex);
+   if (*mutex)
+      CloseHandle(*mutex);
    return 0;
 }
 
 int pthread_cond_init(pthread_cond_t * restrict cond, void * restrict dummy)
 {
+   (void)dummy;
+
    *cond = CreateEvent(NULL, FALSE, FALSE, NULL);
    if (!*cond)
       return -1;
@@ -55,7 +59,8 @@ int pthread_cond_init(pthread_cond_t * restrict cond, void * restrict dummy)
 
 int pthread_cond_destroy(pthread_cond_t *cond)
 {
-   CloseHandle(*cond);
+   if (*cond)
+      CloseHandle(*cond);
    return 0;
 }
 
@@ -77,6 +82,8 @@ int pthread_cond_signal(pthread_cond_t *cond)
 
 int pthread_create(pthread_t *thread, void *dummy, void *(*start_routine)(void*), void *arg)
 {
+   (void)dummy;
+
    struct winthread_param param = {
       .proc = start_routine,
       .data = arg
@@ -90,6 +97,7 @@ int pthread_create(pthread_t *thread, void *dummy, void *(*start_routine)(void*)
 int pthread_join(pthread_t thread, void **dummy)
 {
    (void)dummy;
+
    WaitForSingleObject(thread, INFINITE);
    return 0;
 }
@@ -98,5 +106,6 @@ int pthread_detach(pthread_t thread)
 {
    // Not sure if we even need to do anything here ...
    (void)thread;
+
    return 0;
 }
