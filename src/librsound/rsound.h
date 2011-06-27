@@ -139,10 +139,10 @@ extern "C" {
    };
 
    /* Audio callback for rsd_set_callback. Return -1 to trigger an error in the stream. */
-   typedef ssize_t (*rsd_audio_callback_t)(void *data, size_t bytes, void *userdata);
+   typedef ssize_t (RSD_API_CALLTYPE * rsd_audio_callback_t)(void *data, size_t bytes, void *userdata);
 
    /* Error callback. Signals caller that stream has been stopped, either by audio callback returning -1 or stream was hung up. */
-   typedef void (*rsd_error_callback_t)(void *userdata);
+   typedef void (RSD_API_CALLTYPE * rsd_error_callback_t)(void *userdata);
 
 
 #ifdef RSD_EXPOSE_STRUCT
