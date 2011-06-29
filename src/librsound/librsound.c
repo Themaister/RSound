@@ -590,7 +590,7 @@ static int rsnd_get_backend_info ( rsound_t *rd )
    // We no longer want to read from this socket.
 #ifdef _WIN32
    shutdown(rd->conn.socket, SD_RECEIVE);
-#elif !defined(__APPLE__) // OSX doesn't seem to like shutdown()
+#else
    shutdown(rd->conn.socket, SHUT_RD);
 #endif
 
@@ -698,12 +698,6 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
       if (rsnd_poll(&fd, 1, sleep_time) < 0)
          return -1;
 
-      if (fd.revents & POLLHUP)
-      {
-         RSD_WARN("*** Remote side hung up! ***");
-         return -1;
-      }
-
       if (fd.revents & POLLOUT)
       {
          /* We try to limit ourselves to 1KiB packet sizes. */
@@ -715,6 +709,11 @@ static ssize_t rsnd_send_chunk(int socket, const void* buf, size_t size, int blo
             return rc;
          }
          wrote += rc;
+      }
+      else if (fd.revents & POLLHUP)
+      {
+         RSD_WARN("*** Remote side hung up! ***");
+         return -1;
       }
       else
       {
@@ -751,12 +750,6 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
          return -1;
       }
 
-      if (fd.revents & POLLHUP)
-      {
-         RSD_ERR("Server hung up");
-         return -1;
-      }
-
       if (fd.revents & POLLIN)
       {
          read_size = (size - has_read) > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - has_read;
@@ -767,6 +760,11 @@ static ssize_t rsnd_recv_chunk(int socket, void *buf, size_t size, int blocking)
             return rc;
          }
          has_read += rc;
+      }
+      else if (fd.revents & POLLHUP)
+      {
+         RSD_ERR("Server hung up");
+         return -1;
       }
       else
       {

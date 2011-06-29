@@ -865,7 +865,7 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
    // RSD will no longer use this for writing
 #ifdef _WIN32
    shutdown(conn.socket, SD_SEND);
-#elif !defined(__APPLE__) // OSX doesn't seem to like shutdown() ...
+#else
    shutdown(conn.socket, SHUT_WR);
 #endif
 
