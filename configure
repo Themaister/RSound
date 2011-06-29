@@ -92,21 +92,21 @@ done
 
 check_lib()
 {
-   echo -n "Checking function $3 in $2 ... "
+   ECHOBUF="Checking function $3 in $2 ... "
    echo "void $3(void); int main(void) { $3(); return 0; }" > $TEMP_C
 
    eval HAVE_$1=no
    answer=no
    $CC -o $TEMP_EXE $TEMP_C $CFLAGS $2 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
 
-   echo $answer
+   echo $ECHOBUF $answer
 
    rm -rf $TEMP_C $TEMP_EXE
 }
 
 check_header()
 {
-   echo -n "Checking presence of header file $2 ... "
+   ECHOBUF="Checking presence of header file $2 ... "
    echo "#include<$2>" > $TEMP_C
    echo "int main(void) { return 0; }" >> $TEMP_C
    eval HAVE_$1=no
@@ -114,20 +114,20 @@ check_header()
 
    $CC -o $TEMP_EXE $TEMP_C 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
 
-   echo $answer
+   echo $ECHOBUF $answer
 
    rm -rf $TEMP_C $TEMP_EXE
 }
 
 check_switch()
 {
-   echo -n "Checking for availability of switch $2 ... "
+   ECHOBUF="Checking for availability of switch $2 ... "
    echo "int main(void) { return 0; }" > $TEMP_C
    eval HAVE_$1=no
    answer=no
    $CC -o $TEMP_EXE $TEMP_C $2 2>/dev/null >/dev/null && answer=yes && eval HAVE_$1=yes
 
-   echo $answer
+   echo $ECHOBUF $answer
 
    rm -rf $TEMP_C $TEMP_EXE
 }
