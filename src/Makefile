@@ -113,7 +113,7 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
 	@echo "LD $@"
 ifeq ($(PLATFORM),OSX)
-	@$(CC) -shared -dynamiclib -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -install_name $(PREFIX)/lib/librsound.dylib
+	@$(CC) -dynamiclib -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -install_name $(PREFIX)/lib/librsound.dylib
 else
 	@$(CC) -shared -Wl,-soname,librsound.so.3 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -fPIC
 	@ln -sf librsound.so.3.0.0 librsound/librsound.so.3
