@@ -25,7 +25,7 @@
 static ALCdevice *global_handle;
 static ALCcontext *global_context;
 
-#define BUF_SIZE 512
+#define BUF_SIZE 1024
 
 static void al_close(void *data)
 {
