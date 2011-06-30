@@ -849,16 +849,15 @@ static int send_backend_info(connection_t conn, backend_info_t *backend )
       swap_endian_32(&header[CHUNKSIZE]);
    }
 
-
    fd.fd = conn.socket;
    fd.events = POLLOUT;
 
    if ( poll(&fd, 1, 10000) < 0 )
       return -1;
-   if ( fd.revents & POLLHUP )
-      return -1;
    if ( fd.revents & POLLOUT )
       rc = send(conn.socket, (char*)header, RSND_HEADER_SIZE, 0);
+   else if ( fd.revents & POLLHUP )
+      return -1;
    if ( rc != RSND_HEADER_SIZE)
       return -1;
 
@@ -1029,10 +1028,7 @@ int receive_data(void *data, connection_t *conn, void* buffer, size_t size)
       // If POLLIN is active on ctl socket handle this request, or if POLLHUP, shut the stream down.
       if ( fds == 2 )
       {
-         if ( fd[1].revents & POLLHUP )
-            return 0;
-
-         else if ( fd[1].revents & POLLIN )
+         if ( fd[1].revents & POLLIN )
          {
             // We will handle a ctl request from the client. This request should never block.
             if ( data != NULL && handle_ctl_request(conn, data) < 0 )
@@ -1040,12 +1036,11 @@ int receive_data(void *data, connection_t *conn, void* buffer, size_t size)
                return 0;
             }
          }
+         else if ( fd[1].revents & POLLHUP )
+            return 0;
       }
 
-      if ( fd[0].revents & POLLHUP )
-         return 0;
-
-      else if ( fd[0].revents & POLLIN )
+      if ( fd[0].revents & POLLIN )
       {
          read_size = size - read > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : size - read;
          rc = recv(conn->socket, (char*)buffer + read, read_size, 0);
@@ -1055,7 +1050,8 @@ int receive_data(void *data, connection_t *conn, void* buffer, size_t size)
          conn->serv_ptr += rc;
          read += rc;
       }
-
+      else if ( fd[0].revents & POLLHUP )
+         return 0;
    }
 
    return read;
