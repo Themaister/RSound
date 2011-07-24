@@ -1,4 +1,4 @@
-TARGET := fuse-ross
+TARGET := cuse-ross
 
 SRCS := $(wildcard *.c)
 HEADERS := $(wildcard *.h)

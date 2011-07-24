@@ -164,11 +164,7 @@ int main(int argc, char *argv[])
       return 1;
    }
 
-   if (!param.is_help)
-   {
-      strncpy(dev_name, "DEVNAME=", sizeof(dev_name) - 1);
-      strncat(dev_name, param.dev_name ? param.dev_name : "ross", sizeof(dev_name) - strlen(dev_name) - 1);
-   }
+   snprintf(dev_name, sizeof(dev_name), "DEVNAME=%s", param.dev_name ? param.dev_name : "ross");
 
    struct cuse_info ci = {
       .dev_major = param.major,
@@ -178,5 +174,19 @@ int main(int argc, char *argv[])
       .flags = CUSE_UNRESTRICTED_IOCTL,
    };
 
-   return cuse_lowlevel_main(args.argc, args.argv, &ci, &ross_op, NULL);
+   struct fuse_session *se = cuse_lowlevel_setup(args.argc, args.argv, &ci,
+         &ross_op, NULL, NULL);
+   if (!se)
+      return 1;
+   int fd = fuse_chan_fd(fuse_session_next_chan(se, NULL));
+   if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0)
+   {
+      cuse_lowlevel_teardown(se);
+      return 1;
+   }
+
+   int rd = fuse_session_loop_mt(se);
+   cuse_lowlevel_teardown(se);
+
+   return rd;
 }
