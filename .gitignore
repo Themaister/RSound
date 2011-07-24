@@ -5,9 +5,9 @@
 *.exe
 *.a
 *.pc
-/src/rsdplay
-/src/rsd
-/src/fuse-rsound/fuse-ross
-/src/tests/rsd-simple-start
+rsdplay
+rsd
+cuse-ross
+rsd-simple-start
 /src/config.h
 /src/config.mk

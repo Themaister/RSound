@@ -174,19 +174,5 @@ int main(int argc, char *argv[])
       .flags = CUSE_UNRESTRICTED_IOCTL,
    };
 
-   struct fuse_session *se = cuse_lowlevel_setup(args.argc, args.argv, &ci,
-         &ross_op, NULL, NULL);
-   if (!se)
-      return 1;
-   int fd = fuse_chan_fd(fuse_session_next_chan(se, NULL));
-   if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0)
-   {
-      cuse_lowlevel_teardown(se);
-      return 1;
-   }
-
-   int rd = fuse_session_loop_mt(se);
-   cuse_lowlevel_teardown(se);
-
-   return rd;
+   return cuse_lowlevel_main(args.argc, args.argv, &ci, &ross_op, NULL);
 }
