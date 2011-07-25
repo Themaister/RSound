@@ -82,9 +82,11 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
       return;
    }
 
+   // Use some different defaults than regular OSS for convenience. :D
    int channels = 2;
    int rate = 44100;
    int format = RSD_S16_LE;
+
    rsd_set_param(rd, RSD_CHANNELS, &channels);
    rsd_set_param(rd, RSD_SAMPLERATE, &rate);
    rsd_set_param(rd, RSD_FORMAT, &format);
@@ -154,9 +156,9 @@ static void ross_read(fuse_req_t req, size_t size, off_t off,
 }
 
 // Almost straight copypasta from OSS Proxy.
-// Not quite sure what this code is supposed to accomplish, but it seems that
-// you first need to map memory from kernel space in order to read/write arguments
-// with ioctl() or something ...
+// It seems that memory is mapped directly between two different processes.
+// Since ioctl() does not contain any size information for its arguments, we first have to tell it how much
+// memory we want to map between the two different processes, then ask it to call ioctl() again.
 static bool ioctl_prep_uarg(fuse_req_t req,
       void *in, size_t in_size,
       void *out, size_t out_size,
