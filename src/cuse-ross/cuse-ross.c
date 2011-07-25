@@ -20,7 +20,7 @@
 #define ROSS_DECL ross_t *ro = (ross_t*)info->fh
 
 // Dummy values for programs that are _very_ legacy.
-#define FRAGSIZE 512
+#define FRAGSIZE 2048
 #define FRAGS 16
 
 typedef struct ross
@@ -88,7 +88,7 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
    rsd_set_param(rd, RSD_CHANNELS, &channels);
    rsd_set_param(rd, RSD_SAMPLERATE, &rate);
    rsd_set_param(rd, RSD_FORMAT, &format);
-   rsd_set_event_callback(ro->rd, ross_event_cb, ro);
+   rsd_set_event_callback(rd, ross_event_cb, ro);
 
    int bufsize = FRAGSIZE * FRAGS;
    rsd_set_param(rd, RSD_BUFSIZE, &bufsize);
@@ -169,7 +169,7 @@ static bool ioctl_prep_uarg(fuse_req_t req,
 
    if (in)
    {
-      if (!in_bufsize)
+      if (in_bufsize == 0)
       {
          in_iov.iov_base = uarg;
          in_iov.iov_len = in_size;
@@ -184,7 +184,7 @@ static bool ioctl_prep_uarg(fuse_req_t req,
 
    if (out)
    {
-      if (!out_bufsize)
+      if (out_bufsize == 0)
       {
          out_iov.iov_base = uarg;
          out_iov.iov_len = out_size;
@@ -218,7 +218,7 @@ static bool ioctl_prep_uarg(fuse_req_t req,
 } while(0)
 
 #define PREP_UARG_OUT(outp) PREP_UARG(NULL, 0, outp, sizeof(*(outp)))
-#define PREP_UARG_INOUT(inp, outp) PREP_UARG(inp, sizeof(*inp), outp, sizeof(*outp))
+#define PREP_UARG_INOUT(inp, outp) PREP_UARG(inp, sizeof(*(inp)), outp, sizeof(*(outp)))
 
 static int oss2rsd_fmt(int ossfmt)
 {
@@ -320,29 +320,48 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
          IOCTL_RETURN(&i);
          break;
 
+      case SNDCTL_DSP_STEREO:
+      {
+         PREP_UARG_INOUT(&i, &i);
+         int chans = i ? 2 : 1;
+         rsd_set_param(ro->rd, RSD_CHANNELS, &chans);
+         IOCTL_RETURN(&i);
+         break;
+      }
+
       case SNDCTL_DSP_GETOSPACE:
       {
-         unsigned bytes = rsd_get_avail(ro->rd);
-         audio_buf_info info = {
+         unsigned bytes = FRAGSIZE * FRAGS;
+         if (ro->started)
+            bytes = rsd_get_avail(ro->rd);
+
+         audio_buf_info audio_info = {
             .bytes = bytes,
             .fragments = bytes / FRAGSIZE,
             .fragsize = FRAGSIZE,
             .fragstotal = FRAGS
          };
 
-         PREP_UARG_OUT(&info);
-         IOCTL_RETURN(&info);
+         PREP_UARG_OUT(&audio_info);
+         IOCTL_RETURN(&audio_info);
          break;
       }
 
+      case SNDCTL_DSP_GETBLKSIZE:
+         PREP_UARG_OUT(&i);
+         i = FRAGSIZE;
+         IOCTL_RETURN(&i);
+         break;
+
       case SNDCTL_DSP_GETODELAY:
          PREP_UARG_OUT(&i);
-         i = rsd_delay(ro->rd);
+         i = ro->started ? rsd_delay(ro->rd) : 0;
          IOCTL_RETURN(&i);
          break;
 
       case SNDCTL_DSP_SYNC:
-         usleep(rsd_delay_ms(ro->rd) * 1000);
+         if (ro->started)
+            usleep(rsd_delay_ms(ro->rd) * 1000);
          IOCTL_RETURN_NULL();
          break;
 
