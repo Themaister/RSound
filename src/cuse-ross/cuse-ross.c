@@ -31,13 +31,32 @@ typedef struct ross
 
    pthread_mutex_t event_lock;
    struct fuse_pollhandle *ph;
+
+   int channels;
+   int rate;
+   int fragsize;
+   int frags;
+   int latency;
+
+   bool use_latency;
+   // Unless SETFRAGMENT is used, we really don't care about high latency at all.
+   // We don't really use this yet.
 } ross_t;
 
 static void ross_release(fuse_req_t req, struct fuse_file_info *info)
 {
    ROSS_DECL;
-   rsd_stop(ro->rd);
-   rsd_free(ro->rd);
+   
+   // OSS requires close() call to wait until all buffers are flushed out.
+   if (ro->started)
+   {
+      int usec = rsd_delay_ms(ro->rd) * 1000;
+      close(rsd_exec(ro->rd));
+      usleep(usec);
+   }
+   else
+      rsd_free(ro->rd);
+
    pthread_mutex_destroy(&ro->event_lock);
 
    if (ro->ph)
@@ -86,14 +105,16 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
    int channels = 2;
    int rate = 44100;
    int format = RSD_S16_LE;
+   ro->rate = 44100;
+   ro->channels = 2;
 
    rsd_set_param(rd, RSD_CHANNELS, &channels);
    rsd_set_param(rd, RSD_SAMPLERATE, &rate);
    rsd_set_param(rd, RSD_FORMAT, &format);
    rsd_set_event_callback(rd, ross_event_cb, ro);
 
-   int bufsize = FRAGSIZE * FRAGS;
-   rsd_set_param(rd, RSD_BUFSIZE, &bufsize);
+   ro->frags = FRAGS;
+   ro->fragsize = FRAGSIZE;
 
    ro->rd = rd;
    info->fh = (uint64_t)ro;
@@ -117,16 +138,24 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
 
    if (!ro->started)
    {
+      ro->latency = (1000 * ro->frags * ro->fragsize) / (ro->channels * ro->rate * rsd_samplesize(ro->rd));
+      if (ro->latency < 64)
+         ro->latency = 64;
+
+      rsd_set_param(ro->rd, RSD_LATENCY, &ro->latency);
+
       if (rsd_start(ro->rd) < 0)
       {
          fuse_reply_err(req, EIO);
          return;
       }
       ro->started = true;
+
    }
 
    size_t avail = size;
-   if (ro->nonblock || info->flags & O_NONBLOCK)
+   bool nonblock = ro->nonblock || (info->flags & O_NONBLOCK);
+   if (nonblock)
    {
       avail = rsd_get_avail(ro->rd);
       if (avail > size)
@@ -140,7 +169,7 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
    }
 
    int ret;
-   if ((ret = rsd_write(ro->rd, data, size)) == 0)
+   if ((ret = rsd_write(ro->rd, data, avail)) == 0)
    {
       fuse_reply_err(req, EIO);
       return;
@@ -285,29 +314,51 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
 
    switch (cmd)
    {
+#ifdef OSS_GETVERSION
       case OSS_GETVERSION:
          PREP_UARG_OUT(&i);
          i = (3 << 16) | (8 << 8) | (1 << 4) | 0; // 3.8.1
          IOCTL_RETURN(&i);
          break;
+#endif
 
+#ifdef SNDCTL_DSP_GETFMTS
+      case SNDCTL_DSP_GETFMTS:
+         PREP_UARG_OUT(&i);
+         i = AFMT_U8 | AFMT_S8 | AFMT_S16_LE | AFMT_S16_BE |
+            AFMT_U16_LE | AFMT_U16_BE | AFMT_A_LAW | AFMT_MU_LAW;
+         IOCTL_RETURN(&i);
+         break;
+#endif
+
+#ifdef SNDCTL_DSP_NONBLOCK
       case SNDCTL_DSP_NONBLOCK:
          ro->nonblock = true;
          IOCTL_RETURN_NULL();
          break;
+#endif
 
+#ifdef SNDCTL_DSP_RESET
       case SNDCTL_DSP_RESET:
+#if defined(SNDCTL_DSP_HALT) && (SNDCTL_DSP_HALT != SNDCTL_DSP_RESET)
+      case SNDCTL_DSP_HALT:
+#endif
          rsd_stop(ro->rd);
          ro->started = false;
          IOCTL_RETURN_NULL();
          break;
+#endif
 
+#ifdef SNDCTL_DSP_SPEED
       case SNDCTL_DSP_SPEED:
          PREP_UARG_INOUT(&i, &i);
          rsd_set_param(ro->rd, RSD_SAMPLERATE, &i);
+         ro->rate = i;
          IOCTL_RETURN(&i);
          break;
+#endif
 
+#ifdef SNDCTL_DSP_SETFMT
       case SNDCTL_DSP_SETFMT:
          PREP_UARG_INOUT(&i, &i);
          i = oss2rsd_fmt(i);
@@ -315,57 +366,101 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
          i = rsd2oss_fmt(i);
          IOCTL_RETURN(&i);
          break;
+#endif
 
+#ifdef SNDCTL_DSP_CHANNELS
       case SNDCTL_DSP_CHANNELS:
          PREP_UARG_INOUT(&i, &i);
          rsd_set_param(ro->rd, RSD_CHANNELS, &i);
+         ro->channels = i;
          IOCTL_RETURN(&i);
          break;
+#endif
 
+#ifdef SNDCTL_DSP_STEREO
       case SNDCTL_DSP_STEREO:
       {
          PREP_UARG_INOUT(&i, &i);
          int chans = i ? 2 : 1;
          rsd_set_param(ro->rd, RSD_CHANNELS, &chans);
+         ro->channels = chans;
          IOCTL_RETURN(&i);
          break;
       }
+#endif
 
+#ifdef SNDCTL_DSP_GETOSPACE
       case SNDCTL_DSP_GETOSPACE:
       {
-         unsigned bytes = FRAGSIZE * FRAGS;
+         unsigned bufsize = ro->frags * ro->fragsize;
+         unsigned bytes = ro->frags * ro->fragsize;
          if (ro->started)
             bytes = rsd_get_avail(ro->rd);
 
+         if (bytes > bufsize)
+            bytes = bufsize;
+
          audio_buf_info audio_info = {
             .bytes = bytes,
-            .fragments = bytes / FRAGSIZE,
-            .fragsize = FRAGSIZE,
-            .fragstotal = FRAGS
+            .fragments = bytes / ro->fragsize,
+            .fragsize = ro->fragsize,
+            .fragstotal = ro->frags
          };
 
          PREP_UARG_OUT(&audio_info);
          IOCTL_RETURN(&audio_info);
          break;
       }
+#endif
 
+#ifdef SNDCTL_DSP_GETBLKSIZE
       case SNDCTL_DSP_GETBLKSIZE:
          PREP_UARG_OUT(&i);
-         i = FRAGSIZE;
+         i = ro->fragsize;
          IOCTL_RETURN(&i);
          break;
+#endif
 
+#ifdef SNDCTL_DSP_SETFRAGMENT
+      case SNDCTL_DSP_SETFRAGMENT:
+      {
+         if (ro->started)
+            fuse_reply_err(req, EINVAL);
+
+         PREP_UARG_INOUT(&i, &i);
+         int frags = (i >> 16) & 0xffff;
+         int fragsize = 1 << (i & 0xffff);
+
+         if (fragsize < 512)
+            fragsize = 512;
+         if (frags < 8)
+            frags = 8;
+
+         ro->frags = frags;
+         ro->fragsize = fragsize;
+         ro->use_latency = true;
+
+         i = (frags << 16) | fragsize;
+         IOCTL_RETURN(&i);
+         break;
+      }
+#endif
+
+#ifdef SNDCTL_DSP_GETODELAY
       case SNDCTL_DSP_GETODELAY:
          PREP_UARG_OUT(&i);
          i = ro->started ? rsd_delay(ro->rd) : 0;
          IOCTL_RETURN(&i);
          break;
+#endif
 
+#ifdef SNDCTL_DSP_SYNC
       case SNDCTL_DSP_SYNC:
          if (ro->started)
             usleep(rsd_delay_ms(ro->rd) * 1000);
          IOCTL_RETURN_NULL();
          break;
+#endif
 
       default:
          fuse_reply_err(req, EINVAL);
@@ -378,7 +473,12 @@ static void ross_poll(fuse_req_t req, struct fuse_file_info *info,
 {
    ROSS_DECL;
 
-   if (rsd_get_avail(ro->rd) > 0)
+   if (!ro->started)
+   {
+      fuse_reply_poll(req, POLLOUT);
+      fuse_pollhandle_destroy(ph);
+   }
+   else if (rsd_get_avail(ro->rd) > 0)
    {
       fuse_reply_poll(req, POLLOUT);
       fuse_pollhandle_destroy(ph);
