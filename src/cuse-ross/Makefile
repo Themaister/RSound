@@ -4,8 +4,8 @@ SRCS := $(wildcard *.c)
 HEADERS := $(wildcard *.h)
 OBJS := $(SRCS:.c=.o)
 
-LIBS := $(shell pkg-config rsound fuse --libs)
-DEFINES := $(shell pkg-config rsound fuse --cflags)
+LIBS := $(shell pkg-config rsound fuse --libs) -lpthread
+DEFINES := $(shell pkg-config rsound fuse --cflags) -pthread
 
 CFLAGS += -Wall -O3 -g -std=gnu99 -pedantic
 

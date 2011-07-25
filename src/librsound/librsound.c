@@ -1224,6 +1224,8 @@ static void* rsnd_thread ( void * thread_data )
          pthread_mutex_lock(&rd->thread.mutex);
          rsnd_fifo_read(rd->fifo_buffer, buffer, sizeof(buffer));
          pthread_mutex_unlock(&rd->thread.mutex);
+         if (rd->event_callback)
+            rd->event_callback(rd->event_data);
          rc = rsnd_send_chunk(rd->conn.socket, buffer, sizeof(buffer), 1);
 
          /* If this happens, we should make sure that subsequent and current calls to rsd_write() will fail. */
@@ -1750,7 +1752,8 @@ int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, cons
    return 0;
 }
 
-void rsd_set_callback(rsound_t *rsound, rsd_audio_callback_t audio_cb, rsd_error_callback_t err_cb, size_t max_size, void *userdata)
+void rsd_set_callback(rsound_t *rsound, rsd_audio_callback_t audio_cb,
+      rsd_error_callback_t err_cb, size_t max_size, void *userdata)
 {
    assert(rsound != NULL);
 
@@ -1761,6 +1764,15 @@ void rsd_set_callback(rsound_t *rsound, rsd_audio_callback_t audio_cb, rsd_error
 
    if (rsound->audio_callback)
       assert(rsound->error_callback);
+}
+
+void rsd_set_event_callback(rsound_t *rsound, rsd_event_callback_t event_cb,
+      void *userdata)
+{
+   assert(rsound != NULL);
+
+   rsound->event_callback = event_cb;
+   rsound->event_data = userdata;
 }
 
 void rsd_callback_lock(rsound_t *rsound)

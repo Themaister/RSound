@@ -43,7 +43,7 @@ extern "C" {
 #define RSD_DEFAULT_OBJECT "rsound"
 
 #ifndef RSD_VERSION
-#define RSD_VERSION "1.1"
+#define RSD_VERSION "1.2"
 #endif
 
 #ifdef _WIN32
@@ -104,6 +104,8 @@ typedef long ssize_t;
 #define RSD_SET_CALLBACK            RSD_SET_CALLBACK
 #define RSD_CALLBACK_LOCK           RSD_CALLBACK_LOCK
 #define RSD_CALLBACK_UNLOCK         RSD_CALLBACK_UNLOCK
+
+#define RSD_SET_EVENT_CALLBACK      RSD_SET_EVENT_CALLBACK
 /* End feature tests */
 
 
@@ -147,6 +149,10 @@ typedef long ssize_t;
 
    /* Error callback. Signals caller that stream has been stopped, either by audio callback returning -1 or stream was hung up. */
    typedef void (RSD_API_CALLTYPE * rsd_error_callback_t)(void *userdata);
+
+   /* Event callback. Signals caller that the blocking audio mode has processed data, and is ready for new data.
+    * It is not allowed to call any rsound function inside this callback. */
+   typedef void (RSD_API_CALLTYPE * rsd_event_callback_t)(void *userdata);
 
 
 #ifdef RSD_EXPOSE_STRUCT
@@ -214,6 +220,9 @@ typedef long ssize_t;
       size_t cb_max_size;
       void *cb_data;
       pthread_mutex_t cb_lock;
+
+      rsd_event_callback_t event_callback;
+      void *event_data;
    } rsound_t;
 #else
    typedef struct rsound rsound_t;
@@ -299,6 +308,13 @@ typedef long ssize_t;
       Try to avoid calling code that may block when holding the lock. */
    RSD_API_DECL void RSD_API_CALLTYPE rsd_callback_lock (rsound_t *rd);
    RSD_API_DECL void RSD_API_CALLTYPE rsd_callback_unlock (rsound_t *rd);
+
+   /* Sets the event callback. It will be called every time audio has been consumed internally.
+    * The callback will be disabled when callback audio mode is used.
+    * This function must be called when stream is not active.
+    * After the callback returns, audio is available to be written in a nonblocking fashion.
+    * It is not legal to call any rsound functions inside this callback. */
+   RSD_API_DECL void RSD_API_CALLTYPE rsd_set_event_callback(rsound_t *rd, rsd_event_callback_t callback, void *userdata);
 
    /* Establishes connection to server. Might fail if connection can't be established or that one of 
       the mandatory options isn't set in rsd_set_param(). This needs to be called after params have been set

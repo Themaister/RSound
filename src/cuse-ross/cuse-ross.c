@@ -11,13 +11,26 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <pthread.h>
+#include <assert.h>
+#include <sys/poll.h>
+
+#include <sys/soundcard.h>
 
 #define ROSS_DECL ross_t *ro = (ross_t*)info->fh
+
+// Dummy values for programs that are _very_ legacy.
+#define FRAGSIZE 512
+#define FRAGS 16
 
 typedef struct ross
 {
    rsound_t *rd;
    bool started;
+   bool nonblock;
+
+   pthread_mutex_t event_lock;
+   struct fuse_pollhandle *ph;
 } ross_t;
 
 static void ross_release(fuse_req_t req, struct fuse_file_info *info)
@@ -25,8 +38,24 @@ static void ross_release(fuse_req_t req, struct fuse_file_info *info)
    ROSS_DECL;
    rsd_stop(ro->rd);
    rsd_free(ro->rd);
+   pthread_mutex_destroy(&ro->event_lock);
+
+   if (ro->ph)
+      fuse_pollhandle_destroy(ro->ph);
+
    free(ro);
    fuse_reply_err(req, 0);
+}
+
+static void ross_event_cb(void *data)
+{
+   ross_t *ro = data;
+   pthread_mutex_lock(&ro->event_lock);
+   struct fuse_pollhandle *ph = ro->ph;
+   pthread_mutex_unlock(&ro->event_lock);
+
+   if (ph)
+      fuse_lowlevel_notify_poll(ph);
 }
 
 static void ross_open(fuse_req_t req, struct fuse_file_info *info)
@@ -34,6 +63,13 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
    ross_t *ro = calloc(1, sizeof(*ro));
    if (!ro)
    {
+      fuse_reply_err(req, ENOMEM);
+      return;
+   }
+
+   if (pthread_mutex_init(&ro->event_lock, NULL) < 0)
+   {
+      free(ro);
       fuse_reply_err(req, ENOMEM);
       return;
    }
@@ -48,8 +84,14 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
 
    int channels = 2;
    int rate = 44100;
+   int format = RSD_S16_LE;
    rsd_set_param(rd, RSD_CHANNELS, &channels);
    rsd_set_param(rd, RSD_SAMPLERATE, &rate);
+   rsd_set_param(rd, RSD_FORMAT, &format);
+   rsd_set_event_callback(ro->rd, ross_event_cb, ro);
+
+   int bufsize = FRAGSIZE * FRAGS;
+   rsd_set_param(rd, RSD_BUFSIZE, &bufsize);
 
    ro->rd = rd;
    info->fh = (uint64_t)ro;
@@ -81,6 +123,20 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
       ro->started = true;
    }
 
+   size_t avail = size;
+   if (ro->nonblock || info->flags & O_NONBLOCK)
+   {
+      avail = rsd_get_avail(ro->rd);
+      if (avail > size)
+         avail = size;
+
+      if (avail == 0)
+      {
+         fuse_reply_err(req, EAGAIN);
+         return;
+      }
+   }
+
    int ret;
    if ((ret = rsd_write(ro->rd, data, size)) == 0)
    {
@@ -97,12 +153,227 @@ static void ross_read(fuse_req_t req, size_t size, off_t off,
    fuse_reply_err(req, ENOSYS);
 }
 
-static void ross_ioctl(fuse_req_t req, int cmd, void *arg,
-      struct fuse_file_info *info, unsigned flags,
-      const void *in_buf, size_t in_bufsz, size_t out_bufsz)
+// Almost straight copypasta from OSS Proxy.
+// Not quite sure what this code is supposed to accomplish, but it seems that
+// you first need to map memory from kernel space in order to read/write arguments
+// with ioctl() or something ...
+static bool ioctl_prep_uarg(fuse_req_t req,
+      void *in, size_t in_size,
+      void *out, size_t out_size,
+      void *uarg,
+      const void *in_buf, size_t in_bufsize, size_t out_bufsize)
 {
-   //fuse_reply_ioctl(req, 0, NULL, 0);
-   fuse_reply_err(req, EINVAL);
+   bool retry = false;
+   struct iovec in_iov = {0};
+   struct iovec out_iov = {0};
+
+   if (in)
+   {
+      if (!in_bufsize)
+      {
+         in_iov.iov_base = uarg;
+         in_iov.iov_len = in_size;
+         retry = true;
+      }
+      else
+      {
+         assert(in_bufsize == in_size);
+         memcpy(in, in_buf, in_size);
+      }
+   }
+
+   if (out)
+   {
+      if (!out_bufsize)
+      {
+         out_iov.iov_base = uarg;
+         out_iov.iov_len = out_size;
+         retry = true;
+      }
+      else
+      {
+         assert(out_bufsize == out_size);
+      }
+   }
+
+   if (retry)
+      fuse_reply_ioctl_retry(req, &in_iov, 1, &out_iov, 1);
+
+   return retry;
+}
+
+#define IOCTL_RETURN(addr) do { \
+   fuse_reply_ioctl(req, 0, addr, sizeof(*(addr))); \
+} while(0)
+
+#define IOCTL_RETURN_NULL() do { \
+   fuse_reply_ioctl(req, 0, NULL, 0); \
+} while(0)
+
+#define PREP_UARG(inp, inp_s, outp, outp_s) do { \
+   if (ioctl_prep_uarg(req, inp, inp_s, \
+            outp, outp_s, uarg, \
+            in_buf, in_bufsize, out_bufsize)) \
+      return; \
+} while(0)
+
+#define PREP_UARG_OUT(outp) PREP_UARG(NULL, 0, outp, sizeof(*(outp)))
+#define PREP_UARG_INOUT(inp, outp) PREP_UARG(inp, sizeof(*inp), outp, sizeof(*outp))
+
+static int oss2rsd_fmt(int ossfmt)
+{
+   switch (ossfmt)
+   {
+      case AFMT_MU_LAW:
+         return RSD_MULAW;
+      case AFMT_A_LAW:
+         return RSD_ALAW;
+      case AFMT_U8:
+         return RSD_U8;
+      case AFMT_S16_LE:
+         return RSD_S16_LE;
+      case AFMT_S16_BE:
+         return RSD_S16_BE;
+      case AFMT_S8:
+         return RSD_S8;
+      case AFMT_U16_LE:
+         return RSD_U16_LE;
+      case AFMT_U16_BE:
+         return RSD_U16_BE;
+
+      default:
+         return RSD_S16_LE;
+   }
+}
+
+static int rsd2oss_fmt(int rsdfmt)
+{
+   switch (rsdfmt)
+   {
+      case RSD_U8:
+         return AFMT_U8;
+      case RSD_S8:
+         return AFMT_S8;
+      case RSD_S16_LE:
+         return AFMT_S16_LE;
+      case RSD_S16_BE:
+         return AFMT_S16_BE;
+      case RSD_U16_LE:
+         return AFMT_U16_LE;
+      case RSD_U16_BE:
+         return AFMT_U16_BE;
+      case RSD_ALAW:
+         return AFMT_A_LAW;
+      case RSD_MULAW:
+         return AFMT_MU_LAW;
+
+      default:
+         return AFMT_S16_LE;
+   }
+}
+
+static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
+      struct fuse_file_info *info, unsigned flags,
+      const void *in_buf, size_t in_bufsize, size_t out_bufsize)
+{
+   ROSS_DECL;
+
+   unsigned cmd = signed_cmd;
+   int i = 0;
+
+   switch (cmd)
+   {
+      case OSS_GETVERSION:
+         PREP_UARG_OUT(&i);
+         i = (3 << 16) | (8 << 8) | (1 << 4) | 0; // 3.8.1
+         IOCTL_RETURN(&i);
+         break;
+
+      case SNDCTL_DSP_NONBLOCK:
+         ro->nonblock = true;
+         IOCTL_RETURN_NULL();
+         break;
+
+      case SNDCTL_DSP_RESET:
+         rsd_stop(ro->rd);
+         ro->started = false;
+         IOCTL_RETURN_NULL();
+         break;
+
+      case SNDCTL_DSP_SPEED:
+         PREP_UARG_INOUT(&i, &i);
+         rsd_set_param(ro->rd, RSD_SAMPLERATE, &i);
+         IOCTL_RETURN(&i);
+         break;
+
+      case SNDCTL_DSP_SETFMT:
+         PREP_UARG_INOUT(&i, &i);
+         i = oss2rsd_fmt(i);
+         rsd_set_param(ro->rd, RSD_FORMAT, &i);
+         i = rsd2oss_fmt(i);
+         IOCTL_RETURN(&i);
+         break;
+
+      case SNDCTL_DSP_CHANNELS:
+         PREP_UARG_INOUT(&i, &i);
+         rsd_set_param(ro->rd, RSD_CHANNELS, &i);
+         IOCTL_RETURN(&i);
+         break;
+
+      case SNDCTL_DSP_GETOSPACE:
+      {
+         unsigned bytes = rsd_get_avail(ro->rd);
+         audio_buf_info info = {
+            .bytes = bytes,
+            .fragments = bytes / FRAGSIZE,
+            .fragsize = FRAGSIZE,
+            .fragstotal = FRAGS
+         };
+
+         PREP_UARG_OUT(&info);
+         IOCTL_RETURN(&info);
+         break;
+      }
+
+      case SNDCTL_DSP_GETODELAY:
+         PREP_UARG_OUT(&i);
+         i = rsd_delay(ro->rd);
+         IOCTL_RETURN(&i);
+         break;
+
+      case SNDCTL_DSP_SYNC:
+         usleep(rsd_delay_ms(ro->rd) * 1000);
+         IOCTL_RETURN_NULL();
+         break;
+
+      default:
+         fuse_reply_err(req, EINVAL);
+   }
+}
+
+
+static void ross_poll(fuse_req_t req, struct fuse_file_info *info,
+      struct fuse_pollhandle *ph)
+{
+   ROSS_DECL;
+
+   if (rsd_get_avail(ro->rd) > 0)
+   {
+      fuse_reply_poll(req, POLLOUT);
+      fuse_pollhandle_destroy(ph);
+   }
+   else
+   {
+      pthread_mutex_lock(&ro->event_lock);
+      struct fuse_pollhandle *tmp_ph = ro->ph;
+      ro->ph = ph;
+      pthread_mutex_unlock(&ro->event_lock);
+
+      if (tmp_ph)
+         fuse_pollhandle_destroy(tmp_ph);
+
+      fuse_reply_poll(req, 0);
+   }
 }
 
 static const struct cuse_lowlevel_ops ross_op = {
@@ -110,6 +381,7 @@ static const struct cuse_lowlevel_ops ross_op = {
    .read = ross_read,
    .write = ross_write,
    .ioctl = ross_ioctl,
+   .poll = ross_poll,
    .release = ross_release,
 };
 
@@ -152,6 +424,10 @@ static int process_arg(void *data, const char *arg, int key,
 
 int main(int argc, char *argv[])
 {
+   assert(sizeof(void*) <= sizeof(uint64_t));
+   // We use the uint64_t FH to contain a pointer.
+   // Make sure that this is possible ...
+
    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
    struct ross_param param = {0}; 
 
