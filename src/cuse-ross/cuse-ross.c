@@ -1,8 +1,6 @@
-#include <string.h>
 #include <cuse_lowlevel.h>
 #include <fuse_opt.h>
 #include <rsound.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <sys/types.h>
@@ -14,6 +12,8 @@
 #include <pthread.h>
 #include <assert.h>
 #include <sys/poll.h>
+#include <string.h>
+#include <stdio.h>
 
 #include <sys/soundcard.h>
 
@@ -58,6 +58,9 @@ static void ross_event_cb(void *data)
       fuse_lowlevel_notify_poll(ph);
 }
 
+static char *g_host = NULL;
+static char *g_port = NULL;
+
 static void ross_open(fuse_req_t req, struct fuse_file_info *info)
 {
    ross_t *ro = calloc(1, sizeof(*ro));
@@ -88,6 +91,12 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
    rsd_set_param(rd, RSD_CHANNELS, &channels);
    rsd_set_param(rd, RSD_SAMPLERATE, &rate);
    rsd_set_param(rd, RSD_FORMAT, &format);
+
+   if (g_host)
+      rsd_set_param(rd, RSD_HOST, g_host);
+   if (g_port)
+      rsd_set_param(rd, RSD_PORT, g_port);
+
    rsd_set_event_callback(rd, ross_event_cb, ro);
 
    int bufsize = FRAGSIZE * FRAGS;
