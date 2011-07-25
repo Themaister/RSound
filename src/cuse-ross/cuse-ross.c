@@ -512,7 +512,6 @@ struct ross_param
    unsigned major;
    unsigned minor;
    char *dev_name;
-   bool is_help;
 };
 
 static const struct fuse_opt ross_opts[] = {
@@ -527,16 +526,26 @@ static const struct fuse_opt ross_opts[] = {
    FUSE_OPT_END
 };
 
+static void print_help(void)
+{
+   fprintf(stderr, "CUSE-ROSS Usage:\n");
+   fprintf(stderr, "\t-M major, --maj=major\n");
+   fprintf(stderr, "\t-m minor, --min=minor\n");
+   fprintf(stderr, "\t-n name, --name=name (default: ross)\n");
+   fprintf(stderr, "\t\tDevice will be created in /dev/$name.\n");
+   fprintf(stderr, "\n");
+}
+
 static int process_arg(void *data, const char *arg, int key,
       struct fuse_args *outargs)
 {
-   struct ross_param *param = data;
+   (void)data;
    (void)arg;
 
    switch (key)
    {
       case 0:
-         param->is_help = true;
+         print_help();
          return fuse_opt_add_arg(outargs, "-ho");
       default:
          return 1;
