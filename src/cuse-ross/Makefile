@@ -2,8 +2,8 @@ TARGET := cuse-ross
 
 PREFIX ?= /usr/local
 
-SRCS := $(wildcard *.c)
-HEADERS := $(wildcard *.h)
+SRCS := $(wildcard *.c) ../librsound/buffer.c
+HEADERS := $(wildcard *.h) ../librsound/buffer.h
 OBJS := $(SRCS:.c=.o)
 
 LIBS := $(shell pkg-config rsound fuse --libs)

@@ -53,8 +53,15 @@ int main(int argc, char *argv[])
             pfd.revents,
             cnt++);
 
+      if (pfd.revents & (POLLHUP | POLLERR))
+         break;
+
       if ((~pfd.revents) & POLLOUT)
          continue;
+
+      int delay;
+      ioctl(fd, SNDCTL_DSP_GETODELAY, &delay);
+      fprintf(stderr, "Latency: %d ms\n", 1000 * delay / (44100 * 2 * 2));
 
       audio_buf_info info;
       ioctl(fd, SNDCTL_DSP_GETOSPACE, &info);

@@ -14,13 +14,15 @@
 #include <pthread.h>
 #include <assert.h>
 #include <sys/poll.h>
+#include <signal.h>
 
 #include <sys/soundcard.h>
 
+#include "../librsound/buffer.h"
+
 #define ROSS_DECL ross_t *ro = (ross_t*)info->fh
 
-// Dummy values for programs that are _very_ legacy.
-#define FRAGSIZE 2048
+#define FRAGSIZE 1024
 #define FRAGS 16
 
 typedef struct ross
@@ -29,35 +31,70 @@ typedef struct ross
    bool started;
    bool nonblock;
 
-   pthread_mutex_t event_lock;
+   pthread_mutex_t poll_lock;
    struct fuse_pollhandle *ph;
+
+   pthread_mutex_t cond_lock;
+   pthread_cond_t cond;
 
    int channels;
    int rate;
    int fragsize;
    int frags;
-   int latency;
+   int bufsize;
+   int bps;
 
-   bool use_latency;
-   // Unless SETFRAGMENT is used, we really don't care about high latency at all.
-   // We don't really use this yet.
+   volatile sig_atomic_t error;
+
+   rsound_fifo_buffer_t *buffer;
 } ross_t;
+
+static int ross_latency(ross_t *ro)
+{
+   if (!ro->started)
+      return 0;
+
+   int ret = rsd_delay(ro->rd);
+   rsd_callback_lock(ro->rd);
+   ret += rsnd_fifo_read_avail(ro->buffer);
+   rsd_callback_unlock(ro->rd);
+   return ret;
+}
+
+static void ross_close(ross_t *ro)
+{
+   if (ro->started)
+      usleep(1000000LLU * ross_latency(ro) / ro->bps);
+
+   rsd_stop(ro->rd);
+   rsd_free(ro->rd);
+
+   if (ro->buffer)
+      rsnd_fifo_free(ro->buffer);
+}
+
+static void ross_reset(ross_t *ro)
+{
+   rsd_stop(ro->rd);
+   ro->started = false;
+   ro->error = 0;
+
+   if (ro->buffer)
+   {
+      rsnd_fifo_free(ro->buffer);
+      ro->buffer = NULL;
+   }
+}
 
 static void ross_release(fuse_req_t req, struct fuse_file_info *info)
 {
    ROSS_DECL;
    
-   // OSS requires close() call to wait until all buffers are flushed out.
-   if (ro->started)
-   {
-      int usec = rsd_delay_ms(ro->rd) * 1000;
-      close(rsd_exec(ro->rd));
-      usleep(usec);
-   }
-   else
-      rsd_free(ro->rd);
+   ross_close(ro);
 
-   pthread_mutex_destroy(&ro->event_lock);
+   pthread_mutex_destroy(&ro->poll_lock);
+   pthread_mutex_destroy(&ro->cond_lock);
+   pthread_cond_destroy(&ro->cond);
 
    if (ro->ph)
       fuse_pollhandle_destroy(ro->ph);
@@ -66,17 +103,61 @@ static void ross_release(fuse_req_t req, struct fuse_file_info *info)
    fuse_reply_err(req, 0);
 }
 
-static void ross_event_cb(void *data)
+static void ross_notify(ross_t *ro)
 {
-   ross_t *ro = data;
-   pthread_mutex_lock(&ro->event_lock);
+   pthread_mutex_lock(&ro->poll_lock);
    if (ro->ph)
    {
       fuse_lowlevel_notify_poll(ro->ph);
       fuse_pollhandle_destroy(ro->ph);
       ro->ph = NULL;
    }
-   pthread_mutex_unlock(&ro->event_lock);
+   pthread_mutex_unlock(&ro->poll_lock);
+   pthread_cond_signal(&ro->cond);
+}
+
+static void ross_update_notify(ross_t *ro, struct fuse_pollhandle *ph)
+{
+   pthread_mutex_lock(&ro->poll_lock);
+   struct fuse_pollhandle *tmp_ph = ro->ph;
+   ro->ph = ph;
+   pthread_mutex_unlock(&ro->poll_lock);
+   if (tmp_ph)
+      fuse_pollhandle_destroy(tmp_ph);
+}
+
+static int ross_write_avail(ross_t *ro)
+{
+   if (!ro->started)
+      return ro->bufsize;
+
+   rsd_callback_lock(ro->rd);
+   int ret = rsnd_fifo_write_avail(ro->buffer);
+   rsd_callback_unlock(ro->rd);
+   return ret;
+}
+
+static ssize_t ross_audio_cb(void *data, size_t bytes, void *userdata)
+{
+   ross_t *ro = userdata;
+   ssize_t ret = rsnd_fifo_read_avail(ro->buffer);
+   if (ret > bytes)
+      ret = bytes;
+
+   if (ret > 0)
+   {
+      rsnd_fifo_read(ro->buffer, data, ret);
+      ross_notify(ro);
+   }
+
+   return ret;
+}
+
+static void ross_err_cb(void *data)
+{
+   ross_t *ro = data;
+   ro->error = 1;
+   ross_notify(ro);
 }
 
 static void ross_open(fuse_req_t req, struct fuse_file_info *info)
@@ -94,13 +175,6 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
       return;
    }
 
-   if (pthread_mutex_init(&ro->event_lock, NULL) < 0)
-   {
-      free(ro);
-      fuse_reply_err(req, ENOMEM);
-      return;
-   }
-
    rsound_t *rd;
    if (rsd_init(&rd) < 0)
    {
@@ -109,6 +183,16 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
       return;
    }
 
+   if (pthread_mutex_init(&ro->poll_lock, NULL) < 0 ||
+         pthread_mutex_init(&ro->cond_lock, NULL) < 0 ||
+         pthread_cond_init(&ro->cond, NULL) < 0)
+   {
+      free(ro);
+      rsd_free(rd);
+      fuse_reply_err(req, ENOMEM);
+      return;
+   }
+   
    // Use some different defaults than regular OSS for convenience. :D
    ro->rate = 44100;
    ro->channels = 2;
@@ -118,11 +202,9 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
    rsd_set_param(rd, RSD_SAMPLERATE, &ro->rate);
    rsd_set_param(rd, RSD_FORMAT, &format);
 
-   // poll() notification.
-   rsd_set_event_callback(rd, ross_event_cb, ro);
-
    ro->frags = FRAGS;
    ro->fragsize = FRAGSIZE;
+   ro->bufsize = FRAGS * FRAGSIZE;
 
    ro->rd = rd;
    info->fh = (uint64_t)ro;
@@ -130,6 +212,27 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
    info->direct_io = 1;
 
    fuse_reply_open(req, info);
+}
+
+static int ross_start(ross_t *ro)
+{
+   ro->bps = ro->channels * ro->rate * rsd_samplesize(ro->rd);
+   int latency = (1000 * ro->bufsize) / ro->bps;
+   if (latency < 32)
+      latency = 32;
+
+   rsd_set_param(ro->rd, RSD_LATENCY, &latency);
+   rsd_set_callback(ro->rd, ross_audio_cb, ross_err_cb, ro->fragsize, ro);
+
+   ro->buffer = rsnd_fifo_new(ro->bufsize);
+   if (!ro->buffer)
+      return -1;
+
+   if (rsd_start(ro->rd) < 0)
+      return -1;
+
+   ro->started = true;
+   return 0;
 }
 
 static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off, struct fuse_file_info *info)
@@ -142,48 +245,55 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
       return;
    }
 
-   if (!ro->started)
+   if (ro->error)
    {
-      ro->latency = (1000 * ro->frags * ro->fragsize) / (ro->channels * ro->rate * rsd_samplesize(ro->rd));
-      if (ro->latency < 64)
-         ro->latency = 64;
-
-      rsd_set_param(ro->rd, RSD_LATENCY, &ro->latency);
-
-      if (rsd_start(ro->rd) < 0)
-      {
-         fuse_reply_err(req, EIO);
-         return;
-      }
-      ro->started = true;
-
+      fuse_reply_err(req, ECONNABORTED);
+      return;
    }
 
-   size_t avail = size;
-   bool nonblock = ro->nonblock || (info->flags & O_NONBLOCK);
-   if (nonblock)
-   {
-      avail = rsd_get_avail(ro->rd);
-      if (avail > size)
-         avail = size;
-
-      if (avail == 0)
-      {
-         fuse_reply_err(req, EAGAIN);
-         return;
-      }
-   }
-
-   rsd_delay_wait(ro->rd);
-
-   int ret;
-   if ((ret = rsd_write(ro->rd, data, avail)) == 0)
+   if (!ro->started && (ross_start(ro) < 0))
    {
       fuse_reply_err(req, EIO);
       return;
    }
 
-   fuse_reply_write(req, ret);
+   bool nonblock = ro->nonblock || (info->flags & O_NONBLOCK);
+   size_t written = 0;
+   do
+   {
+      rsd_callback_lock(ro->rd);
+      size_t write_avail = rsnd_fifo_write_avail(ro->buffer);
+
+      if (write_avail > size)
+         write_avail = size;
+
+      if (write_avail > 0)
+         rsnd_fifo_write(ro->buffer, data, write_avail);
+      rsd_callback_unlock(ro->rd);
+
+      data += write_avail;
+      size -= write_avail;
+      written += write_avail;
+
+      if (nonblock)
+         break;
+
+      if (write_avail == 0)
+      {
+         pthread_mutex_lock(&ro->cond_lock);
+         pthread_cond_wait(&ro->cond, &ro->cond_lock);
+         pthread_mutex_unlock(&ro->cond_lock);
+      }
+
+   } while (size > 0);
+
+   if (written == 0)
+   {
+      fuse_reply_err(req, EAGAIN);
+      return;
+   }
+
+   fuse_reply_write(req, written);
 }
 
 // Almost straight copypasta from OSS Proxy.
@@ -345,8 +455,7 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
 #if defined(SNDCTL_DSP_HALT) && (SNDCTL_DSP_HALT != SNDCTL_DSP_RESET)
       case SNDCTL_DSP_HALT:
 #endif
-         rsd_stop(ro->rd);
-         ro->started = false;
+         ross_reset(ro);
          IOCTL_RETURN_NULL();
          break;
 #endif
@@ -394,13 +503,7 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
 #ifdef SNDCTL_DSP_GETOSPACE
       case SNDCTL_DSP_GETOSPACE:
       {
-         unsigned bufsize = ro->frags * ro->fragsize;
-         unsigned bytes = ro->frags * ro->fragsize;
-         if (ro->started)
-            bytes = rsd_get_avail(ro->rd);
-
-         if (bytes > bufsize)
-            bytes = bufsize;
+         unsigned bytes = ross_write_avail(ro);
 
          audio_buf_info audio_info = {
             .bytes = bytes,
@@ -440,9 +543,8 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
 
          ro->frags = frags;
          ro->fragsize = fragsize;
-         ro->use_latency = true;
+         ro->bufsize = frags * fragsize;
 
-         i = (frags << 16) | ((fragsize == 512) ? 9 : (i & 0xffff));
          IOCTL_RETURN(&i);
          break;
       }
@@ -451,7 +553,7 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
 #ifdef SNDCTL_DSP_GETODELAY
       case SNDCTL_DSP_GETODELAY:
          PREP_UARG_OUT(&i);
-         i = ro->started ? rsd_delay(ro->rd) : 0;
+         i = ross_latency(ro);
          IOCTL_RETURN(&i);
          break;
 #endif
@@ -459,7 +561,7 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
 #ifdef SNDCTL_DSP_SYNC
       case SNDCTL_DSP_SYNC:
          if (ro->started)
-            usleep(rsd_delay_ms(ro->rd) * 1000);
+            usleep((1000000LLU * ross_latency(ro)) / ro->bps);
          IOCTL_RETURN_NULL();
          break;
 #endif
@@ -475,14 +577,17 @@ static void ross_poll(fuse_req_t req, struct fuse_file_info *info,
 {
    ROSS_DECL;
 
-   pthread_mutex_lock(&ro->event_lock);
-   struct fuse_pollhandle *tmp_ph = ro->ph;
-   ro->ph = ph;
-   pthread_mutex_unlock(&ro->event_lock);
-   if (tmp_ph)
-      fuse_pollhandle_destroy(tmp_ph);
+   if (ro->error)
+   {
+      fuse_reply_poll(req, POLLHUP);
+      if (ph)
+         fuse_pollhandle_destroy(ph);
+      return;
+   }
 
-   if (!ro->started || (rsd_get_avail(ro->rd) > 0))
+   ross_update_notify(ro, ph);
+
+   if (!ro->started || (ross_write_avail(ro) > 0))
       fuse_reply_poll(req, POLLOUT);
    else
       fuse_reply_poll(req, 0);
