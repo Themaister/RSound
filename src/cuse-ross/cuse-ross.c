@@ -71,10 +71,9 @@ static void ross_event_cb(void *data)
    ross_t *ro = data;
    pthread_mutex_lock(&ro->event_lock);
    struct fuse_pollhandle *ph = ro->ph;
-   pthread_mutex_unlock(&ro->event_lock);
-
    if (ph)
       fuse_lowlevel_notify_poll(ph);
+   pthread_mutex_unlock(&ro->event_lock);
 }
 
 static void ross_open(fuse_req_t req, struct fuse_file_info *info)
@@ -176,12 +175,6 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
    }
 
    fuse_reply_write(req, ret);
-}
-
-static void ross_read(fuse_req_t req, size_t size, off_t off,
-      struct fuse_file_info *info)
-{
-   fuse_reply_err(req, ENOSYS);
 }
 
 // Almost straight copypasta from OSS Proxy.
@@ -473,33 +466,21 @@ static void ross_poll(fuse_req_t req, struct fuse_file_info *info,
 {
    ROSS_DECL;
 
-   if (!ro->started)
-   {
-      fuse_reply_poll(req, POLLOUT);
-      fuse_pollhandle_destroy(ph);
-   }
-   else if (rsd_get_avail(ro->rd) > 0)
-   {
-      fuse_reply_poll(req, POLLOUT);
-      fuse_pollhandle_destroy(ph);
-   }
-   else
-   {
-      pthread_mutex_lock(&ro->event_lock);
-      struct fuse_pollhandle *tmp_ph = ro->ph;
-      ro->ph = ph;
-      pthread_mutex_unlock(&ro->event_lock);
+   pthread_mutex_lock(&ro->event_lock);
+   struct fuse_pollhandle *tmp_ph = ro->ph;
+   ro->ph = ph;
+   pthread_mutex_unlock(&ro->event_lock);
+   if (tmp_ph)
+      fuse_pollhandle_destroy(tmp_ph);
 
-      if (tmp_ph)
-         fuse_pollhandle_destroy(tmp_ph);
-
-      fuse_reply_poll(req, 0);
-   }
+   if (!ro->started || (rsd_get_avail(ro->rd) > 0))
+      fuse_reply_poll(req, POLLOUT);
+   //else
+      //fuse_reply_poll(req, 0);
 }
 
 static const struct cuse_lowlevel_ops ross_op = {
    .open = ross_open,
-   .read = ross_read,
    .write = ross_write,
    .ioctl = ross_ioctl,
    .poll = ross_poll,

@@ -7,7 +7,8 @@
 *.pc
 rsdplay
 rsd
-cuse-ross
+/src/cuse-ross/cuse-ross
+/src/cuse-ross/test/test-oss
 rsd-simple-start
 /src/config.h
 /src/config.mk
