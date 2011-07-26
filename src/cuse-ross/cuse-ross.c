@@ -174,6 +174,8 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
       }
    }
 
+   rsd_delay_wait(ro->rd);
+
    int ret;
    if ((ret = rsd_write(ro->rd, data, avail)) == 0)
    {
@@ -440,7 +442,7 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
          ro->fragsize = fragsize;
          ro->use_latency = true;
 
-         i = (frags << 16) | fragsize;
+         i = (frags << 16) | ((fragsize == 512) ? 9 : (i & 0xffff));
          IOCTL_RETURN(&i);
          break;
       }
