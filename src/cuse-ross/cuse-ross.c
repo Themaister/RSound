@@ -104,15 +104,15 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
    }
 
    // Use some different defaults than regular OSS for convenience. :D
-   int channels = 2;
-   int rate = 44100;
-   int format = RSD_S16_LE;
    ro->rate = 44100;
    ro->channels = 2;
+   int format = RSD_S16_LE;
 
-   rsd_set_param(rd, RSD_CHANNELS, &channels);
-   rsd_set_param(rd, RSD_SAMPLERATE, &rate);
+   rsd_set_param(rd, RSD_CHANNELS, &ro->channels);
+   rsd_set_param(rd, RSD_SAMPLERATE, &ro->rate);
    rsd_set_param(rd, RSD_FORMAT, &format);
+
+   // poll() notification.
    rsd_set_event_callback(rd, ross_event_cb, ro);
 
    ro->frags = FRAGS;
@@ -128,8 +128,6 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
 
 static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off, struct fuse_file_info *info)
 {
-   (void)off;
-
    ROSS_DECL;
 
    if (size == 0)
@@ -523,9 +521,6 @@ static void print_help(void)
 static int process_arg(void *data, const char *arg, int key,
       struct fuse_args *outargs)
 {
-   (void)data;
-   (void)arg;
-
    switch (key)
    {
       case 0:
