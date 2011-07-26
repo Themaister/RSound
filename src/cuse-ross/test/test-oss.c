@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
    fprintf(stderr, "GETOSPACE: rc = %d, bytes = %d, fragments = %d, fragsize = %d, fragstotal = %d\n",
          rc, info.bytes, info.fragments, info.fragsize, info.fragstotal);
 
-   fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
+   assert(fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == 0);
 
    uint8_t buf[1024];
    unsigned cnt = 0;
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
    for (;;)
    {
       struct pollfd pfd = {
-         .events = POLLOUT,
+         .events = POLLOUT | POLLIN, // POLLIN for shits 'n giggles.
       };
 
       if (poll(&pfd, 1, 1000) < 0)
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
       audio_buf_info info;
       ioctl(fd, SNDCTL_DSP_GETOSPACE, &info);
       size_t avail = sizeof(buf) < (size_t)info.bytes ? sizeof(buf) : (size_t)info.bytes;
-      fprintf(stderr, "Avail: %u\n", (unsigned)info.bytes);
+      fprintf(stderr, "OSS write avail: %u\n", (unsigned)info.bytes);
 
       if (read(0, buf, avail) <= 0)
          break;
