@@ -81,6 +81,12 @@ static void ross_event_cb(void *data)
 
 static void ross_open(fuse_req_t req, struct fuse_file_info *info)
 {
+   if ((info->flags & (O_WRONLY | O_RDONLY | O_RDWR)) != O_WRONLY)
+   {
+      fuse_reply_err(req, EACCES);
+      return;
+   }
+
    ross_t *ro = calloc(1, sizeof(*ro));
    if (!ro)
    {
