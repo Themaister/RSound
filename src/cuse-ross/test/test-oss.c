@@ -40,10 +40,11 @@ int main(int argc, char *argv[])
    for (;;)
    {
       struct pollfd pfd = {
-         .events = POLLOUT | POLLIN, // POLLIN for shits 'n giggles.
+         .fd = fd,
+         .events = POLLOUT, // POLLIN for shits 'n giggles.
       };
 
-      if (poll(&pfd, 1, 1000) < 0)
+      if (poll(&pfd, 1, -1) < 0)
          break;
 
       fprintf(stderr, "poll(): POLLOUT = %d, .events = %u, .revents = %u, Count = %u\n",
