@@ -22,8 +22,8 @@
 
 #define ROSS_DECL ross_t *ro = (ross_t*)info->fh
 
-#define FRAGSIZE 1024
-#define FRAGS 16
+#define FRAGSIZE 512
+#define FRAGS 64
 
 typedef struct ross
 {
