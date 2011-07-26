@@ -70,9 +70,12 @@ static void ross_event_cb(void *data)
 {
    ross_t *ro = data;
    pthread_mutex_lock(&ro->event_lock);
-   struct fuse_pollhandle *ph = ro->ph;
-   if (ph)
-      fuse_lowlevel_notify_poll(ph);
+   if (ro->ph)
+   {
+      fuse_lowlevel_notify_poll(ro->ph);
+      fuse_pollhandle_destroy(ro->ph);
+      ro->ph = NULL;
+   }
    pthread_mutex_unlock(&ro->event_lock);
 }
 
@@ -475,8 +478,8 @@ static void ross_poll(fuse_req_t req, struct fuse_file_info *info,
 
    if (!ro->started || (rsd_get_avail(ro->rd) > 0))
       fuse_reply_poll(req, POLLOUT);
-   //else
-      //fuse_reply_poll(req, 0);
+   else
+      fuse_reply_poll(req, 0);
 }
 
 static const struct cuse_lowlevel_ops ross_op = {

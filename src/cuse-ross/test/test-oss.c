@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
          .events = POLLOUT,
       };
 
-      if (poll(&pfd, 1, -1) < 0)
+      if (poll(&pfd, 1, 1000) < 0)
          break;
 
       fprintf(stderr, "poll(): POLLOUT = %d, .events = %u, .revents = %u, Count = %u\n",
