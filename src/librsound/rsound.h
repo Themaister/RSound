@@ -290,7 +290,7 @@ typedef long ssize_t;
 
    /* Enables use of the callback interface. This must be set when stream is not active. 
       When callback is active, use of the blocking interface is disabled. 
-      Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(). Calling any other function is undefined. 
+      Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(), or calling rsd_delay_*(). Calling any other function is undefined. 
       The callback is called at regular intervals and is asynchronous, so thread safety must be ensured by the caller. 
       If not enough data can be given to the callback, librsound will fill the rest of the callback data with silence. 
       librsound will attempt to obey latency information given with RSD_LATENCY as given before calling rsd_start().

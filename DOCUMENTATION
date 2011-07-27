@@ -277,7 +277,8 @@ Description:
    Enabling error callback is not optional, as it is the only way to signal caller of errors that could occur.
 
    When callback is active, use of the blocking interface is disabled. 
-   Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(), 
+   Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(),
+   calling rsd_delay_*(),
    or restarting the stream should an error have occured.
    Calling any other function is undefined. 
 
