@@ -247,7 +247,7 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
 
    if (ro->error)
    {
-      fuse_reply_err(req, ECONNABORTED);
+      fuse_reply_err(req, EPIPE);
       return;
    }
 
@@ -275,7 +275,7 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
       size -= write_avail;
       written += write_avail;
 
-      if (nonblock)
+      if (nonblock || ro->error)
          break;
 
       if (write_avail == 0)
@@ -285,7 +285,13 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
          pthread_mutex_unlock(&ro->cond_lock);
       }
 
-   } while (size > 0);
+   } while (size > 0 && !ro->error);
+
+   if (ro->error)
+   {
+      fuse_reply_err(req, EPIPE);
+      return;
+   }
 
    if (written == 0)
    {
@@ -577,17 +583,11 @@ static void ross_poll(fuse_req_t req, struct fuse_file_info *info,
 {
    ROSS_DECL;
 
-   if (ro->error)
-   {
-      fuse_reply_poll(req, POLLHUP);
-      if (ph)
-         fuse_pollhandle_destroy(ph);
-      return;
-   }
-
    ross_update_notify(ro, ph);
 
-   if (!ro->started || (ross_write_avail(ro) > 0))
+   if (ro->error)
+      fuse_reply_poll(req, POLLHUP);
+   else if (!ro->started || (ross_write_avail(ro) > 0))
       fuse_reply_poll(req, POLLOUT);
    else
       fuse_reply_poll(req, 0);
