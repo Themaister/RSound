@@ -47,7 +47,6 @@ typedef struct ross
    volatile sig_atomic_t error;
 
    unsigned write_cnt;
-   int last_played_bytes;
 
    rsound_fifo_buffer_t *buffer;
 } ross_t;
@@ -129,16 +128,28 @@ static void ross_update_notify(ross_t *ro, struct fuse_pollhandle *ph)
       fuse_pollhandle_destroy(tmp_ph);
 }
 
-static int ross_write_avail(ross_t *ro)
+static unsigned ross_write_avail(ross_t *ro)
 {
    if (!ro->started)
       return ro->bufsize;
 
    rsd_callback_lock(ro->rd);
-   int ret = rsnd_fifo_write_avail(ro->buffer);
+   unsigned ret = rsnd_fifo_write_avail(ro->buffer);
    rsd_callback_unlock(ro->rd);
    return ret;
 }
+
+static int ross_read_avail(ross_t *ro)
+{
+   if (!ro->started)
+      return 0;
+
+   rsd_callback_lock(ro->rd);
+   unsigned ret = rsnd_fifo_read_avail(ro->buffer);
+   rsd_callback_unlock(ro->rd);
+   return ret;
+}
+
 
 static ssize_t ross_audio_cb(void *data, size_t bytes, void *userdata)
 {
@@ -586,11 +597,7 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
 #ifdef SNDCTL_DSP_GETOPTR
       case SNDCTL_DSP_GETOPTR:
       {
-         int played_bytes = ro->write_cnt - ross_latency(ro);
-         if (played_bytes < ro->last_played_bytes)
-            played_bytes = ro->last_played_bytes;
-         else
-            ro->last_played_bytes = played_bytes;
+         unsigned played_bytes = ro->write_cnt - ross_read_avail(ro);
 
          count_info ci = {
             .bytes = played_bytes,
