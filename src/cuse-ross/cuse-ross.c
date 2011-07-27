@@ -46,6 +46,9 @@ typedef struct ross
 
    volatile sig_atomic_t error;
 
+   unsigned write_cnt;
+   int last_played_bytes;
+
    rsound_fifo_buffer_t *buffer;
 } ross_t;
 
@@ -300,6 +303,7 @@ static void ross_write(fuse_req_t req, const char *data, size_t size, off_t off,
    }
 
    fuse_reply_write(req, written);
+   ro->write_cnt += written;
 }
 
 // Almost straight copypasta from OSS Proxy.
@@ -569,6 +573,57 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
          if (ro->started)
             usleep((1000000LLU * ross_latency(ro)) / ro->bps);
          IOCTL_RETURN_NULL();
+         break;
+#endif
+
+#ifdef SNDCTL_DSP_COOKEDMODE
+      case SNDCTL_DSP_COOKEDMODE:
+         PREP_UARG_INOUT(&i, &i);
+         IOCTL_RETURN(&i);
+         break;
+#endif
+
+#ifdef SNDCTL_DSP_GETOPTR
+      case SNDCTL_DSP_GETOPTR:
+      {
+         int played_bytes = ro->write_cnt - ross_latency(ro);
+         if (played_bytes < ro->last_played_bytes)
+            played_bytes = ro->last_played_bytes;
+         else
+            ro->last_played_bytes = played_bytes;
+
+         count_info ci = {
+            .bytes = played_bytes,
+            .blocks = played_bytes / ro->fragsize,
+            .ptr = played_bytes % ro->bufsize
+         };
+
+         PREP_UARG_OUT(&ci);
+         IOCTL_RETURN(&ci);
+         break;
+      }
+#endif
+
+#ifdef SNDCTL_DSP_SETPLAYVOL
+      case SNDCTL_DSP_SETPLAYVOL:
+         PREP_UARG_INOUT(&i, &i);
+         i = (100 << 8) | 100; // We don't have a volume control :D
+         IOCTL_RETURN(&i);
+         break;
+#endif
+
+#ifdef SNDCTL_DSP_GETPLAYVOL
+      case SNDCTL_DSP_GETPLAYVOL:
+         PREP_UARG_OUT(&i);
+         i = (100 << 8) | 100; // We don't have a volume control :D
+         IOCTL_RETURN(&i);
+         break;
+#endif
+
+#ifdef SNDCTL_DSP_SETTRIGGER
+      case SNDCTL_DSP_SETTRIGGER:
+         PREP_UARG_INOUT(&i, &i);
+         IOCTL_RETURN(&i); // No reason to care about this for now. Maybe when/if mmap() gets implemented.
          break;
 #endif
 
