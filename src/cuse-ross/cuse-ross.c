@@ -455,6 +455,14 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
          break;
 #endif
 
+#ifdef SNDCTL_DSP_GETCAPS
+      case SNDCTL_DSP_GETCAPS:
+         PREP_UARG_OUT(&i);
+         i = DSP_CAP_REALTIME | DSP_CAP_BATCH | DSP_CAP_TRIGGER | DSP_CAP_MULTI;
+         IOCTL_RETURN(&i);
+         break;
+#endif
+
 #ifdef SNDCTL_DSP_GETFMTS
       case SNDCTL_DSP_GETFMTS:
          PREP_UARG_OUT(&i);
@@ -631,6 +639,12 @@ static void ross_ioctl(fuse_req_t req, int signed_cmd, void *uarg,
       case SNDCTL_DSP_SETTRIGGER:
          PREP_UARG_INOUT(&i, &i);
          IOCTL_RETURN(&i); // No reason to care about this for now. Maybe when/if mmap() gets implemented.
+         break;
+#endif
+
+#ifdef SNDCTL_DSP_POST
+      case SNDCTL_DSP_POST:
+         IOCTL_RETURN_NULL();
          break;
 #endif
 
