@@ -22,9 +22,8 @@
 
 typedef struct
 {
-   LPDIRECTSOUNDBUFFER dsb_p, dsb_b;
-   DSBUFFERDESC dsbd;
-   WAVEFORMATEX wfx;
+   LPDIRECTSOUND ds;
+   LPDIRECTSOUNDBUFFER dsb;
 
    int conv;
    int fmt;
