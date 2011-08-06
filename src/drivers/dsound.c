@@ -68,8 +68,8 @@ static int ds_rsd_open(void* data, wav_header_t *w)
    ds->fmt = w->rsd_format;
    ds->conv = converter_fmt_to_s16ne(w->rsd_format);
 
-   ds->rings = 8;
-   ds->latency = DEFAULT_CHUNK_SIZE * 4;
+   ds->rings = 16;
+   ds->latency = DEFAULT_CHUNK_SIZE * 2;
 
    WAVEFORMATEX wfx = {
       .wFormatTag = WAVE_FORMAT_PCM,
