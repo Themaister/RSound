@@ -25,7 +25,7 @@
 static ALCdevice *global_handle;
 static ALCcontext *global_context;
 
-#define BUF_SIZE 512
+#define BUF_SIZE 1024
 
 static void al_close(void *data)
 {
@@ -85,42 +85,13 @@ static int al_open(void* data, wav_header_t *w)
    al->fmt = w->rsd_format;
    al->conv = RSD_NULL;
 
-   int bits = rsnd_format_to_bytes(w->rsd_format) * 8;
-   int i = 0;
+   al->conv = converter_fmt_to_s16ne(w->rsd_format);
 
-   if ( is_little_endian() )
-      i++;
-   if ( w->rsd_format & ( RSD_S16_BE | RSD_U16_BE ) )
-      i++;
+   // Don't support multichannels yet.
+   if (w->numChannels > 2)
+      return -1;
 
-   if ( (i % 2) == 0 && bits == 16 )
-      al->conv |= RSD_SWAP_ENDIAN;
-
-   if ( w->rsd_format & ( RSD_U16_LE | RSD_U16_BE ) )
-      al->conv |= RSD_U_TO_S;
-   else if ( w->rsd_format & RSD_S8 )
-      al->conv |= RSD_S_TO_U;
-
-   if ( w->numChannels == 2 && w->bitsPerSample == 16 )
-      al->format = AL_FORMAT_STEREO16;
-   else if ( w->numChannels == 1 && w->bitsPerSample == 16 )
-      al->format = AL_FORMAT_MONO16;
-   else if ( w->numChannels == 2 && w->bitsPerSample == 8 )
-      al->format = AL_FORMAT_STEREO8;
-   else if ( w->numChannels == 1 && w->bitsPerSample == 8 )
-      al->format = AL_FORMAT_MONO8;
-
-   if ( w->rsd_format == RSD_ALAW )
-   {
-      al->format = (w->numChannels == 2) ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16;
-      al->conv |= RSD_ALAW_TO_S16;
-   }
-   else if ( w->rsd_format == RSD_MULAW )
-   {
-      al->format = (w->numChannels == 2) ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16;
-      al->conv |= RSD_MULAW_TO_S16;
-   }
-
+   al->format = (w->numChannels == 2) ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16;
 
    al->rate = w->sampleRate;
 
@@ -197,7 +168,10 @@ static size_t al_write(void *data, const void* inbuf, size_t size)
 
    if (al->conv != RSD_NULL)
    {
-      osize = (al->fmt & (RSD_ALAW | RSD_MULAW)) ? 2*size : size;
+      if (rsnd_format_to_bytes(al->fmt) == 1)
+         osize = 2 * size;
+      else if (rsnd_format_to_bytes(al->fmt) == 4)
+         osize = size / 2;
 
       memcpy(convbuf, inbuf, size);
 
@@ -239,6 +213,12 @@ static int al_latency(void *data)
    int latency;
    al_unqueue_buffers(al);
    latency = BUF_SIZE * (al->num_buffers - al->res_ptr);
+
+   if (rsnd_format_to_bytes(al->fmt) == 4)
+      latency /= 2;
+   else if (al->fmt & (RSD_ALAW | RSD_MULAW))
+      latency *= 2;
+
    return latency;
 }
 

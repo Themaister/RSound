@@ -25,6 +25,7 @@
 #include <rsound.h>
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #else
 #include "librsound/rsound.h"
 #include <signal.h>
@@ -36,7 +37,19 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
 #include "config.h"
+#endif
+
+#undef CONST_CAST
+#ifdef _WIN32
+#undef close
+#define close(x) closesocket(x)
+#define CONST_CAST (const char*)
+#else
+#define CONST_CAST
 #endif
 
 #define READ_SIZE 1024
@@ -46,6 +59,7 @@ static int raw_mode = 0;
 static uint32_t raw_rate = 44100;
 static uint16_t channel = 2;
 static int format = 0;
+static int high_latency = 0;
 
 static char port[128] = "";
 static char host[1024] = "";
@@ -100,6 +114,14 @@ int main(int argc, char **argv)
       return 1;
    }
 
+   if ( high_latency )
+   {
+      int bufsiz = 1 << 20;
+      setsockopt(rsd_fd, SOL_SOCKET, SO_SNDBUF, CONST_CAST &bufsiz, sizeof(int));
+      int flag = 0;
+      setsockopt(rsd_fd, IPPROTO_TCP, TCP_NODELAY, CONST_CAST &flag, sizeof(int));
+   }
+
    buffer = malloc ( READ_SIZE );
    if ( buffer == NULL )
    {
@@ -121,6 +143,8 @@ int main(int argc, char **argv)
    free(buffer);
    if ( infile )
       fclose(infile);
+
+   close(rsd_fd);
 
    return 0;
 }
@@ -249,6 +273,7 @@ static void print_help()
    printf("-f/--file: Uses file rather than stdin\n");
    printf("-s/--server: More explicit way of assigning hostname\n");
    printf("-i/--identity: Defines the identity associated with this client. Defaults to \"rsdplay\"\n");
+   printf("-H/--high: Uses a high-latency connection with big buffers. Ideal for transmission over internet.\n");
 }
 
 static void parse_input(int argc, char **argv)
@@ -264,10 +289,11 @@ static void parse_input(int argc, char **argv)
       { "file", 1, NULL, 'f'},
       { "server", 1, NULL, 's'},
       { "identity", 1, NULL, 'i'},
+      { "high", 0, NULL, 'H' },
       { NULL, 0, NULL, 0 }
    };
 
-   char optstring[] = "r:p:hc:f:B:s:i:";
+   char optstring[] = "r:p:hc:f:B:s:i:H";
    while ( 1 )
    {
       c = getopt_long ( argc, argv, optstring, opts, &option_index );
@@ -338,6 +364,14 @@ static void parse_input(int argc, char **argv)
                format = RSD_ALAW;
             else if ( strcmp("MULAW", optarg) == 0 )
                format = RSD_MULAW;
+            else if ( strcmp("S32LE", optarg) == 0 )
+               format = RSD_S32_LE;
+            else if ( strcmp("S32BE", optarg) == 0 )
+               format = RSD_S32_BE;
+            else if ( strcmp("U32LE", optarg) == 0 )
+               format = RSD_U32_LE;
+            else if ( strcmp("U32BE", optarg) == 0 )
+               format = RSD_U32_BE;
             else
             {
                fprintf(stderr, "Invalid bit format.\n");
@@ -346,6 +380,9 @@ static void parse_input(int argc, char **argv)
             }
             break;
 
+         case 'H':
+            high_latency = 1;
+            break;
 
          default:
             fprintf(stderr, "Error in parsing arguments.\n");

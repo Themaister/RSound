@@ -51,6 +51,28 @@ static int pulse_open(void* data, wav_header_t *w)
 
    switch ( w->rsd_format )
    {
+      case RSD_S32_LE:
+         ss.format = PA_SAMPLE_S32LE;
+         interface->framesize = 4;
+         break;
+
+      case RSD_S32_BE:
+         ss.format = PA_SAMPLE_S32BE;
+         interface->framesize = 4;
+         break;
+
+      case RSD_U32_LE:
+         ss.format = PA_SAMPLE_S32LE;
+         interface->conv |= RSD_U_TO_S;
+         interface->framesize = 4;
+         break;
+
+      case RSD_U32_BE:
+         ss.format = PA_SAMPLE_S32BE;
+         interface->conv |= RSD_U_TO_S;
+         interface->framesize = 4;
+         break;
+
       case RSD_S16_LE:
          ss.format = PA_SAMPLE_S16LE;
          interface->framesize = 2;
@@ -59,11 +81,13 @@ static int pulse_open(void* data, wav_header_t *w)
       case RSD_U16_LE:
          ss.format = PA_SAMPLE_S16LE;
          interface->conv |= RSD_U_TO_S;
+         interface->framesize = 2;
          break;
 
       case RSD_U16_BE:
          ss.format = PA_SAMPLE_S16BE;
          interface->conv |= RSD_U_TO_S;
+         interface->framesize = 2;
          break;
 
       case RSD_S16_BE:
@@ -79,14 +103,17 @@ static int pulse_open(void* data, wav_header_t *w)
       case RSD_S8:
          ss.format = PA_SAMPLE_U8;
          interface->conv |= RSD_S_TO_U;
+         interface->framesize = 1;
          break;
 
       case RSD_ALAW:
          ss.format = PA_SAMPLE_ALAW;
+         interface->framesize = 1;
          break;
 
       case RSD_MULAW:
          ss.format = PA_SAMPLE_ULAW;
+         interface->framesize = 1;
          break;
 
       default:

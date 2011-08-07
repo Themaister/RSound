@@ -61,63 +61,21 @@ static int porta_open(void *data, wav_header_t *w)
    sound->converter = RSD_NULL;
    sound->fmt = w->rsd_format;
 
-   switch ( w->rsd_format )
+   if (rsnd_format_to_bytes(w->rsd_format) == 4)
    {
-      case RSD_S16_LE:
-         params.sampleFormat = paInt16;
-         if ( !is_little_endian() )
-            sound->converter |= RSD_SWAP_ENDIAN;
-         break;
-
-      case RSD_U16_LE:
-         params.sampleFormat = paInt16;
-         sound->converter |= RSD_U_TO_S;
-         if ( !is_little_endian() )
-            sound->converter |= RSD_SWAP_ENDIAN;
-         break;
-
-      case RSD_S16_BE:
-         params.sampleFormat = paInt16;
-         if ( is_little_endian() )
-            sound->converter |= RSD_SWAP_ENDIAN;
-         break;
-
-      case RSD_U16_BE:
-         params.sampleFormat = paInt16;
-         sound->converter |= RSD_U_TO_S;
-         if ( is_little_endian() )
-            sound->converter |= RSD_SWAP_ENDIAN;
-         break;
-
-      case RSD_U8:
-         params.sampleFormat = paUInt8;
-         break;
-
-      case RSD_S8:
-         params.sampleFormat = paInt8;
-         break;
-
-      case RSD_ALAW:
-         params.sampleFormat = paInt16;
-         sound->converter |= RSD_ALAW_TO_S16;
-         break;
-
-      case RSD_MULAW:
-         params.sampleFormat = paInt16;
-         sound->converter |= RSD_MULAW_TO_S16;
-         break;
-
-      default:
-         return -1;
+      sound->converter = converter_fmt_to_s32ne(w->rsd_format);
+      params.sampleFormat = paInt32;
    }
-
+   else
+   {
+      sound->converter = converter_fmt_to_s16ne(w->rsd_format);
+      params.sampleFormat = paInt16;
+   }
 
    params.suggestedLatency = Pa_GetDeviceInfo( params.device )->defaultLowOutputLatency;
    params.hostApiSpecificStreamInfo = NULL;
 
    sound->size = FRAMES_PER_BUFFER * rsnd_format_to_bytes(w->rsd_format) * w->numChannels;
-   if ( w->rsd_format & ( RSD_ALAW | RSD_MULAW ) )
-      sound->size *= 2;
 
    sound->frames = FRAMES_PER_BUFFER;
    sound->bps = rsnd_format_to_bytes(w->rsd_format) * w->numChannels * w->sampleRate;
@@ -134,16 +92,16 @@ static int porta_open(void *data, wav_header_t *w)
 
    if ( err != paNoError )
    {
-      fprintf(stderr, "Couldn't open stream.\n");
-      fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+      log_printf("Couldn't open stream.\n");
+      log_printf( "PortAudio error: %s\n", Pa_GetErrorText( err ) );
       return -1;
    }
 
    err = Pa_StartStream ( sound->stream );
    if ( err != paNoError )
    {
-      fprintf(stderr, "Couldn't start stream.\n");
-      fprintf(stderr,  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+      log_printf("Couldn't start stream.\n");
+      log_printf( "PortAudio error: %s\n", Pa_GetErrorText( err ) );
       return -1;
    }
 
@@ -153,8 +111,8 @@ static int porta_open(void *data, wav_header_t *w)
 static void porta_get_backend(void *data, backend_info_t *backend_info)
 {
    porta_t *sound = data;
-   backend_info->latency = (uint32_t)(sound->bps * Pa_GetStreamInfo( sound->stream )->outputLatency),
-      backend_info->chunk_size = sound->size;
+   backend_info->latency = (uint32_t)(sound->bps * Pa_GetStreamInfo( sound->stream )->outputLatency);
+   backend_info->chunk_size = sound->size;
 }
 
 static int porta_latency(void *data)
@@ -170,7 +128,7 @@ static size_t porta_write(void *data, const void *inbuf, size_t size)
 
    size_t osize = size;
    
-   uint8_t convbuf[2*size];
+   uint8_t convbuf[2 * size];
    void *buffer = (void*)inbuf;
 
    if (sound->converter != RSD_NULL)

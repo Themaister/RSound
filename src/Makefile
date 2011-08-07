@@ -1,8 +1,19 @@
 include config.mk
 
+uname := $(shell uname -a)
+ifneq ($(findstring Darwin,$(uname)),)
+   PLATFORM := OSX
+else
+   PLATFORM := X
+endif
+
 TARGET_SERVER = rsd
 TARGET_CLIENT = rsdplay
-TARGET_LIB = librsound/librsound.so.2.0.0
+ifeq ($(PLATFORM),OSX)
+   TARGET_LIB = librsound/librsound.dylib
+else
+   TARGET_LIB = librsound/librsound.so.3.0.0
+endif
 TARGET_LIB_OBJ = librsound/librsound.o librsound/buffer.o
 TARGET_LIB_OBJ_STATIC = librsound/librsound.a
 
@@ -46,13 +57,22 @@ ifeq ($(HAVE_MUROAR), 1)
 endif
 
 ifeq ($(HAVE_AL), 1)
+ifneq ($(findstring Darwin,$(shell uname -a)),)
+   OPT_SERV_LIBS += -framework OpenAL
+else
    OPT_SERV_LIBS += -lopenal
+endif
    OPT_SERV_OBJ += drivers/al.o
 endif
 
 ifeq ($(HAVE_PORTAUDIO), 1)
    OPT_SERV_LIBS += -lportaudio
    OPT_SERV_OBJ += drivers/porta.o
+endif
+
+ifeq ($(HAVE_JACK), 1)
+   OPT_SERV_LIBS += -ljack
+   OPT_SERV_OBJ += drivers/jack.o
 endif
 
 ifeq ($(NEED_RT), 1)
@@ -92,9 +112,13 @@ $(TARGET_CLIENT): $(TARGET_CLIENT_OBJ)
 
 $(TARGET_LIB): $(TARGET_LIB_OBJ) $(TARGET_LIB_OBJ_STATIC)
 	@echo "LD $@"
-	@$(CC) -shared -Wl,-soname,librsound.so.2 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS)
-	@ln -sf librsound.so.2.0.0 librsound/librsound.so.2
-	@ln -sf librsound.so.2.0.0 librsound/librsound.so
+ifeq ($(PLATFORM),OSX)
+	@$(CC) -dynamiclib -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -install_name $(PREFIX)/lib/librsound.dylib
+else
+	@$(CC) -shared -Wl,-soname,librsound.so.3 -o $(TARGET_LIB) $(CFLAGS) $(TARGET_LIB_OBJ) $(TARGET_LIB_LIBS) -fPIC
+	@ln -sf librsound.so.3.0.0 librsound/librsound.so.3
+	@ln -sf librsound.so.3.0.0 librsound/librsound.so
+endif
 
 $(TARGET_SERVER): $(TARGET_SERVER_OBJ)
 	@echo "LD $@"
@@ -140,9 +164,15 @@ install: install-lib install-server install-client
 
 
 install-lib: $(TARGET_LIB) $(TARGET_LIB_OBJ_STATIC) install-pkgconf
-	mkdir -p $(DESTDIR)$(PREFIX)/{lib/pkgconfig,include,share/man/man1}
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/pkgconfig 2>/dev/null || /bin/true
+	mkdir -p $(DESTDIR)$(PREFIX)/include 2>/dev/null || /bin/true
+	mkdir -p $(DESTDIR)$(PREFIX)/share/man/man1 2>/dev/null || /bin/true
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/ckport/db 2>/dev/null || /bin/true
 	install -m755 $(TARGET_LIB) $(DESTDIR)$(PREFIX)/lib
-	cp -P librsound/librsound.so librsound/librsound.so.2 $(DESTDIR)$(PREFIX)/lib
+	install -m644 ../ckport/librsound.ckport $(DESTDIR)$(PREFIX)/lib/ckport/db
+ifneq ($(PLATFORM),OSX)
+	cp -P librsound/librsound.so librsound/librsound.so.3 $(DESTDIR)$(PREFIX)/lib
+endif
 	install -m644 $(TARGET_LIB_OBJ_STATIC) $(DESTDIR)$(PREFIX)/lib
 	install -m644 librsound/rsound.h $(DESTDIR)$(PREFIX)/include
 	install -m644 rsound.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig

@@ -9,7 +9,9 @@ You will need at least one of these (headers and libraries):
    portaudio
    openal
    muroar
+   libroar
    pulseaudio
+   jack
 
 ==========================
  To compile (Unix-like):
@@ -24,8 +26,11 @@ To explicitly disable support, you can add these
 --disable-libao
 --disable-portaudio
 --disable-muroar
+--disable-roar
 --disable-openal
 --disable-pulse
+--disable-jack
+--disable-syslog
 
 You can refer to which modules you can (un)install by checking ./configure --help
 
@@ -74,7 +79,6 @@ A native win32 port is included in the source tree.
 
 To build, make sure that the toolchain can be found in your PATH.
 Also, copy pthreadGC2.dll found in the win32-pthread package into src/win32/bin/. You might have to create the src/win32/bin directory.
-To use rsd.exe, you will need to install the OpenAL runtime which is not included in the distribution due to size.
 
 To compile, type: mingw32-make mingw32 in an msys shell.
 

@@ -45,7 +45,6 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto);
 // If recv() returns less than we expect, we bail out as there is not more data to be read.
 int handle_ctl_request(connection_t *conn, void *data)
 {
-
    char rsd_proto_header[RSD_PROTO_MAXSIZE + 1];
    rsd_proto_t proto;
 
@@ -218,9 +217,13 @@ static int send_proto(int ctl_sock, rsd_proto_t *proto)
       switch ( proto->proto )
       {
          case RSD_PROTO_INFO:
+#ifdef _WIN32
+            snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, " INFO %I64d %I64d", (__int64)proto->client_ptr, (__int64)proto->serv_ptr);
+#else
             snprintf(tempbuf, RSD_PROTO_MAXSIZE - 1, " INFO %lld %lld", (long long int)proto->client_ptr, (long long int)proto->serv_ptr);
+#endif
             snprintf(sendbuf, RSD_PROTO_MAXSIZE - 1, "RSD%5d%s", (int)strlen(tempbuf), tempbuf);
-            //fprintf(stderr, "Sent info: \"%s\"\n", sendbuf);
+            //log_printf("Sent info: \"%s\"\n", sendbuf);
             rc = send(ctl_sock, sendbuf, strlen(sendbuf), 0);
             if ( rc < 0 )
                return -1;

@@ -24,10 +24,14 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
 #include <time.h>
-#include <netinet/in.h>
+#endif
+
+#ifdef HAVE_SYSLOG
+#include <syslog.h>
 #endif
 
 /* Default values */
@@ -38,14 +42,10 @@ char device[128] = "default";
 char port[128] = "12345";
 char bindaddr[128] = "";
 
+const rsd_backend_callback_t *backend = NULL;
 #ifndef _WIN32
 char unix_sock[128] = "";
-const rsd_backend_callback_t *backend = NULL;
-int daemonize = 0;
 int no_threading = 0;
-#else
-extern const rsd_backend_callback_t rsd_al;
-const rsd_backend_callback_t *backend = &rsd_al;
 #endif
 
 #ifdef HAVE_SAMPLERATE
@@ -54,16 +54,15 @@ int src_converter = SRC_SINC_FASTEST;
 
 int verbose = 0;
 int debug = 0;
+int use_syslog = 0;
 int listen_socket = 0;
 int rsd_conn_type = RSD_CONN_TCP;
 int resample_freq = 0;
+int daemonize = 0;
 
-#ifndef _WIN32
 static void* get_addr(struct sockaddr*);
-static int legal_ip(const char*);
 static int valid_ips(struct sockaddr_storage *their_addr);
 static void log_message(const char* ip);
-#endif
 
 // Union for casting without aliasing violations.
 static union
@@ -76,7 +75,7 @@ static union
 
 int main(int argc, char ** argv)
 {
-   int s = -1, s_new = -1, s_ctl = -1, i;
+   int s = -1, s_new = -1, s_ctl = -1;
    connection_t conn;
    struct sockaddr_storage their_addr[2];
    u[0].storage = &their_addr[0];
@@ -87,17 +86,25 @@ int main(int argc, char ** argv)
    /* Parses input and sets the global variables */
    parse_input(argc, argv);
 
-#ifndef _WIN32
+#ifdef _WIN32
+   if ( daemonize )
+      FreeConsole();
+#else
    /* Should we fork and kill our parent? :p */
    if ( daemonize )
    {
       if ( debug )
-         fprintf(stderr, "Forking into background ...\n");
-      i = fork();
+         log_printf("Forking into background ...\n");
+      int i = fork();
       if ( i < 0 ) exit(1);
       if ( i > 0 ) exit(0);
       /* Forking into background */
    }
+#endif
+
+#ifdef HAVE_SYSLOG
+   if (use_syslog)
+      openlog("rsd", 0, LOG_USER);
 #endif
 
    /* Sets up listening socket */
@@ -105,7 +112,7 @@ int main(int argc, char ** argv)
 
    if ( s < 0 )
    {
-      fprintf(stderr, "Couldn't set up listening socket. Exiting ...\n");
+      log_printf("Couldn't set up listening socket. Exiting ...\n");
       exit(1);
    }
 
@@ -113,7 +120,7 @@ int main(int argc, char ** argv)
    listen_socket = s;
 
    if ( debug )
-      fprintf(stderr, "Listening for connection ...\n");
+      log_printf("Listening for connection ...\n");
 
    fd.fd = s;
    fd.events = POLLIN;
@@ -121,7 +128,7 @@ int main(int argc, char ** argv)
    /* Set up listening socket */
    if ( listen(s, 10) == -1 )
    {
-      fprintf(stderr, "Couldn't listen for connections \"%s\"...\n", strerror(errno));
+      log_printf("Couldn't listen for connections \"%s\"...\n", strerror(errno));
       exit(1);
    }
 
@@ -160,8 +167,8 @@ int main(int argc, char ** argv)
 
       if ( s_new == -1 )
       {
-         fprintf(stderr, "Accepting failed... Errno: %d\n", errno);
-         fprintf(stderr, "%s\n", strerror( errno ) ); 
+         log_printf("Accepting failed... Errno: %d\n", errno);
+         log_printf("%s\n", strerror( errno ) ); 
          continue;
       }
 
@@ -188,7 +195,7 @@ int main(int argc, char ** argv)
       else 
       {
          if ( debug )
-            fprintf(stderr, "CTL-socket timed out. Ignoring CTL-socket. \n");
+            log_printf("CTL-socket timed out. Ignoring CTL-socket. \n");
 
          s_ctl = 0;
       }
@@ -196,11 +203,10 @@ int main(int argc, char ** argv)
       if ( s_ctl == -1 )
       {
          close(s_new); s_new = -1;
-         fprintf(stderr, "%s\n", strerror( errno ) ); 
+         log_printf("%s\n", strerror( errno ) ); 
          continue;
       }
 
-#ifndef _WIN32
       /* Checks if they are from same source, if not, close the connection. */
       /* Check will be ignored if there is no ctl-socket active. */
       /* TODO: Security here is *retarded* :D */
@@ -210,7 +216,6 @@ int main(int argc, char ** argv)
          close(s_ctl); s_ctl = -1;
          continue;
       }
-#endif
 
       conn.socket = s_new;
       conn.ctl_socket = s_ctl;
@@ -222,7 +227,6 @@ int main(int argc, char ** argv)
    return 0;
 }
 
-#ifndef _WIN32
 static void* get_addr(struct sockaddr *sa)
 {
    union
@@ -246,16 +250,47 @@ static void* get_addr(struct sockaddr *sa)
    return NULL;
 }
 
-/* For now, just accept the IP blindly (tinfoil hat off) */
-static int legal_ip( const char* remoteIP )
+// Hooray!
+#ifdef _WIN32
+static const char *inet_ntop(int af, const void *src, char *dst, socklen_t cnt)
 {
-   (void)remoteIP;
-   return 1;
+   union
+   {
+      struct sockaddr *sa;
+      struct sockaddr_in *v4;
+      struct sockaddr_in6 *v6;
+   } u;
+
+   if (af == AF_INET)
+   {
+      struct sockaddr_in in;
+      memset(&in, 0, sizeof(in));
+      in.sin_family = AF_INET;
+      memcpy(&in.sin_addr, src, sizeof(struct in_addr));
+
+      u.v4 = &in;
+      getnameinfo(u.sa, sizeof(struct
+               sockaddr_in), dst, cnt, NULL, 0, NI_NUMERICHOST);
+      return dst;
+   }
+   else if (af == AF_INET6)
+   {
+      struct sockaddr_in6 in;
+      memset(&in, 0, sizeof(in));
+      in.sin6_family = AF_INET6;
+      memcpy(&in.sin6_addr, src, sizeof(struct in_addr6));
+
+      u.v6 = &in;
+      getnameinfo(u.sa, sizeof(struct
+               sockaddr_in6), dst, cnt, NULL, 0, NI_NUMERICHOST);
+      return dst;
+   }
+   return NULL;
 }
+#endif
 
 static int valid_ips( struct sockaddr_storage *their_addr )
 {
-
    char remoteIP[2][INET6_ADDRSTRLEN] = { "", "" };
 
    inet_ntop(their_addr[0].ss_family, 
@@ -268,21 +303,14 @@ static int valid_ips( struct sockaddr_storage *their_addr )
 
    if ( strcmp( remoteIP[0], remoteIP[1] ) != 0  )
    {
-      fprintf(stderr, "*** Warning: Got two connections from different sources. ***\n");
-      fprintf(stderr, "*** %s :: %s ***\n", remoteIP[0], remoteIP[1]);
+      log_printf("*** Warning: Got two connections from different sources. ***\n");
+      log_printf("*** %s :: %s ***\n", remoteIP[0], remoteIP[1]);
       return -1;
    }
 
    log_message(remoteIP[1]);
 
-   /* Currently, legal_ip always returns 1 */
-   if ( !legal_ip( remoteIP[0] ) )
-   {
-      return -1;
-   }
-
    return 0;
-
 }
 
 static void log_message( const char * ip )
@@ -293,12 +321,8 @@ static void log_message( const char * ip )
    {
       time_t cur_time;
       time(&cur_time);
-      strftime(timestring, 63, "%F - %H:%M:%S", localtime(&cur_time)); 
-      fprintf(stderr, "Connection :: [ %s ] [ %s ] ::\n", timestring, ip);
+      strftime(timestring, 63, "%Y-%m-%d - %H:%M:%S", localtime(&cur_time)); 
+      log_printf("Connection :: [ %s ] [ %s ] ::\n", timestring, ip);
    }
-
 }
-#endif
-
-
 

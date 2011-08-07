@@ -38,7 +38,7 @@ static int roarvs_rsd_init(void** data)
 
    if ( roar->sound == NULL ) 
    {
-      fprintf(stderr, "Error opening device: %s\n", roar_vs_strerr(error));
+      log_printf("Error opening device: %s\n", roar_vs_strerr(error));
       return -1;
    }
 
@@ -59,6 +59,22 @@ static int roarvs_rsd_open(void* data, wav_header_t *w)
 
    switch ( w->rsd_format )
    {
+      case RSD_S32_LE:
+         info.bits = 32;
+         info.codec = ROAR_CODEC_PCM_S_LE;
+         break;
+      case RSD_S32_BE:
+         info.bits = 32;
+         info.codec = ROAR_CODEC_PCM_S_BE;
+         break;
+      case RSD_U32_LE:
+         info.bits = 32;
+         info.codec = ROAR_CODEC_PCM_U_LE;
+         break;
+      case RSD_U32_BE:
+         info.bits = 32;
+         info.codec = ROAR_CODEC_PCM_U_BE;
+         break;
       case RSD_S16_LE:
          info.bits  = 16;
          info.codec = ROAR_CODEC_PCM_S_LE;
@@ -98,7 +114,7 @@ static int roarvs_rsd_open(void* data, wav_header_t *w)
 
    if ( roar_vs_stream(roar->sound, &info, ROAR_DIR_PLAY, &error) == -1 ) 
    {
-      fprintf(stderr, "Error opening device: %s\n", roar_vs_strerr(error));
+      log_printf("Error opening device: %s\n", roar_vs_strerr(error));
       return -1;
    }
 

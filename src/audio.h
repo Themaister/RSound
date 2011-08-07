@@ -55,7 +55,11 @@ enum rsd_format
    RSD_U8     = 0x0010,
    RSD_S8     = 0x0020,
    RSD_ALAW   = 0x0100,
-   RSD_MULAW  = 0x0200
+   RSD_MULAW  = 0x0200,
+   RSD_S32_LE = 0x0400,
+   RSD_S32_BE = 0x0800,
+   RSD_U32_LE = 0x2000,
+   RSD_U32_BE = 0x4000,
 };
 
 // Defines connection types the server can handle.
@@ -80,6 +84,8 @@ typedef struct backend_info
 {
    uint32_t latency;    // Is used by client to calculate latency 
    uint32_t chunk_size; // Preferred TCP packet size. Might just be ignored completely :)
+   unsigned resample; // Do we have to resample? (Jack)
+   double ratio; // Resampling ratio
 } backend_info_t;
 
 typedef struct rsd_backend_callback
@@ -118,7 +124,10 @@ enum rsd_format_conv
    RSD_SWAP_ENDIAN = 0x0004,
    RSD_ALAW_TO_S16 = 0x0008,
    RSD_MULAW_TO_S16 = 0x0010,
-   RSD_S8_TO_S16 = 0x0020
+   RSD_S8_TO_S16 = 0x0020,
+   RSD_S16_TO_FLOAT = 0x0040,
+   RSD_S32_TO_FLOAT = 0x0080,
+   RSD_S32_TO_S16 = 0x0100
 };
 
 void audio_converter(void* data, enum rsd_format fmt, int operation, size_t bytes); 
@@ -139,6 +148,8 @@ typedef struct
 } resample_cb_state_t;
 
 int receive_data(void *backend_data, connection_t *conn, void *buffer, size_t size);
+int converter_fmt_to_s16ne(enum rsd_format format);
+int converter_fmt_to_s32ne(enum rsd_format format);
 
 #define BYTES_TO_SAMPLES(x, fmt) (x / (rsnd_format_to_bytes(fmt)))
 

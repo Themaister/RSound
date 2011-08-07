@@ -34,7 +34,7 @@ Treats input data as raw PCM. Parameters like sample format, audio channels and 
 
 .TP
 \fB--bits FORMAT, -B FORMAT\fR
-Defines which sample format raw PCM should be treated as. Possible values are: \fBS16LE\fR, \fBS16BE\fR, \fBU16LE\fR, \fBU16BE\fR, \fBS8\fR, \fBU8\fR, \fBALAW\fR, \fBMULAW\fR, \fB8\fR and \fB16\fR. 8 and 16 are equal to the U8 and S16LE formats respectively. Defaults to \fBS16LE\fR. Requires \fB--raw\fR to be set.
+Defines which sample format raw PCM should be treated as. Possible values are: \fBS16LE\fR, \fBS16BE\fR, \fBU16LE\fR, \fBU16BE\fR, \fBS8\fR, \fBU8\fR, \fBALAW\fR, \fBMULAW\fR, \fBS32LE\fR, \fBS32BE\fR, \fBU32LE\fR, \fBU32BE\fR, \fB8\fR and \fB16\fR. 8 and 16 are equal to the U8 and S16LE formats respectively. Defaults to \fBS16LE\fR. Requires \fB--raw\fR to be set.
 
 .TP
 \fB--channels CHANNELS, -c CHANNELS\fR
@@ -51,6 +51,10 @@ Uses FILE as input source, rather than \fBstdin\fR.
 .TP
 \fB--identity TAG, -i TAG\fR
 Defines TAG as identity string for rsdplay. Defaults to "rsdplay".
+
+.TP
+\fB--high, -H\fR
+Enables high-latency connection with big buffers. Most likely needed if you need to stream audio over the internet.
 
 .SH "ENVIRONMENTAL VARIABLES"
 

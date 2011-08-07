@@ -29,10 +29,10 @@ For certain types of applications of librsound, it might be useful to peek into 
 
 Return values:
 
-librsound uses the POSIX standard return value scheme with 0 (or positive number) and negative number for error.
+librsound uses the POSIX standard return value scheme with 0 (or positive number) for success, and negative return value for error.
 librsound does not however use errno or similar. Exceptions to this will be noted. 
 Do note that functions which return with unsigned types like size_t will generally return with 0 as error.
-Errors must always be checked for even if the example code below doesn't do so!
+Errors must always be checked for even if the example code below doesn't do so! They are avoided for code clarity.
 
 
 Style:
@@ -40,6 +40,11 @@ Style:
 librsound will seem somewhat familiar to those who have developed for OSS (Open Sound System) and libAO.
 It is a blocking I/O audio library, but supports features for non-blocking situations.
 
+
+Typedefs:
+
+typedef ssize_t (*rsd_audio_callback_t)(void *out_data, size_t bytes, void *userdata);
+typedef void (*rsd_error_callback_t)(void *userdata);
 
 
 Function calls:
@@ -50,6 +55,10 @@ All librsound calls are named with rsd_*.
 int rsd_init(rsound_t** handle);
 int rsd_simple_start(rsound_t** handle, const char* host, const char* port, const char* ident, int rate, int channels, enum rsd_format format);
 int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);
+void rsd_set_callback(rsound_t* handle, rsd_audio_callback_t audio_cb, rsd_error_callback_t err_cb, size_t max_size, void *userdata);
+void rsd_callback_lock(rsound_t *handle);
+void rsd_callback_unlock(rsound_t *handle);
+void rsd_set_event_callback(rsound_t* handle, rsd_event_callback_t event_cb, void *userdata);
 int rsd_start(rsound_t* handle);
 int rsd_exec(rsound_t* handle);
 int rsd_stop(rsound_t* handle);
@@ -211,6 +220,12 @@ RSD_FORMAT:
    will be set to a valid format.
 
    librsound currently supports these formats:
+   RSD_S32_LE - signed 32 bit, little-endian
+   RSD_S32_BE - signed 32 bit, big-endian
+   RSD_S32_NE - signed 32 bit, native-endian
+   RSD_U32_LE - unsigned 32 bit, little-endian
+   RSD_U32_BE - unsigned 32 bit, big-endian
+   RSD_U32_NE - unsigned 32 bit, native-endian
    RSD_S16_LE - signed 16 bit, little-endian
    RSD_S16_BE - signed 16 bit, big-endian
    RSD_S16_NE - signed 16 bit, native-endian
@@ -252,7 +267,118 @@ Note:
    ... // do stuff
    #endif
    
+===========================================================================
+void rsd_set_callback(rsound_t* handle, rsd_audio_callback_t callback, 
+      rsd_error_callback_t err_callback, size_t max_size, void *userdata);
+===========================================================================
 
+Description:
+   Enables use of the callback interface. This must be set when stream is not active. 
+   Enabling error callback is not optional, as it is the only way to signal caller of errors that could occur.
+
+   When callback is active, use of the blocking interface is disabled. 
+   Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(),
+   calling rsd_delay_*(),
+   or restarting the stream should an error have occured.
+   Calling any other function is undefined. 
+
+   The callback is called at regular intervals and is asynchronous, so thread safety must be ensured by the caller. 
+   The callback should return as fast as possible so try to avoid doing operations that may block for longer periods.
+   If not enough data can be given to the callback, librsound may choose to fill the rest of the callback data with silence. 
+
+   librsound will attempt to target the latency information given with RSD_LATENCY as given before calling rsd_start().
+
+   max_size signifies the maximum size that will ever be requested by librsound in a single callback. 
+   Set this to 0 to let librsound decide the maximum size.
+
+   Should an error occur to the stream, err_callback will be called, and the stream will be stopped. 
+   The stream can be started again with rsd_start().
+
+   The callback can be disabled when a stream is not running by setting both callbacks to NULL.
+
+Example:
+   rsound_t *handle;
+   rsd_init(&handle);
+
+   ... // Set some params
+
+   rsd_set_callback(handle, callback, err_callback, 0, userdata);
+
+   rsd_start(handle);
+   ... // Let magic happen in the callback.
+
+   rsd_stop(handle);
+
+   // Disable callback here and go back to blocking API.
+   rsd_set_callback(handle, NULL, NULL, 0, NULL);
+   rsd_start(handle);
+
+   // Write stuff normally.
+   rsd_write(handle, buffer, size);
+
+   rsd_stop(handle);
+   rsd_free(handle);
+
+Note:
+   This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
+
+   #ifdef RSD_SET_CALLBACK
+   ... // do stuff
+   #endif
+
+
+===========================================
+void rsd_callback_lock(rsound_t *handle);
+===========================================
+
+Description:
+   Aquire the lock to the callback function. While this lock is held, the callback is guaranteed to not be in execution.
+   Attempting to aquire this lock when already locked in the same thread could lead to a deadlock.
+
+Example:
+   rsd_callback_lock(handle);
+   ... // Push data safely to a buffer that is drained by the callback later.
+   rsd_callback_unlock(handle);
+
+Note:
+   This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
+
+   #ifdef RSD_CALLBACK_LOCK
+   ... // Do stuff
+   #endif
+
+
+===========================================
+void rsd_callback_unlock(rsound_t *handle);
+===========================================
+
+Description:
+   Release the lock to the callback function. See description on rsd_callback_lock() for usage.
+
+Note:
+   This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
+
+   #ifdef RSD_CALLBACK_UNLOCK
+   ... // Do stuff
+   #endif
+
+==============================================================================================
+void rsd_set_event_callback(rsound_t* handle, rsd_event_callback_t event_cb, void *userdata);
+==============================================================================================
+
+Description:
+   Sets the event callback. It will be called every time audio has been consumed internally.
+   The callback will be disabled when callback audio mode is used.
+   This function must be called when stream is not active.
+   After the callback returns, audio is available to be written in a nonblocking fashion.
+   It is not legal to call any rsound functions inside this callback.
+
+Note:
+   This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
+
+   #ifdef RSD_SET_EVENT_CALLBACK
+   ... // Do stuff
+   #endif
 
 ===================================
 int rsd_start(rsound_t* handle);
@@ -280,6 +406,7 @@ Description:
    The returned socket will be blocking.
    This call will block until all internal buffers have been written to the network.
    This function call might be more useful on Unix systems as sockets are general file descriptors, while Win32 sockets are not.
+   Win32 systems will need to use send() on sockets. This could be useful when going over the internet, as there is no protocol overhead at all.
 
 Errors:
    Should rsd_exec() return a negative number, this will indicate that either rsd_start() failed or the request could not be honored.
@@ -306,6 +433,16 @@ Example:
    close(fd);
 
 
+rsd_exec() can also be used to make sure that all audio data in buffers will be written.
+
+Example:
+   rsd_stop(handle); // Might not flush buffers completely.
+   rsd_free(handle); // Free handle here.
+
+Example:
+   close(rsd_exec(handle)); // Will close handle and write all data in buffers.
+
+
 ==================================
 int rsd_stop(rsound_t* handle);
 ==================================
@@ -315,6 +452,9 @@ Description:
    and will not assure that all audio has been played back before returning.
    It shouldn't really fail, and if it happens for some reason, 
    there isn't much the programmer can or should do about it.
+
+   If you want to make sure that all audio in buffers will be written, use
+   rsd_exec(). See example.
 
 Example:
 rsd_stop(handle);
@@ -359,6 +499,9 @@ Description:
 Example:
    size_t ptr = rsd_pointer(handle);
 
+Note:
+   This function is deprecated, and should not be used in new applications.
+
 
 =======================================
 size_t rsd_get_avail(rsound_t* handle);
@@ -376,7 +519,7 @@ size_t rsd_delay(rsound_t* handle);
 Description:
    Returns the current audio delay of the stream in terms of bytes. 
    The audio delay is measured as time it takes for a rsd_write() until the data written can be heard.
-   Essential for A/V sync. Only call after rsd_start(). It is not guaranteed to be perfectly exact, but is a good estimate.
+   Essential for A/V sync. Only call after rsd_start(). It is not guaranteed to be perfectly exact, but is a good estimate. Calling rsd_delay() right after rsd_start() returns the absolute minimum latency that can be achieved (but not guaranteed!).
 
 Example:
    size_t delay = rsd_delay(handle);
@@ -419,11 +562,11 @@ Description:
    How low latency you can achieve with this method will greatly vary on how the network behaves, 
    and also on how accurate the server can measure latency from the audio drivers.
 
-To maintain a reasonably low latency for your audio, you should try to write in small chunks 
-and call rsd_delay_wait() before each call to rsd_write().
+   To maintain a reasonably low latency for your audio, you should try to write in small chunks 
+   and call rsd_delay_wait() before each call to rsd_write().
 
-In detail, this function will measure the current audio latency, and sleep until the latency is lower, 
-or equals the desired latency given in RSD_LATENCY.
+   In detail, this function will measure the current audio latency, and sleep until the latency is lower, 
+   or equals the desired latency given in RSD_LATENCY.
 
 Example:
    int max_delay = 150; // 150 ms
@@ -447,6 +590,10 @@ Params:
 Description:
    This is basically a wrapper to rsd_start() and rsd_stop() currently.
    This function might be differently implemented in other implementations of rsound.
+   Portability note: After pausing a stream, only valid calls that can follow this call are:
+   rsd_stop() (stopping stream completely) or 
+   rsd_pause(handle, 0) (unpausing). 
+   Any different call is undefined.
 
 =================================
 int rsd_free(rsound_t* handle);
@@ -484,6 +631,7 @@ the WAVE header that the client sends will be a conforming wave header if the au
 For different audio formats, the wave header will signify this by settings the format bytes in the header to 0. 
 These are bytes 20-21. You will then have to check bytes 42-43 to obtain the correct audio format. 
 The format bytes will then have the same values as found in the rsound header files.
+Do note that this value will be in little-endian format as well.
 
 Should the format be either S16_LE or U8 we set the 20-21 bytes to 1. 
 Then we can check the bits per sample to determine which sample format we have. 
@@ -512,14 +660,14 @@ Support:
                A sane default here for librsound is 512 bytes. The client is not forced to follow this suggestion, but it should.
                A server might set this chunk size equal the fragment size of the audio driver.
 
-   8-11        This will always be 0.
-   12-15       This will always be 0.
+   8-11        This will always be 0. Later protocol revisions might use these values for something else.
+   12-15       This will always be 0. Later protocol revisions might use these values for something else.
 
    The server can now decide to send only 8 bytes, or 16 bytes. The client will have to check if it can read 8 bytes, or 16 bytes
    from the network stream. If it can only read 8 bytes, writing to or reading from the control socket is undefined in this case.
 
 
-Deprecated "8 byte" behaviour:
+Deprecated "8 byte" behavior:
 ==================================
 
 After this initial handshaking has taken place, the client can send raw audio data to the server on the data socket. 
@@ -533,7 +681,7 @@ The server can drop the data in the network buffers if it chooses to.
 
 
 
-"16 byte" behaviour:
+"16 byte" behavior:
 ==========================
 
 If the control socket is enabled, the client can choose to send a message on the control socket, or audio data on the data socket.
@@ -590,7 +738,7 @@ Try to empty the network buffer each time the server does control handling.
 If deemed appropriate, a server might ignore a request for INFO.
 
 The server will take this message, and respond with appending the number of bytes actually played back to the speakers (or something similiar). 
-To do this, the server will record number of bytes written to the audio driver and subtract the audio latency of the driver, 
+To do this, the server could record number of bytes written to the audio driver and subtract the audio latency of the driver, 
 effectively calculating the number of bytes "written" to the speakers. 
 Note that this value should obviously _never_ be larger than the value recieved from the client. 
 That is clearly a sign of having a full control socket network buffer, or buggy code somewhere in either library or otherwise. 
@@ -600,7 +748,8 @@ The server will then reply to the control socket with something like this:
 
 When the client recieves this message, 
 it can determine that there is a (1532455 - 1502333) delta between writing to the network before hearing it. 
-Network latencies are assumed to be so small, that they aren't noticable.
+Network latencies are assumed to be so small, that they aren't noticable. The protocol is not designed for perfectly accurate
+latency measurements.
 
 
 IDENTITY: This is used for the client to identity itself with a name. 
@@ -610,7 +759,7 @@ Example message: "RSD   24 IDENTITY Example client"
 
 
 CLOSECTL: When the server recieves this, the client will no longer use the control socket for anything, 
-and closing down the socket on the client side should never make the server drop the data connection. The server can safely close the control socket. Before closing down the control socket, the server will respond to the client either with "CLOSECTL OK" or "CLOSECTL ERROR".
+and closing down the socket on the client side should never make the server drop the data connection. The server can safely close the control socket. Before closing down the control socket, the server will respond to the client either with "CLOSECTL OK" or "CLOSECTL ERROR". This protocol call is used for rsd_exec().
 
 Example:
    Recieves: 

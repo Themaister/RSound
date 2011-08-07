@@ -17,7 +17,6 @@
 #define __BUFFER_H
 
 #include <stdlib.h>
-#include <malloc.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

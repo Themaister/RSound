@@ -45,6 +45,22 @@ static int muroar_rsd_open(void* data, wav_header_t *w)
 
    switch ( w->rsd_format )
    {
+      case RSD_S32_LE:
+         bits = 32;
+         codec = MUROAR_CODEC_PCM_S_LE;
+         break;
+      case RSD_S32_BE:
+         bits = 32;
+         codec = MUROAR_CODEC_PCM_S_BE;
+         break;
+      case RSD_U32_LE:
+         bits = 32;
+         codec = MUROAR_CODEC_PCM_U_LE;
+         break;
+      case RSD_U32_BE:
+         bits = 32;
+         codec = MUROAR_CODEC_PCM_U_BE;
+         break;
       case RSD_S16_LE:
          bits  = 16;
          codec = MUROAR_CODEC_PCM_S_LE;
@@ -84,13 +100,13 @@ static int muroar_rsd_open(void* data, wav_header_t *w)
 
    if ( (interface->fh = muroar_connect(NULL, "rsd")) == -1 )
    {
-      fprintf(stderr, "Error opening device.\n");
+      log_printf("Error opening device.\n");
       return -1;
    }
 
    if ( muroar_stream(interface->fh, MUROAR_PLAY_WAVE, NULL, codec, w->sampleRate, w->numChannels, bits) == -1 )
    {
-      fprintf(stderr, "Error opening device.\n");
+      log_printf("Error opening device.\n");
       return -1;
    }
 

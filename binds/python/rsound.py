@@ -3,8 +3,12 @@
 from ctypes import *
 import sys
 import socket
+import platform
 
-librsound = cdll.LoadLibrary('librsound.so')
+if platform.system() == 'Windows':
+   librsound = cdll.LoadLibrary('rsound.dll')
+else:
+   librsound = cdll.LoadLibrary('librsound.so')
 
 rsd_init = librsound.rsd_init
 rsd_init.restype = c_int
@@ -82,6 +86,12 @@ RSD_S16_NE = 0x0040
 RSD_U16_NE = 0x0080
 RSD_ALAW =   0x0100
 RSD_MULAW =  0x0200
+RSD_S32_LE = 0x0400
+RSD_S32_BE = 0x0800
+RSD_S32_NE = 0x1000
+RSD_U32_LE = 0x2000
+RSD_U32_BE = 0x4000
+RSD_U32_NE = 0x8000
 
 
 class RSound:

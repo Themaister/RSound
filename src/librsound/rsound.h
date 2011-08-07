@@ -30,6 +30,7 @@ extern "C" {
 #include <stddef.h>
 #else
 #include <stddef.h>
+#include <sys/types.h>
 #endif
 
 #ifdef _WIN32
@@ -42,7 +43,23 @@ extern "C" {
 #define RSD_DEFAULT_OBJECT "rsound"
 
 #ifndef RSD_VERSION
-#define RSD_VERSION "1.0beta1"
+#define RSD_VERSION "1.2"
+#endif
+
+#ifdef _WIN32
+#define RSD_API_CALLTYPE __cdecl
+#ifdef RSD_DLL_EXPORT
+#define RSD_API_DECL __declspec(dllexport)
+#else
+#define RSD_API_DECL __declspec(dllimport)
+#endif
+#else
+#define RSD_API_DECL
+#define RSD_API_CALLTYPE
+#endif
+
+#ifdef _MSC_VER
+typedef long ssize_t;
 #endif
 
 /* Feature tests */
@@ -66,6 +83,13 @@ extern "C" {
 #define RSD_ALAW                    RSD_ALAW
 #define RSD_MULAW                   RSD_MULAW
 
+#define RSD_S32_LE                  RSD_S32_LE
+#define RSD_S32_BE                  RSD_S32_BE
+#define RSD_S32_NE                  RSD_S32_NE
+#define RSD_U32_LE                  RSD_U32_LE
+#define RSD_U32_BE                  RSD_U32_BE
+#define RSD_U32_NE                  RSD_U32_NE
+
 #define RSD_DELAY_MS                RSD_DELAY_MS
 #define RSD_SAMPLESIZE              RSD_SAMPLESIZE
 #define RSD_EXEC                    RSD_EXEC
@@ -74,8 +98,15 @@ extern "C" {
 #define RSD_NO_FMT                  RSD_NO_FMT
 #define RSD_USES_OPAQUE_TYPE        RSD_USES_OPAQUE_TYPE
 #define RSD_USES_SAMPLESIZE_MEMBER  RSD_USES_SAMPLESIZE_MEMBER
-/* End feature tests */
 
+#define RSD_AUDIO_CALLBACK_T        RSD_AUDIO_CALLBACK_T
+#define RSD_ERROR_CALLBACK_T        RSD_ERROR_CALLBACK_T
+#define RSD_SET_CALLBACK            RSD_SET_CALLBACK
+#define RSD_CALLBACK_LOCK           RSD_CALLBACK_LOCK
+#define RSD_CALLBACK_UNLOCK         RSD_CALLBACK_UNLOCK
+
+#define RSD_SET_EVENT_CALLBACK      RSD_SET_EVENT_CALLBACK
+/* End feature tests */
 
 
    /* Defines sample formats available. Defaults to S16_LE should it never be set. */
@@ -91,7 +122,13 @@ extern "C" {
       RSD_S16_NE = 0x0040,
       RSD_U16_NE = 0x0080,
       RSD_ALAW   = 0x0100,
-      RSD_MULAW  = 0x0200
+      RSD_MULAW  = 0x0200,
+      RSD_S32_LE = 0x0400,
+      RSD_S32_BE = 0x0800,
+      RSD_S32_NE = 0x1000,
+      RSD_U32_LE = 0x2000,
+      RSD_U32_BE = 0x4000,
+      RSD_U32_NE = 0x8000
    };
 
    /* Defines operations that can be used with rsd_set_param() */
@@ -107,6 +144,16 @@ extern "C" {
       RSD_IDENTITY
    };
 
+   /* Audio callback for rsd_set_callback. Return -1 to trigger an error in the stream. */
+   typedef ssize_t (RSD_API_CALLTYPE * rsd_audio_callback_t)(void *data, size_t bytes, void *userdata);
+
+   /* Error callback. Signals caller that stream has been stopped, either by audio callback returning -1 or stream was hung up. */
+   typedef void (RSD_API_CALLTYPE * rsd_error_callback_t)(void *userdata);
+
+   /* Event callback. Signals caller that the blocking audio mode has processed data, and is ready for new data.
+    * It is not allowed to call any rsound function inside this callback. */
+   typedef void (RSD_API_CALLTYPE * rsd_event_callback_t)(void *userdata);
+
 
 #ifdef RSD_EXPOSE_STRUCT
 
@@ -118,31 +165,35 @@ extern "C" {
    /* Defines the main structure for use with the API. */
    typedef struct rsound
    {
-      struct {
+      struct 
+      {
          volatile int socket;
          volatile int ctl_socket;
       } conn;
 
       char *host;
       char *port;
-      char *buffer; // Obsolete, but kept for backwards header compatibility.
+      char *buffer; /* Obsolete, but kept for backwards header compatibility. */
       int conn_type;
 
-      volatile int buffer_pointer; // Obsolete, but kept for backwards header compatibility.
+      volatile int buffer_pointer; /* Obsolete, but kept for backwards header compatibility. */
       size_t buffer_size; 
       rsound_fifo_buffer_t *fifo_buffer;
 
       volatile int thread_active;
 
       int64_t total_written;
+#ifndef _WIN32
       struct timespec start_tv_nsec;
+#endif
       struct timeval start_tv_usec;
       volatile int has_written;
       int bytes_in_buffer;
       int delay_offset;
       int max_latency;
 
-      struct {
+      struct 
+      {
          uint32_t latency;
          uint32_t chunk_size;
       } backend_info;
@@ -154,7 +205,8 @@ extern "C" {
       uint16_t format;
       int samplesize;
 
-      struct {
+      struct 
+      {
          pthread_t threadId;
          pthread_mutex_t mutex;
          pthread_mutex_t cond_mutex;
@@ -162,6 +214,15 @@ extern "C" {
       } thread;
 
       char identity[256];
+
+      rsd_audio_callback_t audio_callback;
+      rsd_error_callback_t error_callback;
+      size_t cb_max_size;
+      void *cb_data;
+      pthread_mutex_t cb_lock;
+
+      rsd_event_callback_t event_callback;
+      void *event_data;
    } rsound_t;
 #else
    typedef struct rsound rsound_t;
@@ -181,14 +242,14 @@ extern "C" {
       rsd_stop(rd);
       rsd_free(rd);
     */
-   int rsd_init (rsound_t **rd);
+   RSD_API_DECL int RSD_API_CALLTYPE rsd_init (rsound_t **rd);
 
 
    /* This is a simpler function that initializes an rsound struct, sets params as given, 
       and starts the stream. Should this function fail, the structure will stay uninitialized.
       Should NULL be passed in either host, port or ident, defaults will be used. */
 
-   int rsd_simple_start (rsound_t **rd, const char* host, const char* port, const char* ident,
+   RSD_API_DECL int RSD_API_CALLTYPE rsd_simple_start (rsound_t **rd, const char* host, const char* port, const char* ident,
                            int rate, int channels, enum rsd_format format);
 
 
@@ -225,59 +286,88 @@ extern "C" {
 
    */
 
-   int rsd_set_param (rsound_t *rd, enum rsd_settings option, void* param);
+   RSD_API_DECL int RSD_API_CALLTYPE rsd_set_param (rsound_t *rd, enum rsd_settings option, void* param);
+
+   /* Enables use of the callback interface. This must be set when stream is not active. 
+      When callback is active, use of the blocking interface is disabled. 
+      Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(), or calling rsd_delay_*(). Calling any other function is undefined. 
+      The callback is called at regular intervals and is asynchronous, so thread safety must be ensured by the caller. 
+      If not enough data can be given to the callback, librsound will fill the rest of the callback data with silence. 
+      librsound will attempt to obey latency information given with RSD_LATENCY as given before calling rsd_start().
+      max_size signifies the maximum size that will ever be requested by librsound. Set this to 0 to let librsound decide the maximum size.
+      Should an error occur to the stream, err_callback will be called, and the stream will be stopped. The stream can be started again. 
+
+      Callbacks can be disabled by setting callbacks to NULL. */
+
+   RSD_API_DECL void RSD_API_CALLTYPE rsd_set_callback (rsound_t *rd, rsd_audio_callback_t callback, rsd_error_callback_t err_callback, size_t max_size, void *userdata);
+
+   /* Lock and unlock the callback. When the callback lock is aquired, the callback is guaranteed to not be executing.
+      The lock has to be unlocked afterwards.
+      Attemping to call several rsd_callback_lock() in succession might cause a deadlock.
+      The lock should be held for as short period as possible. 
+      Try to avoid calling code that may block when holding the lock. */
+   RSD_API_DECL void RSD_API_CALLTYPE rsd_callback_lock (rsound_t *rd);
+   RSD_API_DECL void RSD_API_CALLTYPE rsd_callback_unlock (rsound_t *rd);
+
+   /* Sets the event callback. It will be called every time audio has been consumed internally.
+    * The callback will be disabled when callback audio mode is used.
+    * This function must be called when stream is not active.
+    * After the callback returns, audio is available to be written in a nonblocking fashion.
+    * It is not legal to call any rsound functions inside this callback. */
+   RSD_API_DECL void RSD_API_CALLTYPE rsd_set_event_callback(rsound_t *rd, rsd_event_callback_t callback, void *userdata);
 
    /* Establishes connection to server. Might fail if connection can't be established or that one of 
       the mandatory options isn't set in rsd_set_param(). This needs to be called after params have been set
       with rsd_set_param(), and before rsd_write(). */ 
-   int rsd_start (rsound_t *rd);
+   RSD_API_DECL int RSD_API_CALLTYPE rsd_start (rsound_t *rd);
 
    /* Shuts down the rsound data structures, but returns the file descriptor associated with the connection.
       The control socket will be shut down. If this function returns a negative number, the exec failed, 
       but the data structures will not be teared down. 
       Should a valid file descriptor be returned, it will always be blocking.
       This call will block until all internal buffers have been sent to the network.  */
-   int rsd_exec (rsound_t *rd);
+   RSD_API_DECL int RSD_API_CALLTYPE rsd_exec (rsound_t *rd);
 
    /* Disconnects from server. All audio data still in network buffer and other buffers will be dropped. 
       To continue playing, you will need to rsd_start() again. */
-   int rsd_stop (rsound_t *rd);
+   RSD_API_DECL int RSD_API_CALLTYPE rsd_stop (rsound_t *rd);
 
    /* Writes from buf to the internal buffer. Might fail if no connection is established, 
       or there was an unexpected error. This function will block until all data has
       been written to the buffer. This function will return the number of bytes written to the buffer,
       or 0 should it fail (disconnection from server). You will have to restart the stream again should this occur. */
-   size_t rsd_write (rsound_t *rd, const void* buf, size_t size);
+   RSD_API_DECL size_t RSD_API_CALLTYPE rsd_write (rsound_t *rd, const void* buf, size_t size);
 
    /* Gets the position of the buffer pointer. 
       Not really interesting for normal applications. 
-      Might be useful for implementing rsound on top of other blocking APIs. */
-   size_t rsd_pointer (rsound_t *rd);
+      Might be useful for implementing rsound on top of other blocking APIs. 
+      *NOTE* This function is deprecated, it should not be used in new applications. */
+   RSD_API_DECL size_t RSD_API_CALLTYPE rsd_pointer (rsound_t *rd);
 
    /* Aquires how much data can be written to the buffer without blocking */
-   size_t rsd_get_avail (rsound_t *rd);
+   RSD_API_DECL size_t RSD_API_CALLTYPE rsd_get_avail (rsound_t *rd);
 
    /* Aquires the latency at the moment for the audio stream. It is measured in bytes. Useful for syncing video and audio. */
-   size_t rsd_delay (rsound_t *rd);
+   RSD_API_DECL size_t RSD_API_CALLTYPE rsd_delay (rsound_t *rd);
 
    /* Utility for returning latency in milliseconds. */
-   size_t rsd_delay_ms (rsound_t *rd);
+   RSD_API_DECL size_t RSD_API_CALLTYPE rsd_delay_ms (rsound_t *rd);
 
    /* Returns bytes per sample */
-   int rsd_samplesize( rsound_t *rd );
+   RSD_API_DECL int RSD_API_CALLTYPE rsd_samplesize(rsound_t *rd);
 
    /* Will sleep until latency of stream reaches maximum allowed latency defined earlier by rsd_set_param - RSD_LATENCY 
       Useful for hard headed blocking I/O design where user defined latency is needed. If rsd_set_param hasn't been set
       with RSD_LATENCY, this function will do nothing. */
-   void rsd_delay_wait(rsound_t *rd);
+   RSD_API_DECL void RSD_API_CALLTYPE rsd_delay_wait(rsound_t *rd);
 
 
    /* Pauses or unpauses a stream. pause -> enable = 1 
       This function essentially calls on start() and stop(). This behavior might be changed later. */
-   int rsd_pause (rsound_t *rd, int enable);
+   RSD_API_DECL int RSD_API_CALLTYPE rsd_pause (rsound_t *rd, int enable);
 
    /* Frees an rsound_t struct. Make sure that the stream is properly closed down with rsd_stop() before calling rsd_free(). */
-   int rsd_free (rsound_t *rd);
+   RSD_API_DECL int RSD_API_CALLTYPE rsd_free (rsound_t *rd);
 
 #ifdef __cplusplus
 }
