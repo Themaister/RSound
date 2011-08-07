@@ -34,6 +34,10 @@
 typedef struct
 {
    int audio_fd;
+   int conv;
+   enum rsd_format fmt;
+   int latency_enum;
+   int latency_denom;
 } oss_t;
 
 #define OSS_DEVICE "/dev/dsp"
