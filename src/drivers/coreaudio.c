@@ -71,6 +71,9 @@ static void coreaudio_close(void *data)
       }
    }
 
+   if (sound->buffer)
+      free(sound->buffer);
+
 exit_unlock:
    pthread_mutex_unlock(&sound->mutex);
 exit:
