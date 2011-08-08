@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2010 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010-2011 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -232,7 +232,7 @@ static inline int rsnd_format_to_samplesize(enum rsd_format fmt)
    }
 }
 
-int rsd_samplesize(rsound_t *rd)
+RSD_API_DECL int RSD_API_CALLTYPE rsd_samplesize(rsound_t *rd)
 {
    assert(rd != NULL);
    return rd->samplesize;
@@ -1224,6 +1224,8 @@ static void* rsnd_thread ( void * thread_data )
          pthread_mutex_lock(&rd->thread.mutex);
          rsnd_fifo_read(rd->fifo_buffer, buffer, sizeof(buffer));
          pthread_mutex_unlock(&rd->thread.mutex);
+         if (rd->event_callback)
+            rd->event_callback(rd->event_data);
          rc = rsnd_send_chunk(rd->conn.socket, buffer, sizeof(buffer), 1);
 
          /* If this happens, we should make sure that subsequent and current calls to rsd_write() will fail. */
@@ -1402,7 +1404,7 @@ static int rsnd_reset(rsound_t *rd)
 }
 
 
-int rsd_stop(rsound_t *rd)
+RSD_API_DECL int RSD_API_CALLTYPE rsd_stop(rsound_t *rd)
 {
    assert(rd != NULL);
    rsnd_stop_thread(rd);
@@ -1417,7 +1419,7 @@ int rsd_stop(rsound_t *rd)
    return 0;
 }
 
-size_t rsd_write( rsound_t *rsound, const void* buf, size_t size)
+RSD_API_DECL size_t RSD_API_CALLTYPE rsd_write( rsound_t *rsound, const void* buf, size_t size)
 {
    assert(rsound != NULL);
    if (!rsound->ready_for_data)
@@ -1448,7 +1450,7 @@ size_t rsd_write( rsound_t *rsound, const void* buf, size_t size)
    return written;
 }
 
-int rsd_start(rsound_t *rsound)
+RSD_API_DECL int RSD_API_CALLTYPE rsd_start(rsound_t *rsound)
 {
    assert(rsound != NULL);
    assert(rsound->rate > 0);
@@ -1464,7 +1466,7 @@ int rsd_start(rsound_t *rsound)
    return 0;
 }
 
-int rsd_exec(rsound_t *rsound)
+RSD_API_DECL int RSD_API_CALLTYPE rsd_exec(rsound_t *rsound)
 {
    assert(rsound != NULL);
    RSD_DEBUG("rsd_exec()");
@@ -1532,7 +1534,7 @@ int rsd_exec(rsound_t *rsound)
 
 
 /* ioctl()-ish param setting :D */
-int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
+RSD_API_DECL int RSD_API_CALLTYPE rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
 {
    assert(rd != NULL);
    assert(param != NULL);
@@ -1601,7 +1603,7 @@ int rsd_set_param(rsound_t *rd, enum rsd_settings option, void* param)
 
 }
 
-void rsd_delay_wait(rsound_t *rd)
+RSD_API_DECL void RSD_API_CALLTYPE rsd_delay_wait(rsound_t *rd)
 {
 
    /* When called, we make sure that the latency never goes over the time designated in RSD_LATENCY.
@@ -1626,7 +1628,7 @@ void rsd_delay_wait(rsound_t *rd)
    }
 }
 
-size_t rsd_pointer(rsound_t *rsound)
+RSD_API_DECL size_t RSD_API_CALLTYPE rsd_pointer(rsound_t *rsound)
 {
    assert(rsound != NULL);
    int ptr;
@@ -1636,7 +1638,7 @@ size_t rsd_pointer(rsound_t *rsound)
    return ptr;
 }
 
-size_t rsd_get_avail(rsound_t *rd)
+RSD_API_DECL size_t RSD_API_CALLTYPE rsd_get_avail(rsound_t *rd)
 {
    assert(rd != NULL);
    int ptr;
@@ -1644,7 +1646,7 @@ size_t rsd_get_avail(rsound_t *rd)
    return rd->buffer_size - ptr;
 }
 
-size_t rsd_delay(rsound_t *rd)
+RSD_API_DECL size_t RSD_API_CALLTYPE rsd_delay(rsound_t *rd)
 {
    assert(rd != NULL);
    int ptr = rsnd_get_delay(rd);
@@ -1654,7 +1656,7 @@ size_t rsd_delay(rsound_t *rd)
    return ptr;
 }
 
-size_t rsd_delay_ms(rsound_t* rd)
+RSD_API_DECL size_t RSD_API_CALLTYPE rsd_delay_ms(rsound_t* rd)
 {
    assert(rd);
    assert(rd->rate > 0 && rd->channels > 0);
@@ -1662,7 +1664,7 @@ size_t rsd_delay_ms(rsound_t* rd)
    return (rsd_delay(rd) * 1000) / ( rd->rate * rd->channels * rd->samplesize );
 }
 
-int rsd_pause(rsound_t* rsound, int enable)
+RSD_API_DECL int RSD_API_CALLTYPE rsd_pause(rsound_t* rsound, int enable)
 {
    assert(rsound != NULL);
    if (enable)
@@ -1671,7 +1673,7 @@ int rsd_pause(rsound_t* rsound, int enable)
       return rsd_start(rsound);
 }
 
-int rsd_init(rsound_t** rsound)
+RSD_API_DECL int RSD_API_CALLTYPE rsd_init(rsound_t** rsound)
 {
    assert(rsound != NULL);
    *rsound = calloc(1, sizeof(rsound_t));
@@ -1718,7 +1720,7 @@ int rsd_init(rsound_t** rsound)
    return 0;
 }
 
-int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, const char* ident,
+RSD_API_DECL int RSD_API_CALLTYPE rsd_simple_start(rsound_t** rsound, const char* host, const char* port, const char* ident,
                      int rate, int channels, enum rsd_format format)
 {
    if (rsd_init(rsound) < 0)
@@ -1750,7 +1752,8 @@ int rsd_simple_start(rsound_t** rsound, const char* host, const char* port, cons
    return 0;
 }
 
-void rsd_set_callback(rsound_t *rsound, rsd_audio_callback_t audio_cb, rsd_error_callback_t err_cb, size_t max_size, void *userdata)
+RSD_API_DECL void RSD_API_CALLTYPE rsd_set_callback(rsound_t *rsound, rsd_audio_callback_t audio_cb,
+      rsd_error_callback_t err_cb, size_t max_size, void *userdata)
 {
    assert(rsound != NULL);
 
@@ -1763,17 +1766,26 @@ void rsd_set_callback(rsound_t *rsound, rsd_audio_callback_t audio_cb, rsd_error
       assert(rsound->error_callback);
 }
 
-void rsd_callback_lock(rsound_t *rsound)
+RSD_API_DECL void RSD_API_CALLTYPE rsd_set_event_callback(rsound_t *rsound, rsd_event_callback_t event_cb,
+      void *userdata)
+{
+   assert(rsound != NULL);
+
+   rsound->event_callback = event_cb;
+   rsound->event_data = userdata;
+}
+
+RSD_API_DECL void RSD_API_CALLTYPE rsd_callback_lock(rsound_t *rsound)
 {
    pthread_mutex_lock(&rsound->cb_lock);
 }
 
-void rsd_callback_unlock(rsound_t *rsound)
+RSD_API_DECL void RSD_API_CALLTYPE rsd_callback_unlock(rsound_t *rsound)
 {
    pthread_mutex_unlock(&rsound->cb_lock);
 }
 
-int rsd_free(rsound_t *rsound)
+RSD_API_DECL int RSD_API_CALLTYPE rsd_free(rsound_t *rsound)
 {
    assert(rsound != NULL);
    if (rsound->fifo_buffer)

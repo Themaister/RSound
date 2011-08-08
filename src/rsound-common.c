@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2010 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010-2011 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -91,6 +91,10 @@ extern const rsd_backend_callback_t rsd_roarvs;
 
 #ifdef _DS
 extern const rsd_backend_callback_t rsd_ds;
+#endif
+
+#ifdef _COREAUDIO
+extern const rsd_backend_callback_t rsd_coreaudio;
 #endif
 
 
@@ -483,6 +487,13 @@ void parse_input(int argc, char **argv)
                break;
             }
 #endif
+#ifdef _COREAUDIO
+            if ( !strcmp( "coreaudio", optarg) )
+            {
+               backend = &rsd_coreaudio;
+               break;
+            }
+#endif
 
             log_printf("\nValid backend not given. Exiting ...\n\n");
             print_help();
@@ -548,6 +559,8 @@ void parse_input(int argc, char **argv)
       backend = &rsd_alsa;
 #elif _OSS
       backend = &rsd_oss;
+#elif _COREAUDIO
+      backend = &rsd_coreaudio;
 #elif _AL
       backend = &rsd_al;
 #elif _JACK
@@ -627,6 +640,9 @@ static void print_help()
 #endif
 #ifdef _MUROAR
    printf("muroar ");
+#endif
+#ifdef _COREAUDIO
+   printf("coreaudio ");
 #endif
 
    putchar('\n');

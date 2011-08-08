@@ -58,6 +58,7 @@ int rsd_set_param(rsound_t* handle, enum rsd_settings option, void* param);
 void rsd_set_callback(rsound_t* handle, rsd_audio_callback_t audio_cb, rsd_error_callback_t err_cb, size_t max_size, void *userdata);
 void rsd_callback_lock(rsound_t *handle);
 void rsd_callback_unlock(rsound_t *handle);
+void rsd_set_event_callback(rsound_t* handle, rsd_event_callback_t event_cb, void *userdata);
 int rsd_start(rsound_t* handle);
 int rsd_exec(rsound_t* handle);
 int rsd_stop(rsound_t* handle);
@@ -276,7 +277,8 @@ Description:
    Enabling error callback is not optional, as it is the only way to signal caller of errors that could occur.
 
    When callback is active, use of the blocking interface is disabled. 
-   Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(), 
+   Only valid functions to call after rsd_start() is stopping the stream with either rsd_pause() or rsd_stop(),
+   calling rsd_delay_*(),
    or restarting the stream should an error have occured.
    Calling any other function is undefined. 
 
@@ -357,6 +359,24 @@ Note:
    This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
 
    #ifdef RSD_CALLBACK_UNLOCK
+   ... // Do stuff
+   #endif
+
+==============================================================================================
+void rsd_set_event_callback(rsound_t* handle, rsd_event_callback_t event_cb, void *userdata);
+==============================================================================================
+
+Description:
+   Sets the event callback. It will be called every time audio has been consumed internally.
+   The callback will be disabled when callback audio mode is used.
+   This function must be called when stream is not active.
+   After the callback returns, audio is available to be written in a nonblocking fashion.
+   It is not legal to call any rsound functions inside this callback.
+
+Note:
+   This is a new addition to the librsound API. To check if this is implemented in your version, you can check for a #define with:
+
+   #ifdef RSD_SET_EVENT_CALLBACK
    ... // Do stuff
    #endif
 

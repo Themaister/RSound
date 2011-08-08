@@ -1,5 +1,6 @@
 /*  RSound - A PCM audio client/server
  *  Copyright (C) 2010-2011 - Hans-Kristian Arntzen
+ *  Copyright (C) 2011 - Chris Moeller
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -13,25 +14,30 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "endian.h"
+#ifndef COREAUDIO_H
+#define COREAUDIO_H
 
-int is_little_endian(void)
+#include "../audio.h"
+#include <CoreAudio/CoreAudio.h>
+#include <CoreServices/CoreServices.h>
+#include <AudioUnit/AudioUnit.h>
+#include <AudioUnit/AUComponent.h>
+#include <pthread.h>
+
+typedef struct
 {
-   uint16_t i = 1;
-   return *((uint8_t*)&i);
-}
+   pthread_mutex_t mutex;
+   pthread_cond_t cond;
+   ComponentInstance audio_unit;
 
-void swap_endian_16 ( uint16_t* x )
-{
-   *x = (*x>>8) | (*x<<8);
-}
+   int unit_allocated;
+   int started;
+   int stopping;
+   void *buffer;
 
-void swap_endian_32 ( uint32_t* x )
-{
-   *x = (*x>>24) | 
-      ((*x<<8) & 0x00FF0000) |
-      ((*x>>8) & 0x0000FF00) |
-      (*x<<24);
-}
+   unsigned int buffer_byte_count;
+   unsigned int valid_byte_offset;
+   unsigned int valid_byte_count;
+} coreaudio_t;
 
-
+#endif

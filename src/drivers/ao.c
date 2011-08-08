@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2010 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010-2011 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -91,7 +91,7 @@ static size_t ao_rsd_write(void *data, const void* inbuf, size_t size)
 
    size_t osize = size;
    
-   uint8_t convbuf[2*size];
+   uint8_t convbuf[2 * size];
    void *buffer = (void*)inbuf;
 
    if (sound->converter != RSD_NULL)
@@ -105,7 +105,7 @@ static size_t ao_rsd_write(void *data, const void* inbuf, size_t size)
    }
 
    if ( ao_play(sound->device, buffer, osize) == 0 )
-      return -1;
+      return 0;
    return size;
 }
 

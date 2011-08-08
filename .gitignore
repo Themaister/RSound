@@ -5,8 +5,10 @@
 *.exe
 *.a
 *.pc
-/src/rsdplay
-/src/rsd
-/src/tests/rsd-simple-start
+rsdplay
+rsd
+/src/cuse-ross/cuse-ross
+/src/cuse-ross/test/test-oss
+rsd-simple-start
 /src/config.h
 /src/config.mk

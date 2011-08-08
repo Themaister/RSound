@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2010 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010-2011 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -44,6 +44,11 @@ static int oss_open(void *data, wav_header_t *w)
       strncpy(oss_device, OSS_DEVICE, 127);
 
    sound->audio_fd = open(oss_device, O_WRONLY, 0);
+   sound->conv = RSD_NULL;
+   sound->latency_enum = 1;
+   sound->latency_denom = 1;
+   sound->fmt = w->rsd_format;
+
    if ( sound->audio_fd == -1 )
    {
       log_printf("Couldn't open device %s.\n", oss_device);
@@ -106,7 +111,11 @@ static int oss_open(void *data, wav_header_t *w)
          break;
 
       default:
-         return -1;
+         format = AFMT_S16_NE;
+         sound->conv = converter_fmt_to_s16ne(w->rsd_format);
+         sound->latency_denom = rsnd_format_to_bytes(w->rsd_format);
+         sound->latency_enum = rsnd_format_to_bytes(RSD_S16_LE);
+         break;
    }
    int oldfmt = format;
 
@@ -164,7 +173,7 @@ static void oss_get_backend (void *data, backend_info_t *backend_info)
    }
 
    backend_info->latency = zz.fragsize;
-   backend_info->chunk_size = zz.fragsize;
+   backend_info->chunk_size = (zz.fragsize * sound->latency_denom) / sound->latency_enum;
 }
 
 static int oss_latency(void* data)
@@ -173,13 +182,32 @@ static int oss_latency(void* data)
    int delay;
    if ( ioctl( sound->audio_fd, SNDCTL_DSP_GETODELAY, &delay ) < 0 )
       return DEFAULT_CHUNK_SIZE; // We just return something that's halfway sane.
+
+   delay = (delay * sound->latency_enum) / sound->latency_denom;
+
    return delay;
 }
 
-static size_t oss_write (void *data, const void* buf, size_t size)
+static size_t oss_write(void *data, const void* buf, size_t size)
 {
    oss_t *sound = data;
-   return write(sound->audio_fd, buf, size);
+
+   const void *real_buf = buf;
+   size_t osize = size;
+   uint8_t tmpbuf[2 * size];
+
+   if (sound->conv != RSD_NULL)
+   {
+      real_buf = tmpbuf;
+      osize = (size * sound->latency_enum) / sound->latency_denom;
+      memcpy(tmpbuf, buf, size);
+      audio_converter(tmpbuf, sound->fmt, sound->conv, size);
+   }
+
+   ssize_t rd = write(sound->audio_fd, real_buf, osize);
+   if (rd <= 0)
+      return 0;
+   return (rd * sound->latency_denom) / sound->latency_enum;
 }
 
 const rsd_backend_callback_t rsd_oss = {

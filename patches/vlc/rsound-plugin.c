@@ -48,6 +48,7 @@ struct aout_sys_t
 {
     rsound_t *rd;
     vlc_thread_t thread;
+    volatile int cancel;
 };
 
 /*****************************************************************************
@@ -56,10 +57,10 @@ struct aout_sys_t
 static int  Open         ( vlc_object_t * );
 static void Close        ( vlc_object_t * );
 
-static void Play         ( aout_instance_t * );
+static void Play         ( audio_output_t * );
 static void* RSDThread   ( void * );
 
-static mtime_t BufferDuration( aout_instance_t * p_aout );
+static mtime_t BufferDuration( audio_output_t * p_aout );
 
 #define CONNECT_STRING_OPTION_HOST "rsd-connect-host"
 #define CONNECT_STRING_HOST N_("RSound server host:")
@@ -95,11 +96,11 @@ vlc_module_end ()
  *****************************************************************************/
 static int Open( vlc_object_t *p_this )
 {
-    aout_instance_t * p_aout = (aout_instance_t *)p_this;
+    audio_output_t * p_aout = (audio_output_t *)p_this;
     struct aout_sys_t * p_sys;
 
     /* Allocate structure */
-    p_aout->output.p_sys = p_sys = malloc( sizeof( aout_sys_t ) );
+    p_aout->sys = p_sys = calloc( 1, sizeof( aout_sys_t ) );
     if( p_sys == NULL )
         return VLC_ENOMEM;
 
@@ -108,8 +109,8 @@ static int Open( vlc_object_t *p_this )
         return VLC_ENOMEM;
 
     int format = RSD_S16_NE;
-    int channels = aout_FormatNbChannels( &p_aout->output.output );
-    int rate = p_aout->output.output.i_rate;
+    int channels = aout_FormatNbChannels( &p_aout->format );
+    int rate = p_aout->format.i_rate;
 
     char *host = var_InheritString ( p_aout, CONNECT_STRING_OPTION_HOST );
     if ( host != NULL && strlen(host) > 0 )
@@ -131,32 +132,32 @@ static int Open( vlc_object_t *p_this )
     switch(channels)
     {
         case 8:
-            p_aout->output.output.i_physical_channels
+            p_aout->format.i_physical_channels
                 = AOUT_CHAN_LEFT | AOUT_CHAN_RIGHT | AOUT_CHAN_CENTER
                 | AOUT_CHAN_MIDDLELEFT | AOUT_CHAN_MIDDLERIGHT
                 | AOUT_CHAN_REARLEFT | AOUT_CHAN_REARRIGHT
                 | AOUT_CHAN_LFE;
             break;
         case 6:
-            p_aout->output.output.i_physical_channels
+            p_aout->format.i_physical_channels
                 = AOUT_CHAN_LEFT | AOUT_CHAN_RIGHT | AOUT_CHAN_CENTER
                 | AOUT_CHAN_REARLEFT | AOUT_CHAN_REARRIGHT
                 | AOUT_CHAN_LFE;
             break;
 
         case 4:
-            p_aout->output.output.i_physical_channels
+            p_aout->format.i_physical_channels
                 = AOUT_CHAN_LEFT | AOUT_CHAN_RIGHT
                 | AOUT_CHAN_REARLEFT | AOUT_CHAN_REARRIGHT;
             break;
 
         case 2:
-            p_aout->output.output.i_physical_channels
+            p_aout->format.i_physical_channels
                 = AOUT_CHAN_LEFT | AOUT_CHAN_RIGHT;
             break;
 
         case 1:
-            p_aout->output.output.i_physical_channels = AOUT_CHAN_CENTER;
+            p_aout->format.i_physical_channels = AOUT_CHAN_CENTER;
             break;
 
         default:
@@ -170,9 +171,9 @@ static int Open( vlc_object_t *p_this )
     rsd_set_param(p_sys->rd, RSD_CHANNELS, &channels);
     rsd_set_param(p_sys->rd, RSD_FORMAT, &format);
 
-    p_aout->output.output.i_format = VLC_CODEC_S16N;
-    p_aout->output.i_nb_samples = 1024; // Just pick something relatively small. Anything is fine.
-    p_aout->output.pf_play = Play;
+    p_aout->format.i_format = VLC_CODEC_S16N;
+    p_aout->i_nb_samples = 1024; // Just pick something relatively small. Anything is fine.
+    p_aout->pf_play = Play;
 
     aout_VolumeSoftInit( p_aout );
 
@@ -200,7 +201,7 @@ static int Open( vlc_object_t *p_this )
 /*****************************************************************************
  * Play: nothing to do
  *****************************************************************************/
-static void Play( aout_instance_t *p_aout )
+static void Play( audio_output_t *p_aout )
 {
     VLC_UNUSED(p_aout);
 }
@@ -210,10 +211,10 @@ static void Play( aout_instance_t *p_aout )
  *****************************************************************************/
 static void Close( vlc_object_t * p_this )
 {
-    aout_instance_t *p_aout = (aout_instance_t *)p_this;
-    struct aout_sys_t * p_sys = p_aout->output.p_sys;
+    audio_output_t *p_aout = (audio_output_t *)p_this;
+    struct aout_sys_t * p_sys = p_aout->sys;
 
-    vlc_object_kill( p_aout );
+    p_sys->cancel = 1;
     vlc_join( p_sys->thread, NULL );
     p_aout->b_die = false;
 
@@ -228,9 +229,9 @@ static void Close( vlc_object_t * p_this )
  *****************************************************************************
  * This function returns the duration in microseconds of the current buffer.
  *****************************************************************************/
-static mtime_t BufferDuration( aout_instance_t * p_aout )
+static mtime_t BufferDuration( audio_output_t * p_aout )
 {
-    struct aout_sys_t * p_sys = p_aout->output.p_sys;
+    struct aout_sys_t * p_sys = p_aout->sys;
 
     return (mtime_t)(rsd_delay_ms(p_sys->rd) * 1000); 
 }
@@ -243,16 +244,15 @@ static mtime_t BufferDuration( aout_instance_t * p_aout )
 
 static void* RSDThread( void *p_this )
 {
-    aout_instance_t * p_aout = p_this;
-    struct aout_sys_t * p_sys = p_aout->output.p_sys;
-    int canc = vlc_savecancel ();
+    audio_output_t * p_aout = p_this;
+    struct aout_sys_t * p_sys = p_aout->sys;
 
     // Fill up the client side buffer before we start
     uint8_t tmpbuf[rsd_get_avail(p_sys->rd)];
     memset(tmpbuf, 0, sizeof(tmpbuf));
     rsd_write(p_sys->rd, tmpbuf, sizeof(tmpbuf));
 
-    while ( vlc_object_alive (p_aout) )
+    while ( !p_sys->cancel )
     {
         aout_buffer_t * p_buffer = NULL;
         uint8_t * p_bytes;
@@ -291,6 +291,5 @@ static void* RSDThread( void *p_this )
         aout_BufferFree(p_buffer);
     }
 
-    vlc_restorecancel (canc);
     return NULL;
 }

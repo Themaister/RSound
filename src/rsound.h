@@ -1,5 +1,5 @@
 /*  RSound - A PCM audio client/server
- *  Copyright (C) 2010 - Hans-Kristian Arntzen
+ *  Copyright (C) 2010-2011 - Hans-Kristian Arntzen
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -19,7 +19,7 @@
 #include "audio.h"
 
 #ifdef _WIN32
-#define RSD_VERSION "1.1"
+#define RSD_VERSION "1.2"
 #else
 #include "config.h"
 #endif
