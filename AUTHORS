@@ -9,3 +9,6 @@ Philipp Schafft - <lion@lion.leolix.org>
    rsd - RoarAudio VS output driver
    Various bugfixes
 
+Chris Moeller - <kode54@gmail.com> 
+   rsd - CoreAudio output driver
+

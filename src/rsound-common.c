@@ -93,6 +93,10 @@ extern const rsd_backend_callback_t rsd_roarvs;
 extern const rsd_backend_callback_t rsd_ds;
 #endif
 
+#ifdef _COREAUDIO
+extern const rsd_backend_callback_t rsd_coreaudio;
+#endif
+
 
 #define MAX_PACKET_SIZE 1024
 
@@ -483,6 +487,13 @@ void parse_input(int argc, char **argv)
                break;
             }
 #endif
+#ifdef _COREAUDIO
+            if ( !strcmp( "coreaudio", optarg) )
+            {
+               backend = &rsd_coreaudio;
+               break;
+            }
+#endif
 
             log_printf("\nValid backend not given. Exiting ...\n\n");
             print_help();
@@ -548,6 +559,8 @@ void parse_input(int argc, char **argv)
       backend = &rsd_alsa;
 #elif _OSS
       backend = &rsd_oss;
+#elif _COREAUDIO
+      backend = &rsd_coreaudio;
 #elif _AL
       backend = &rsd_al;
 #elif _JACK
@@ -627,6 +640,9 @@ static void print_help()
 #endif
 #ifdef _MUROAR
    printf("muroar ");
+#endif
+#ifdef _COREAUDIO
+   printf("coreaudio ");
 #endif
 
    putchar('\n');

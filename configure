@@ -16,6 +16,7 @@ HAVE_MUROAR=auto
 HAVE_ROAR=auto
 HAVE_PULSE=auto
 HAVE_JACK=auto
+HAVE_COREAUDIO=auto
 HAVE_SAMPLERATE=auto
 HAVE_SYSLOG=auto
 
@@ -24,7 +25,7 @@ RSD_VERSION=1.2
 
 ### Command line stuff
 
-MODULES="alsa oss libao portaudio openal pulse samplerate roar muroar jack syslog"
+MODULES="alsa oss libao portaudio openal pulse samplerate roar muroar jack coreaudio syslog"
 print_help()
 {
    echo "Usage:"
@@ -172,6 +173,13 @@ fi
 
 [ $HAVE_PORTAUDIO = auto ] && check_lib PORTAUDIO -lportaudio Pa_OpenStream
 [ $HAVE_JACK = auto ] && check_lib JACK -ljack jack_port_get_latency_range
+
+if [ ! -z "`uname -a | grep Darwin`" ]; then
+   [ $HAVE_COREAUDIO = auto ] && check_lib COREAUDIO "-framework AudioUnit" AudioUnitInitialize
+else
+   HAVE_COREAUDIO=no
+fi
+
 [ $HAVE_SAMPLERATE = auto ] && check_lib SAMPLERATE -lsamplerate src_callback_new
 [ $HAVE_SYSLOG = auto ] && check_lib SYSLOG -lc openlog
 
@@ -255,6 +263,11 @@ if [ $HAVE_JACK = yes ]; then
    echo "HAVE_JACK = 1" >> src/config.mk
 fi
 
+if [ $HAVE_COREAUDIO = yes ]; then
+   echo "#define _COREAUDIO 1" >> src/config.h
+   echo "HAVE_COREAUDIO = 1" >> src/config.mk
+fi
+
 if [ $HAVE_SAMPLERATE = yes ]; then
    echo "#define HAVE_SAMPLERATE 1" >> src/config.h
    echo "HAVE_SAMPLERATE = 1" >> src/config.mk
@@ -297,6 +310,7 @@ echo " Roar VS:         $HAVE_ROAR"
 echo " OpenAL:          $HAVE_OPENAL"
 echo " muRoar:          $HAVE_MUROAR"
 echo " PulseAudio:      $HAVE_PULSE"
+echo " CoreAudio:       $HAVE_COREAUDIO"
 echo " libsamplerate:   $HAVE_SAMPLERATE"
 echo " syslog:          $HAVE_SYSLOG"
 echo ""

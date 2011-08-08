@@ -75,6 +75,13 @@ ifeq ($(HAVE_JACK), 1)
    OPT_SERV_OBJ += drivers/jack.o
 endif
 
+ifeq ($(HAVE_COREAUDIO), 1)
+ifneq ($(findstring Darwin,$(shell uname -a)),)
+   OPT_SERV_LIBS += -framework CoreServices -framework CoreAudio -framework AudioUnit
+   OPT_SERV_OBJ += drivers/coreaudio.o
+endif
+endif
+
 ifeq ($(NEED_RT), 1)
    TARGET_SERVER_LIBS += -lrt
    TARGET_LIB_LIBS += -lrt
