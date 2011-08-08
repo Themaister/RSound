@@ -71,12 +71,15 @@ static void coreaudio_close(void *data)
       }
    }
 
+   if (sound->buffer)
+      free(sound->buffer);
+
 exit_unlock:
    pthread_mutex_unlock(&sound->mutex);
 exit:
    pthread_mutex_destroy(&sound->mutex);
    pthread_cond_destroy(&sound->cond);
-   free( sound );
+   free(sound);
 }
 
 static OSStatus audio_callback(void *inRefCon, AudioUnitRenderActionFlags *inActionFlags, const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber, UInt32 inNumberFrames, AudioBufferList *ioData)
