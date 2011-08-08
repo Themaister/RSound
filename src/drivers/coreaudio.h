@@ -1,5 +1,6 @@
 /*  RSound - A PCM audio client/server
  *  Copyright (C) 2010 - Hans-Kristian Arntzen
+ *  Copyright (C) 2011 - Chris Moeller
  * 
  *  RSound is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU General Public License as published by the Free Software Found-
@@ -13,8 +14,8 @@
  *  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PULSE_H
-#define PULSE_H
+#ifndef COREAUDIO_H
+#define COREAUDIO_H
 
 #include "../audio.h"
 #include <CoreAudio/CoreAudio.h>
