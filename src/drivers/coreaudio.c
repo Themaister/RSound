@@ -76,7 +76,7 @@ exit_unlock:
 exit:
    pthread_mutex_destroy(&sound->mutex);
    pthread_cond_destroy(&sound->cond);
-   free( sound );
+   free(sound);
 }
 
 static OSStatus audio_callback(void *inRefCon, AudioUnitRenderActionFlags *inActionFlags, const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber, UInt32 inNumberFrames, AudioBufferList *ioData)
