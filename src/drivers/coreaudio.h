@@ -23,21 +23,24 @@
 #include <AudioUnit/AudioUnit.h>
 #include <AudioUnit/AUComponent.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 typedef struct
 {
    pthread_mutex_t mutex;
    pthread_cond_t cond;
+
    ComponentInstance audio_unit;
+   bool audio_unit_inited;
 
-   int unit_allocated;
-   int started;
-   int stopping;
-   void *buffer;
+   uint8_t *buffer;
+   size_t buffer_size;
+   size_t buffer_mask;
 
-   unsigned int buffer_byte_count;
-   unsigned int valid_byte_offset;
-   unsigned int valid_byte_count;
+   size_t read_ptr;
+   size_t valid_size;
 } coreaudio_t;
 
 #endif
