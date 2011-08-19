@@ -18,10 +18,12 @@
 #include <poll.h>
 
 #ifdef _WIN32
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
+#endif
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <winsock2.h>
+#include <windows.h>
 #include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
@@ -149,7 +151,7 @@ int main(int argc, char ** argv)
 
 #ifdef _WIN32
    	printf(	"==============================================================================\n"
-			":: RSD server : Win32 : %s - Copyright (C) 2010 Hans-Kristian Arntzen ::\n"
+			":: RSD server : Win32 : %s - Copyright (C) 2010-2011 Hans-Kristian Arntzen ::\n"
 			"==============================================================================\n", RSD_VERSION);
 #endif
 
