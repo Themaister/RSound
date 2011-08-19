@@ -59,7 +59,11 @@ extern "C" {
 #endif
 
 #ifdef _MSC_VER
+#ifdef _WIN64
+typedef __int64 ssize_t;
+#else
 typedef long ssize_t;
+#endif
 #endif
 
 /* Feature tests */
