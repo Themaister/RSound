@@ -28,8 +28,8 @@
 #include <stdio.h> /* for snprintf() */
 
 #ifdef __WIN32
-#include <windows.h>
 #include <winsock2.h>
+#include <windows.h>
 #else
 #include <errno.h> /* for errno keeping in _CLOSE() */
 #define _HAVE_ERRNO

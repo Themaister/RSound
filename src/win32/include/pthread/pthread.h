@@ -21,7 +21,9 @@
 // Trivial implementation of the subset of features that's needed for Win32, 
 // so we can avoid another DLL and link statically :)
 
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
+#endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 

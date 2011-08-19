@@ -31,10 +31,12 @@
 #include <arpa/inet.h>
 #include <sys/un.h>
 #else
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
+#endif
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <winsock2.h>
+#include <windows.h>
 #include <ws2tcpip.h>
 #include <pthread.h>
 #endif
