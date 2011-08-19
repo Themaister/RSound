@@ -151,7 +151,7 @@ int main(int argc, char ** argv)
 
 #ifdef _WIN32
    	printf(	"==============================================================================\n"
-			":: RSD server : Win32 : %s - Copyright (C) 2010 Hans-Kristian Arntzen ::\n"
+			":: RSD server : Win32 : %s - Copyright (C) 2010-2011 Hans-Kristian Arntzen ::\n"
 			"==============================================================================\n", RSD_VERSION);
 #endif
 
