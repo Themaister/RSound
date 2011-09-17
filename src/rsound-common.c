@@ -595,7 +595,7 @@ void parse_input(int argc, char **argv)
 
 static void print_help()
 {
-   printf("rsd - version %s - Copyright (C) 2010 Hans-Kristian Arntzen\n", RSD_VERSION);
+   printf("rsd - version %s - Copyright (C) 2010-2011 Hans-Kristian Arntzen\n", RSD_VERSION);
    printf("==========================================================================\n");
 #ifdef _WIN32
    printf("Usage: rsd [ -p/--port | --bind | -R/--rate | -v/--verbose | --debug | -h/--help | -D/--daemon ]\n");
