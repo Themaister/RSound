@@ -120,6 +120,13 @@ static int roarvs_rsd_open(void* data, wav_header_t *w)
 
    roar->bps = info.rate * roar_info2framesize(&info);
 
+   int tmp = 1;
+   if (roar_vs_ctl(roar->sound, ROAR_VS_CMD_SET_ASYNC, &tmp, &error) == -1)
+   {
+      log_printf("Error setting ASYNC latency handling: %s\n", roar_vs_strerr(error));
+      return -1;
+   }
+
    return 0;
 }
 
@@ -137,7 +144,7 @@ static int roarvs_rsd_latency(void* data)
 
    int err = ROAR_ERROR_NONE;
    roar_mus_t rc;
-   if ( (rc = roar_vs_latency(roar->sound, ROAR_VS_BACKEND_DEFAULT, &err)) == 0 )
+   if ((rc = roar_vs_latency2(roar->sound, ROAR_VS_BACKEND_DEFAULT, ROAR_VS_ASYNC, &err)) == 0 )
    {
       if (err != ROAR_ERROR_NONE)
          return DEFAULT_CHUNK_SIZE; // Just return something halfway sane.
