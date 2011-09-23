@@ -56,6 +56,8 @@ static int porta_open(void *data, wav_header_t *w)
    PaStreamParameters params;
 
    params.device = Pa_GetDefaultOutputDevice();
+   if (params.device == paNoDevice)
+      return -1;
    params.channelCount = w->numChannels;
 
    sound->converter = RSD_NULL;
@@ -72,7 +74,7 @@ static int porta_open(void *data, wav_header_t *w)
       params.sampleFormat = paInt16;
    }
 
-   params.suggestedLatency = Pa_GetDeviceInfo( params.device )->defaultLowOutputLatency;
+   params.suggestedLatency = Pa_GetDeviceInfo(params.device)->defaultLowOutputLatency;
    params.hostApiSpecificStreamInfo = NULL;
 
    sound->size = FRAMES_PER_BUFFER * rsnd_format_to_bytes(w->rsd_format) * w->numChannels;
