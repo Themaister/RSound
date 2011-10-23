@@ -1,6 +1,8 @@
 /*****************************************************************************
  * rsound.c : RSound module for vlc
  *****************************************************************************
+ * Copyright (C) 2010 the VideoLAN team
+ *
  * Authors: Hans-Kristian Arntzen <maister@archlinux.us>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -55,7 +57,7 @@ struct aout_sys_t
 static int  Open         ( vlc_object_t * );
 static void Close        ( vlc_object_t * );
 
-static void Play         ( audio_output_t *, block_t *);
+static void Play         ( audio_output_t * );
 static void* RSDThread   ( void * );
 
 static mtime_t BufferDuration( audio_output_t * p_aout );
@@ -170,6 +172,7 @@ static int Open( vlc_object_t *p_this )
     rsd_set_param(p_sys->rd, RSD_FORMAT, &format);
 
     p_aout->format.i_format = VLC_CODEC_S16N;
+    p_aout->i_nb_samples = 1024; // Just pick something relatively small. Anything is fine.
     p_aout->pf_play = Play;
 
     aout_VolumeSoftInit( p_aout );
@@ -198,10 +201,9 @@ static int Open( vlc_object_t *p_this )
 /*****************************************************************************
  * Play: nothing to do
  *****************************************************************************/
-static void Play( audio_output_t *p_aout, block_t *p_block )
+static void Play( audio_output_t *p_aout )
 {
     VLC_UNUSED(p_aout);
-    VLC_UNUSED(p_block);
 }
 
 /*****************************************************************************
@@ -258,7 +260,7 @@ static void* RSDThread( void *p_this )
 
         mtime_t buffered = BufferDuration( p_aout );
 
-        p_buffer = aout_PacketNext( p_aout, mdate() + buffered );
+        p_buffer = aout_OutputNextBuffer( p_aout, mdate() + buffered, false );
 
         if ( p_buffer == NULL )
         {
