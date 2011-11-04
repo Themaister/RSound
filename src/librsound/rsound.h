@@ -227,6 +227,8 @@ typedef long ssize_t;
 
       rsd_event_callback_t event_callback;
       void *event_data;
+
+      int use_latency;
    } rsound_t;
 #else
    typedef struct rsound rsound_t;

@@ -967,6 +967,7 @@ static size_t rsnd_get_delay(rsound_t *rd)
 
    pthread_mutex_lock(&rd->thread.mutex);
    ptr += rd->delay_offset;
+   rd->use_latency = 1;
    RSD_DEBUG("Offset: %d", rd->delay_offset);
    pthread_mutex_unlock(&rd->thread.mutex);
 
@@ -1207,7 +1208,7 @@ static void* rsnd_thread ( void * thread_data )
 
          // We ask the server to send its latest backend data. Do not really care about errors atm.
          // We only bother to check after 1 sec of audio has been played, as it might be quite inaccurate in the start of the stream.
-         if ((rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize))
+         if (rd->use_latency && (rd->conn_type & RSD_CONN_PROTO) && (rd->total_written > rd->channels * rd->rate * rd->samplesize))
          {
             rsnd_send_info_query(rd); 
             rsnd_update_server_info(rd);
@@ -1399,6 +1400,7 @@ static int rsnd_reset(rsound_t *rd)
    rd->bytes_in_buffer = 0;
    rd->thread_active = 0;
    rd->delay_offset = 0;
+   rd->use_latency = 0;
    pthread_mutex_unlock(&rd->thread.mutex);
    pthread_cond_signal(&rd->thread.cond);
 
