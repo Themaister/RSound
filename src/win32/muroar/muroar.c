@@ -286,7 +286,11 @@ int muroar_connect(char * server, char * name) {
  }
 
  buf[0] = 1;
- *(uint32_t*)(&(buf[1])) = htonl(getpid());
+ uint32_t pid = htonl(getpid());
+ buf[1] = (pid >>  0) & 0xff;
+ buf[2] = (pid >>  8) & 0xff;
+ buf[3] = (pid >> 16) & 0xff;
+ buf[4] = (pid >> 24) & 0xff;
 
  // sizes are already checked.
  strcpy((char*)&(buf[5]), name);
