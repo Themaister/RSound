@@ -18,21 +18,17 @@ rsd_set_param = librsound.rsd_set_param
 rsd_set_param.restype = c_int
 rsd_set_param.argtypes = [c_void_p, c_int, c_void_p]
 
-
 rsd_start = librsound.rsd_start
 rsd_set_param.restype = c_int
 rsd_set_param.argtypes = [c_void_p]
-
 
 rsd_stop = librsound.rsd_stop
 rsd_stop.restype = c_int
 rsd_stop.argtypes = [c_void_p]
 
-
 rsd_write = librsound.rsd_write
 rsd_write.restype = c_ulong
 rsd_write.argtypes = [c_void_p, c_void_p, c_ulong]
-
 
 rsd_free = librsound.rsd_free
 rsd_free.restype = c_int
@@ -120,18 +116,25 @@ class RSound:
       rsd_set_param(self.rd, RSD_LATENCY, byref(i_lat))
 
    def setIdentity(self, ident):
-      cident = create_string_buffer(str(ident))
+      cident = create_string_buffer(len(ident) + 1)
+      for i in range(len(ident)):
+         cident[i] = ident[i]
       rsd_set_param(self.rd, RSD_IDENTITY, cident)
 
    def delay_wait(self):
       rsd_delay_wait(self.rd)
 
    def setHost(self, host):
-      chost = create_string_buffer(str(host))
+      chost = create_string_buffer(len(host) + 1)
+      for i in range(len(host)):
+         chost[i] = ord(host[i])
       rsd_set_param(self.rd, RSD_HOST, chost)
 
    def setPort(self, port):
-      cport = create_string_buffer(str(port))
+      port_str = str(port)
+      cport = create_string_buffer(len(port_str) + 1)
+      for i in range(len(port_str)):
+         cport[i] = ord(port_str[i])
       rsd_set_param(self.rd, RSD_PORT, cport)
 
    def exec_(self):
@@ -174,11 +177,6 @@ class RSound:
       if self.rd and rsd_free:
          rsd_free(self.rd)
    
-
-
-
-
-
 if __name__ == '__main__':
 
    rd = RSound()
@@ -195,6 +193,4 @@ if __name__ == '__main__':
       buf = sys.stdin.read(128)
       while rd.write(buf):
          buf = sys.stdin.read(128)
-
-
 
