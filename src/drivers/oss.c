@@ -57,10 +57,7 @@ static int oss_open(void *data, wav_header_t *w)
 
    int frags = (8 << 16) | 10;
    if ( ioctl(sound->audio_fd, SNDCTL_DSP_SETFRAGMENT, &frags) < 0 )
-   {
       log_printf("Could not set DSP latency settings.\n");
-      return -1;
-   }
 
    int format;
    switch ( w->rsd_format )
