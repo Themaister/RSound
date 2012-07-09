@@ -20,7 +20,7 @@
 
 #include "../librsound/buffer.h"
 
-#define ROSS_DECL ross_t *ro = (ross_t*)info->fh
+#define ROSS_DECL ross_t *ro = (ross_t*)(uintptr_t)info->fh
 
 #define FRAGSIZE 512
 #define FRAGS 64
@@ -221,7 +221,7 @@ static void ross_open(fuse_req_t req, struct fuse_file_info *info)
    ro->bufsize = FRAGS * FRAGSIZE;
 
    ro->rd = rd;
-   info->fh = (uint64_t)ro;
+   info->fh = (uintptr_t)ro;
    info->nonseekable = 1;
    info->direct_io = 1;
 
